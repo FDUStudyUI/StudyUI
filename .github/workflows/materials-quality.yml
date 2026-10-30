@@ -2,6 +2,9 @@ name: Materials quality nodes
 on: [push, pull_request]
 permissions:
   contents: read
+concurrency:
+  group: materials-science-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 defaults:
   run:
     working-directory: packages/materials-quality

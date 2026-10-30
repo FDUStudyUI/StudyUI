@@ -73,4 +73,4 @@ Interfaces: fifty-entry requirement matrix; fifty-two formal components includin
 - [x] Write failing catalog/native loader/port/flow tests, implement adapters and generate forty-four components.
 - [x] Build connected cross-domain examples covering all categories and validate every node/method, dependency absence paths and artifact readback.
 - [x] Full suite, lint, wheel, real UI imports/runs; independent final review and verified fixes.
-- [ ] Update capability matrix and beginner docs, submit repository PR and verify CI/remote readback.
+- [x] Update capability matrix and beginner docs, submit repository PR and verify CI/remote readback.

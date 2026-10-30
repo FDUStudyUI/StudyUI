@@ -21,4 +21,6 @@ Ruling: implement named algorithms with explicit scientific inputs and correct l
   Original reproductions independently rerun; all review findings are closed.
 - Source files remain intact; reference libraries/calibration/external quantification/model credentials
   are explicit inputs. Offline examples call no paid model.
-- Repository push/PR and remote CI readback pending.
+- Repository delivery: [PR 3](https://github.com/FDUStudyUI/StudyUI/pull/3),
+  branch `feat/full-materials-workflows`. Current remote test/UI conclusions are shown on the PR;
+  this static ledger does not duplicate the changing GitHub check status.
