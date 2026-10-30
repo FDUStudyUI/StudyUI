@@ -11,6 +11,13 @@ from pandas.api.types import is_scalar
 FINDING_COLUMNS = ["check_id", "code", "severity", "column", "row_position", "row_index", "reason"]
 
 
+def missing_tokens(value):
+    tokens = [""] if value is None else value
+    if not isinstance(tokens, list) or any(not isinstance(t, str) for t in tokens):
+        raise ValueError("missing_tokens must be a list of strings")
+    return tuple(t.strip() for t in tokens)
+
+
 def missing(value, tokens=("",)) -> bool:
     if value is None or value is pd.NA or value is pd.NaT:
         return True

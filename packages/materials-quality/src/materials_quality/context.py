@@ -9,14 +9,14 @@ import json
 import math
 import re
 from copy import deepcopy
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import numpy as np
 import pandas as pd
 
 from materials_quality.checks import check_duplicates, check_missing, check_schema, check_types
-from materials_quality.common import json_value, missing, validate_table
+from materials_quality.common import json_value, validate_table
 from materials_quality.outliers import check_outliers
 from materials_quality.units import check_units
 
@@ -35,6 +35,13 @@ def _digest(value):
 
 
 def _typed(value):
+    # .item() returns an int for ns temporal scalars; retain type and unit.
+    if isinstance(value, (np.datetime64, np.timedelta64)):
+        return [str(value.dtype), str(value.view("i8"))]
+    if isinstance(value, pd.Timedelta):
+        return ["pd.Timedelta", value.isoformat()]
+    if isinstance(value, timedelta):
+        return ["timedelta", value.days, value.seconds, value.microseconds]
     if isinstance(value, np.generic):
         value = value.item()
     if value is pd.NA:
@@ -161,21 +168,8 @@ def run_check(table, check_id, parameters=None, context=None, finding_limit=500)
         parameters = deepcopy(rules["checks"][check_id])
         if check_id in {"missing", "outliers"}:
             parameters["group_by"] = rules["group_by"] or None
-        if check_id == "missing":
+        if check_id in {"missing", "types", "units", "outliers"}:
             parameters["missing_tokens"] = rules["missing_tokens"]
-        elif check_id in {"types", "units", "outliers"}:
-            columns = (list(parameters["expectations"]) if check_id == "types" else
-                       parameters.get("columns") or list(parameters.get("expected_units", {})))
-            work = table.copy(deep=True)
-            for column in columns:
-                if column not in table:
-                    raise ValueError(f"unknown columns: {column!r}")
-                # Construct object dtype explicitly: pandas.map can infer float
-                # after introducing None and round integers larger than 2**53.
-                work[column] = pd.Series(
-                    [None if missing(v, tuple(rules["missing_tokens"])) else v for v in table[column]],
-                    index=table.index, dtype=object,
-                )
         rule_set = {"id": context["rule_set_id"], "version": context["rule_set_version"],
                     "sha256": context["rules_sha256"], "rules": deepcopy(rules)}
         source = deepcopy(context["source"])

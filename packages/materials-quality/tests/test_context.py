@@ -3,6 +3,7 @@
 from copy import deepcopy
 from importlib import import_module
 
+import numpy as np
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
@@ -158,3 +159,38 @@ def test_sentinel_mask_preserves_exact_large_integers_for_range_checks():
     }}}
     report = api().run_check(df, "outliers", context=api().make_context(df, config))
     assert [(f["code"], f["row_position"]) for f in report["findings"]] == [("OUTLIER_RANGE", 0)]
+
+
+def test_shared_outlier_all_columns_still_excludes_sentinel():
+    df = pd.DataFrame({"x": [1, 2, 3, -200]})
+    config = {"missing_tokens": ["-200"], "checks": {"outliers": {
+        "columns": None, "method": "range", "bounds": {"x": {"min": 0}}
+    }}}
+    report = api().run_check(df, "outliers", context=api().make_context(df, config))
+    assert report["passed"]
+
+
+@pytest.mark.parametrize("check,parameters,code", [
+    ("types", {"expectations": {"x": {"type": "category", "allowed": ["valid"]}}}, "TYPE_OR_FORMAT"),
+    ("units", {"source_units": {"x": "MPa"}, "expected_units": {"x": "Pa"}}, "UNIT_VALUE_FORMAT"),
+    ("outliers", {"columns": ["x"], "method": "range", "bounds": {"x": {"min": 0}}}, "NON_NUMERIC"),
+])
+def test_empty_missing_token_list_makes_empty_strings_real_values(check, parameters, code):
+    df = pd.DataFrame({"x": [""]})
+    config = {"missing_tokens": [], "checks": {check: parameters, "missing": {}}}
+    ctx = api().make_context(df, config)
+    assert api().run_check(df, "missing", context=ctx)["passed"]
+    report = api().run_check(df, check, context=ctx)
+    assert [(f["code"], f["row_position"]) for f in report["findings"]] == [(code, 0)]
+
+
+@pytest.mark.parametrize("value", [np.datetime64("2026-10-30", "ns"), np.timedelta64(123, "ns")])
+def test_numpy_temporal_objects_cannot_impersonate_integers(value):
+    temporal = pd.DataFrame({"x": pd.Series([value], dtype=object)})
+    integer = pd.DataFrame({"x": pd.Series([value.item()], dtype=object)})
+    assert api().table_fingerprint(temporal) != api().table_fingerprint(integer)
+
+
+def test_timedelta_column_does_not_break_unrelated_native_checks():
+    df = pd.DataFrame({"value": [1, 2], "elapsed": pd.to_timedelta([1, 2], unit="s")})
+    assert api().run_check(df, "missing", parameters={"columns": ["value"]})["passed"]

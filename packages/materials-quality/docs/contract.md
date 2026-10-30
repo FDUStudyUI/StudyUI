@@ -47,7 +47,7 @@ Native Component 自动通过 run_check 添加追溯。共享上下文格式为 
 
 共享规则对象只有 missing_tokens、group_by、checks 三个顶层字段。checks 使用 schema/missing/types/units/duplicates/outliers 标识和对应纯函数关键字；检查级不得重复指定 missing_tokens、group_by、finding_limit。问题明细上限由节点设置。
 
-已连接共享规则时，独立节点配置不参与执行。缺失标记仅在类型/单位/异常的待检查值列临时替换为 None，分组字段、重复判定键和传递的表格不变；数值保留 object 类型以避免大整数因空值而变为浮点数。
+已连接共享规则时，独立节点配置不参与执行。类型/单位/异常检查新增可选 missing_tokens 参数；共享策略通过此参数显式传递，不做值替换，避免空字符串语义冲突或大整数因空值变为浮点数。分组字段、重复判定键和传递的表格不变。未传 missing_tokens 保留原 API 默认行为。
 
 dataset.fingerprint 是 materials-table/1 流式 SHA-256，包含列名、dtype、索引名、逐行索引和带类型的单元格。provenance 记录模式、数据指纹、source 声明、共享规则快照/摘要和实际参数摘要。哈希不是来源真实性证明。
 

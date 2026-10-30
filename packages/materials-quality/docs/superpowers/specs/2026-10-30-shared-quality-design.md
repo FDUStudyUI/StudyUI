@@ -6,7 +6,7 @@ User authorization: implement the three improvements selected in chat, test them
 
 Keep the existing pure checks and native Langflow adapters. Add one native context node rather than duplicating rules in six nodes or introducing a separate service. The context binds a frozen JSON ruleset and declared source metadata to a typed SHA-256 table fingerprint. Each check accepts the same optional context. Without a context, existing node settings still work and gain table traceability. Pure-function legacy reports remain readable but explicitly have unverified provenance.
 
-Shared rules are authoritative when connected: checks must be explicitly configured, unknown fields are errors, missing tokens apply consistently to value checks, and grouping is taken from the shared rules. Temporary missing-value views never change the pass-through table. Duplicate identity columns remain unmasked. Statistical checks are for review, never automatic deletion.
+Shared rules are authoritative when connected: checks must be explicitly configured, unknown fields are errors, missing tokens apply consistently to value checks through explicit optional parameters, and grouping is taken from the shared rules. No value replacement is performed. Duplicate identity columns remain unchanged. Statistical checks are for review, never automatic deletion.
 
 ## Contract
 
