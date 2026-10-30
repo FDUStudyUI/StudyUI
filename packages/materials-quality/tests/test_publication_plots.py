@@ -42,6 +42,9 @@ def test_paper_bundle_has_editable_vectors_exact_size_tiff_and_traceable_data(tm
     )
     files = {Path(p).suffix: Path(p) for p in result.artifacts}
     assert set(files) == {".png", ".svg", ".pdf", ".tiff", ".json", ".md"}
+    svg_bytes = files[".svg"].read_bytes()
+    assert b"\r" not in svg_bytes
+    assert all(line == line.rstrip() for line in svg_bytes.splitlines())
     tree = ET.parse(files[".svg"])
     assert tree.findall(".//{http://www.w3.org/2000/svg}text")
     with fitz.open(files[".pdf"]) as doc:

@@ -28,7 +28,8 @@
 
 `paper` 默认 150 mm 宽，PNG 300 dpi、可编辑 SVG/PDF、600 dpi TIFF，附全精度绘图 JSON 和 Markdown 图注。
 可设置 `height_mm`；旧 `figsize` 仍表示英寸。`formats` 可以显式选择 png/svg/pdf/tiff，始终保留 PNG 预览。
-导出尺寸保留显式画布，不通过 tight 裁切改变尺寸。超过 5000 万像素的栅格请求在分配之前拒绝。
+导出尺寸保留显式画布，不通过 tight 裁切改变尺寸。SVG 在计算哈希前统一为 LF 换行并清理行末空格，
+确保 Windows/Linux 和 Git 检出后的校验值一致。超过 5000 万像素的栅格请求在分配之前拒绝。
 
 ## 图义与统计
 

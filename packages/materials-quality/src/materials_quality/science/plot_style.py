@@ -233,6 +233,10 @@ def finish(fig, config, name, payload):
                 path = base.with_suffix(_SUFFIXES[fmt])
                 kwargs = {"pil_kwargs": {"compression": "tiff_lzw"}} if fmt == "tiff" else {}
                 fig.savefig(path, dpi=600 if fmt == "tiff" else dpi, format=fmt, **kwargs)
+                if fmt == "svg":
+                    # Canonical text keeps the recorded digest identical after Git checkout on any OS.
+                    svg = "\n".join(line.rstrip() for line in path.read_text(encoding="utf-8").splitlines())
+                    path.write_text(svg + "\n", encoding="utf-8", newline="\n")
                 record = {
                     "path": str(path),
                     "format": fmt,

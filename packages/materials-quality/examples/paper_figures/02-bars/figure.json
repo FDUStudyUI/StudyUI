@@ -92,13 +92,13 @@
     {
       "path": "figure.svg",
       "format": "svg",
-      "sha256": "3fb74eaf297ed808431b90d39214806b6289f630cb4bad7684b86ecae43ff8ba",
+      "sha256": "47d887bf81ab1964f200c2a65992c6f68a893c5a11abb0b2b332addbebc1c89f",
       "editable_text_elements": 14
     },
     {
       "path": "figure.pdf",
       "format": "pdf",
-      "sha256": "2de95d6c5422b853875a3752a34e09abf445dc94bee5cb5d450bbfa03d9f27da",
+      "sha256": "242c142a335f45171f9eaa0acdb0f28945d953795399d4790d5de70ca0ebaa4f",
       "page_points": [
         425.19683837890625,
         280.6299133300781
