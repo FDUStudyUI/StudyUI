@@ -22,7 +22,7 @@ python -m venv .venv
 ```
 
 网页编辑器接入方式及示例工作流见组件包说明。当前验证目标是 LFX 1.13.0 / Python 3.10；
-团队运行版本尚未最终确认。已完成 [Langflow 1.13.0 真实画布验收](packages/materials-quality/docs/ui-acceptance.md)，
+团队运行版本尚未最终确认。已完成 [Langflow 1.13.0 全套节点验收](packages/materials-quality/docs/full-suite-acceptance.md)，
 并提供运行时测试、wheel 安装验证和独立 UI 自动验收脚本。
 
 ## 目录约定

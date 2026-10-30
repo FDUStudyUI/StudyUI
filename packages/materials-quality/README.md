@@ -190,17 +190,18 @@ MPa 与 Pa 兼容，不代表数值已从 MPa 换算成 Pa；输出仍保留原�
 - 类型、单位、范围来自明确规则，不替代仪器校准、材料知识和研究者判断。
 - 报告包含本地字段名、索引和检查依据；不要将其自动当作适合公开或发送云端的数据。
 
-输出格式见 [docs/contract.md](docs/contract.md)。
+质检报告格式见 [docs/contract.md](docs/contract.md)，新科学节点使用 `science-result/1` 信封格式。
 `requirements.lock` 提供带平台标记的依赖固定清单。`requirements-tested-py310.txt`
 记录本次 Windows/Python 3.10 实际验证环境，包含平台专用包，不应直接用于 Linux。
 普通 wheel 安装后，可在组件包目录运行 `python -m scripts.verify_install --require-wheel`，
-检查安装包中的七个节点是否被发现，并重新导入、执行两份流程。
+检查安装包中的 52 个节点是否被发现，并重新导入、执行五份原有质检流程。
+九份新科学流程可使用 `python -m scripts.build_science_examples --verify-only` 独立复核。
 
 ## 目录
 
 ```text
-components/materials_quality/  # Langflow 分类及七个原生节点
-src/materials_quality/         # 可独立测试的检查算法和报告契约
+components/materials_*/        # 八个分类，52 个原生节点
+src/materials_quality/         # 质检、科学算法、原生适配与报告契约
 tests/                        # 核心行为、原生加载和导出图执行测试
 examples/                     # 人工CSV、演示源、可导入流程JSON
 scripts/                      # 生成、重新导入和执行示例

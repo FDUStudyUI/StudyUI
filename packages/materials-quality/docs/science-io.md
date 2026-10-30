@@ -87,6 +87,6 @@ REST 示例先另开终端运行 `python examples/science/io/demo_rest.py`，再
 - SQLAlchemy 实际本地 SQLite 已测；PostgreSQL/MySQL/MariaDB 路径执行真实只读事务，但需要对应驱动、服务器、凭据，尚未对外部生产服务器执行连通测试。其他方言明确拒绝，避免虚假只读保证。SQL 过滤保守，不接受多条语句或含写操作词的查询。
 - REST 测试使用本地真实 HTTP 服务覆盖分页、偏移、next、单次及截断。未对任意公网服务保证兼容；接口字段名和认证由使用者明确提供。
 
-开发验证记录：首轮 28 个真实测试先失败于未实现的节点模块，随后全部通过；新增输入隔离与路径保护的 3 个回归测试先实际复现原始文件被覆盖，再修复。当前本域 38 个测试通过，含真实 OCR、生成 PDF/图片、SQLite、SQLAlchemy、HTTP 服务、已知像素曲线和生成物读回。跨域完整套件及原生 Langflow 节点集成由总体验收执行。
+开发验证记录：首轮 28 个真实测试先失败于未实现的节点模块，随后全部通过；输入隔离与路径保护回归先复现原始文件被覆盖，再修复。后续补充跳转凭据、标头重名、旧转换文件、样品编号、整数精度与布尔类型回归。真实 OCR、PDF/图片、SQLite、SQLAlchemy、HTTP 服务、标定曲线及输出回读均纳入最终全套 415 项测试；原生图、独立 wheel 和真实网页验证见[整体验收](full-suite-acceptance.md)。
 
 API 实现依据：[PyMuPDF Page API](https://pymupdf.readthedocs.io/en/latest/page.html)、[SQLite URI 只读模式](https://www.sqlite.org/uri.html)、[SQLAlchemy SQLite URI](https://docs.sqlalchemy.org/en/20/dialects/sqlite.html#uri-connections)、[RapidOCR 上游项目](https://github.com/RapidAI/RapidOCR)。本地直接检查 RapidOCR 1.4.4 的 `__call__`、`get_final_res`、`CalRecBoxes` 返回结构后实现字符/词框读取。
