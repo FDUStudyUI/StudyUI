@@ -1,0 +1,48 @@
+{
+  "synthetic": true,
+  "authority": "教学案例作者根据预先定义的模拟真值手工修订；不能用于自动恢复真实缺失数据",
+  "raw_sha256": "f6309a5aa9d6733cdefa921039abf1519cbe43c26a6d3736c17bd717b6939b3e",
+  "corrected_sha256": "8aced84f924727806650e2399834340d97bc35a5614b4f65b332039e1c84c4fe",
+  "changes": [
+    {
+      "row_position": 2,
+      "csv_line": 4,
+      "column": "stress",
+      "before": -200,
+      "after": 304,
+      "reason": "模拟仪器缺失标记，原值需人工核对原始记录"
+    },
+    {
+      "row_position": 5,
+      "csv_line": 7,
+      "column": "stress",
+      "before": 900,
+      "after": 310,
+      "reason": "模拟录入错误，不能仅因统计离群自动删除"
+    },
+    {
+      "row_position": 6,
+      "csv_line": 8,
+      "column": "temperature",
+      "before": "80 MPa",
+      "after": 80,
+      "reason": "模拟单位混入错误"
+    },
+    {
+      "row_position": 9,
+      "csv_line": 11,
+      "column": "date",
+      "before": "30/10/2026",
+      "after": "2026-10-30",
+      "reason": "模拟日期格式错误"
+    },
+    {
+      "row_position": 11,
+      "csv_line": 13,
+      "column": "replicate",
+      "before": 1,
+      "after": 2,
+      "reason": "模拟测量编号重复录入"
+    }
+  ]
+}

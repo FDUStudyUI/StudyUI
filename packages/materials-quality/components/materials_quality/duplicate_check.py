@@ -31,6 +31,8 @@ class MaterialDuplicateCheck(Component):
     outputs = check_outputs()
 
     def build_report(self) -> Data:
+        if self.quality_context is not None:
+            return report_data(self, check_duplicates)
         return report_data(self, check_duplicates, columns=column_list(self.columns_json))
 
     def pass_table(self) -> DataFrame:

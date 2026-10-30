@@ -1,0 +1,17 @@
+{
+  "clean": {"passed": true, "findings": []},
+  "dirty": {
+    "passed": false,
+    "findings": [
+      ["missing", "MISSING_VALUE", "stress", 2],
+      ["types", "TYPE_OR_FORMAT", "temperature", 6],
+      ["types", "TYPE_OR_FORMAT", "date", 9],
+      ["units", "UNIT_INCOMPATIBLE", "temperature", 6],
+      ["units", "UNIT_MIXED", "temperature", null],
+      ["duplicates", "DUPLICATE_RECORD", null, 10],
+      ["duplicates", "DUPLICATE_RECORD", null, 11],
+      ["outliers", "OUTLIER_IQR", "stress", 5]
+    ]
+  },
+  "corrected": {"passed": true, "findings": []}
+}

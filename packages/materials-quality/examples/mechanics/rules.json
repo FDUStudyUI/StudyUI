@@ -1,0 +1,12 @@
+{
+  "missing_tokens": ["", "-200"],
+  "group_by": ["condition"],
+  "checks": {
+    "schema": {"required_columns": ["sample_id", "condition", "replicate", "temperature", "stress", "date"]},
+    "missing": {"columns": ["sample_id", "condition", "replicate", "temperature", "stress", "date"]},
+    "types": {"expectations": {"sample_id": "string", "condition": {"type": "category", "allowed": ["ambient", "hot"]}, "replicate": "integer", "temperature": "number", "stress": "number", "date": {"type": "datetime", "format": "%Y-%m-%d"}}},
+    "units": {"source_units": {"stress": "MPa", "temperature": "degC"}, "expected_units": {"stress": "Pa", "temperature": "K"}},
+    "duplicates": {"columns": ["sample_id", "condition", "replicate"]},
+    "outliers": {"columns": ["stress"], "method": "iqr", "multiplier": 1.5}
+  }
+}

@@ -1,6 +1,6 @@
 # 材料数据质量检查：Langflow 自定义节点
 
-六个检查节点和一个汇总节点，按 Langflow 原生 `Component` / `DataFrame` /
+六个检查节点、一个共享规则与追溯节点和一个汇总节点，按 Langflow 原生 `Component` / `DataFrame` /
 `Data` / `Message` 接口实现。检查在本地 Python 中执行，不调用大模型、无需 API Key，
 不删除、不插值、不换算或覆盖原数据。
 
@@ -40,7 +40,7 @@ $env:LANGFLOW_COMPONENTS_PATH = (Resolve-Path .\components).Path
 .\.venv\Scripts\python.exe -m langflow run
 ```
 
-进入组件菜单的 `materials_quality` 分类。应看到下表七个节点。
+进入组件菜单的 `materials_quality` 分类。应看到下表八个节点。
 `LANGFLOW_COMPONENTS_PATH` 指向分类文件夹的**父目录**，不是某个 `.py` 文件。
 本包必须安装在运行 Langflow 的同一个 Python 环境，仅复制组件文件不够。
 不需要修改 Langflow 仓库或重建其前端。
@@ -55,6 +55,7 @@ $env:LANGFLOW_COMPONENTS_PATH = (Resolve-Path .\components).Path
 
 | 节点 | 关键配置 | 检查内容 |
 |---|---|---|
+| 材料数据·共享规则与追溯 | 共享规则 JSON、规则版本、来源声明 | 绑定数据指纹；六个检查连接同一上下文 |
 | 材料数据·结构检查 | 必需字段 JSON、字段别名 JSON | 缺失字段、多个候选别名；不重命名 |
 | 材料数据·缺失检查 | 检查列、缺失标记、可选分组 | 缺失数量和比例、行位置、缺失模式 |
 | 材料数据·类型格式检查 | 字段类型规则 JSON | number、integer、string、boolean、datetime、category |
@@ -65,6 +66,18 @@ $env:LANGFLOW_COMPONENTS_PATH = (Resolve-Path .\components).Path
 
 配置字段使用标准 JSON，不接受 Python 字典语法、单引号 JSON 或 NaN/Infinity 常量。
 列名必须唯一且为非空字符串。数值规则允许能准确解析的数值字符串，但不写回类型转换。
+
+### 共享规则与数据追溯
+
+推荐连接方式：原始表格 → **共享规则与追溯**，该节点的原始表格、共享规则与来源两个端口分别接入六项检查，再将报告接入汇总。
+
+- 已连接上下文时，使用共享规则，忽略节点独立规则配置；未在共享规则中配置的检查报错。
+- 缺失标记贯穿缺失、类型、单位、异常检查。类型/单位/异常检查使用临时缺失视图，原始表格和重复判定键保持不变。
+- 规则集、数据值/类型/索引/顺序、来源声明均纳入追溯；汇总拒绝混用数据集、共享规则或本地/共享模式。
+- 无上下文时保留原有独立配置并自动记录表格指纹。旧纯函数报告仍可单独汇总，标记 `unverified_legacy`，不能与有追溯报告混合。
+- `provenance_status=verified` 表示报告间身份和参数完整性校验通过，不代表实验真实、来源可信或材料性能合格。
+
+完整演示见 [材料力学测试案例](examples/mechanics/README.md)，包含三份 CSV、三份可导入工作流、独立预期和人工修订记录。
 
 ### 配置示例
 

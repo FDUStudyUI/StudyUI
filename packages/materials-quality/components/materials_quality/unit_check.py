@@ -42,6 +42,8 @@ class MaterialUnitCheck(Component):
     outputs = check_outputs()
 
     def build_report(self) -> Data:
+        if self.quality_context is not None:
+            return report_data(self, check_units)
         return report_data(
             self,
             check_units,
