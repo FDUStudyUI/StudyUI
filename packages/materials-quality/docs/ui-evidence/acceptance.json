@@ -1,0 +1,60 @@
+{
+  "timestamp_utc": "2026-10-30T12:54:38.613572+00:00",
+  "base_url": "http://127.0.0.1:7867",
+  "application": "real Langflow 1.13.0 UI",
+  "cases": {
+    "clean": {
+      "passed": true,
+      "total_findings": 0,
+      "completed_checks": 6,
+      "nodes": 9,
+      "edges": 19,
+      "provenance_status": "verified",
+      "source": {
+        "dataset_id": "synthetic-tensile-clean",
+        "source_name": "clean.csv",
+        "source_sha256": "8aced84f924727806650e2399834340d97bc35a5614b4f65b332039e1c84c4fe"
+      },
+      "dataset_fingerprint": "64c05dda1e96ef002733816388b4a1c3ed287d8e6bc7e78577e4c9843a29c02c",
+      "flow_sha256": "c118e136e79a7d7354d024fdd447077544336de91890f08de40b9bb87be67196",
+      "summary_text": "数据质量检查：接入的检查均未发现所检查的问题。已完成 6 项，其中 0 项有问题，共 0 条发现。原始数据未修改；未接入的检查不在本报告覆盖范围内。"
+    },
+    "dirty": {
+      "passed": false,
+      "total_findings": 8,
+      "completed_checks": 6,
+      "nodes": 9,
+      "edges": 19,
+      "provenance_status": "verified",
+      "source": {
+        "dataset_id": "synthetic-tensile-dirty",
+        "source_name": "dirty.csv",
+        "source_sha256": "f6309a5aa9d6733cdefa921039abf1519cbe43c26a6d3736c17bd717b6939b3e"
+      },
+      "dataset_fingerprint": "f30e1fe9a7dcce84d29bb4eee5f28171ab62e704d4f5c6b71710938e97a01cbf",
+      "flow_sha256": "d3480f8ed0ea41bab0ef60c84c978a6146429d12a6878ee479e34c1ed6049e44",
+      "summary_text": "数据质量检查：需要复核（或未接入检查）。已完成 6 项，其中 5 项有问题，共 8 条发现。原始数据未修改；未接入的检查不在本报告覆盖范围内。"
+    },
+    "corrected": {
+      "passed": true,
+      "total_findings": 0,
+      "completed_checks": 6,
+      "nodes": 9,
+      "edges": 19,
+      "provenance_status": "verified",
+      "source": {
+        "dataset_id": "synthetic-tensile-corrected",
+        "source_name": "corrected.csv",
+        "source_sha256": "8aced84f924727806650e2399834340d97bc35a5614b4f65b332039e1c84c4fe"
+      },
+      "dataset_fingerprint": "64c05dda1e96ef002733816388b4a1c3ed287d8e6bc7e78577e4c9843a29c02c",
+      "flow_sha256": "94c04a3c1a30ece06581ec98083f72a08aa94ae962292ae977874cc68d6407fe",
+      "summary_text": "数据质量检查：接入的检查均未发现所检查的问题。已完成 6 项，其中 0 项有问题，共 0 条发现。原始数据未修改；未接入的检查不在本报告覆盖范围内。"
+    }
+  },
+  "page_errors": [],
+  "http_errors": [],
+  "browser_version": "156.0.8078.48",
+  "invalid_rules_rejected_and_restored": true,
+  "passed": true
+}

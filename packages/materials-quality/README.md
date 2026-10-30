@@ -12,7 +12,7 @@
 - 初始验证目标：Python 3.10、LFX 1.13.0（Langflow 1.13.x 的组件与图执行运行时）、pandas 2.x。
 - Pint 固定为 0.24.4，保留 Python 3.10 兼容性。
 - 团队实际 Langflow 版本尚待确认。其他版本须运行测试及示例流程后再声明兼容。
-- 这里同时提供真实运行时加载/执行测试；浏览器画布的视觉验收单独进行。
+- 已完成真实 Langflow 1.13.0 / Chrome 的画布验收，见[界面验收记录](docs/ui-acceptance.md)。
 
 ## 安装与运行测试
 
@@ -32,10 +32,10 @@ python -m venv .venv
 Windows 中文路径配合 Python 3.10 的 editable 安装时，需保留 `PYTHONUTF8=1`，
 以正确读取 UTF-8 `.pth` 路径；也可以使用普通安装 `pip install ".[langflow,dev]"`。
 要使用网页编辑器，在同一虚拟环境安装团队确认的 Langflow 版本。
-对于本包当前验证目标，可安装 `langflow==1.13.0`：
+界面验收使用含网页编辑器的 `langflow-base==1.13.0`；需要额外集成包时也可安装 `langflow==1.13.0`：
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install "langflow==1.13.0"
+.\.venv\Scripts\python.exe -m pip install "langflow-base==1.13.0"
 $env:LANGFLOW_COMPONENTS_PATH = (Resolve-Path .\components).Path
 .\.venv\Scripts\python.exe -m langflow run
 ```

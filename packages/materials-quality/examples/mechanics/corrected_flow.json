@@ -98,7 +98,7 @@
         "id": "MaterialDemoTable-mechanics",
         "position": {
           "x": 0,
-          "y": 1200
+          "y": 700
         },
         "type": "genericNode"
       },
@@ -245,8 +245,8 @@
         },
         "id": "MaterialQualitySummary-demo",
         "position": {
-          "x": 1650,
-          "y": 1200
+          "x": 2300,
+          "y": 700
         },
         "type": "genericNode"
       },
@@ -731,7 +731,7 @@
         "id": "MaterialQualityContext-mechanics",
         "position": {
           "x": 550,
-          "y": 1200
+          "y": 700
         },
         "type": "genericNode"
       },
@@ -994,7 +994,7 @@
         "id": "MaterialMissingCheck-mechanics",
         "position": {
           "x": 1100,
-          "y": 650
+          "y": 700
         },
         "type": "genericNode"
       },
@@ -1197,7 +1197,7 @@
         "id": "MaterialTypeCheck-mechanics",
         "position": {
           "x": 1100,
-          "y": 1300
+          "y": 1400
         },
         "type": "genericNode"
       },
@@ -1459,8 +1459,8 @@
         },
         "id": "MaterialUnitCheck-mechanics",
         "position": {
-          "x": 1100,
-          "y": 1950
+          "x": 1700,
+          "y": 0
         },
         "type": "genericNode"
       },
@@ -1662,8 +1662,8 @@
         },
         "id": "MaterialDuplicateCheck-mechanics",
         "position": {
-          "x": 1100,
-          "y": 2600
+          "x": 1700,
+          "y": 700
         },
         "type": "genericNode"
       },
@@ -1996,8 +1996,8 @@
         },
         "id": "MaterialOutlierCheck-mechanics",
         "position": {
-          "x": 1100,
-          "y": 3250
+          "x": 1700,
+          "y": 1400
         },
         "type": "genericNode"
       }
@@ -2028,134 +2028,42 @@
       },
       {
         "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialUnitCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "context",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "quality_context",
+            "id": "MaterialUnitCheck-mechanics",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
         "target": "MaterialDuplicateCheck-mechanics",
         "data": {
           "sourceHandle": {
             "dataType": "MaterialQualityContext",
             "id": "MaterialQualityContext-mechanics",
-            "name": "table_out",
+            "name": "context",
             "output_types": [
-              "Table"
+              "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_table",
+            "fieldName": "quality_context",
             "id": "MaterialDuplicateCheck-mechanics",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialTypeCheck-mechanics",
-        "target": "MaterialQualitySummary-demo",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialTypeCheck",
-            "id": "MaterialTypeCheck-mechanics",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "MaterialQualitySummary-demo",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialQualityContext-mechanics",
-        "target": "MaterialOutlierCheck-mechanics",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialQualityContext",
-            "id": "MaterialQualityContext-mechanics",
-            "name": "context",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "quality_context",
-            "id": "MaterialOutlierCheck-mechanics",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialQualityContext-mechanics",
-        "target": "MaterialMissingCheck-mechanics",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialQualityContext",
-            "id": "MaterialQualityContext-mechanics",
-            "name": "table_out",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "MaterialMissingCheck-mechanics",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialQualityContext-mechanics",
-        "target": "MaterialOutlierCheck-mechanics",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialQualityContext",
-            "id": "MaterialQualityContext-mechanics",
-            "name": "table_out",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "MaterialOutlierCheck-mechanics",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialQualityContext-mechanics",
-        "target": "MaterialTypeCheck-mechanics",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialQualityContext",
-            "id": "MaterialQualityContext-mechanics",
-            "name": "context",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "quality_context",
-            "id": "MaterialTypeCheck-mechanics",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2189,7 +2097,7 @@
       },
       {
         "source": "MaterialQualityContext-mechanics",
-        "target": "MaterialUnitCheck-mechanics",
+        "target": "MaterialMissingCheck-mechanics",
         "data": {
           "sourceHandle": {
             "dataType": "MaterialQualityContext",
@@ -2201,7 +2109,191 @@
           },
           "targetHandle": {
             "fieldName": "quality_context",
+            "id": "MaterialMissingCheck-mechanics",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialDemoTable-mechanics",
+        "target": "MaterialQualityContext-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialDemoTable",
+            "id": "MaterialDemoTable-mechanics",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialQualityContext-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialOutlierCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "context",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "quality_context",
+            "id": "MaterialOutlierCheck-mechanics",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialUnitCheck-mechanics",
+        "target": "MaterialQualitySummary-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialUnitCheck",
             "id": "MaterialUnitCheck-mechanics",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "MaterialQualitySummary-demo",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialTypeCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "table_out",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialTypeCheck-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialOutlierCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "table_out",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialOutlierCheck-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialSchemaCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "table_out",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialSchemaCheck-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialSchemaCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "context",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "quality_context",
+            "id": "MaterialSchemaCheck-mechanics",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialTypeCheck-mechanics",
+        "target": "MaterialQualitySummary-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialTypeCheck",
+            "id": "MaterialTypeCheck-mechanics",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "MaterialQualitySummary-demo",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2234,23 +2326,23 @@
         }
       },
       {
-        "source": "MaterialDuplicateCheck-mechanics",
-        "target": "MaterialQualitySummary-demo",
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialMissingCheck-mechanics",
         "data": {
           "sourceHandle": {
-            "dataType": "MaterialDuplicateCheck",
-            "id": "MaterialDuplicateCheck-mechanics",
-            "name": "report",
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "table_out",
             "output_types": [
-              "JSON"
+              "Table"
             ]
           },
           "targetHandle": {
-            "fieldName": "reports",
-            "id": "MaterialQualitySummary-demo",
+            "fieldName": "input_table",
+            "id": "MaterialMissingCheck-mechanics",
             "inputTypes": [
-              "Data",
-              "JSON"
+              "DataFrame",
+              "Table"
             ],
             "type": "other"
           }
@@ -2280,104 +2372,12 @@
         }
       },
       {
-        "source": "MaterialQualityContext-mechanics",
-        "target": "MaterialMissingCheck-mechanics",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialQualityContext",
-            "id": "MaterialQualityContext-mechanics",
-            "name": "context",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "quality_context",
-            "id": "MaterialMissingCheck-mechanics",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialQualityContext-mechanics",
-        "target": "MaterialSchemaCheck-mechanics",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialQualityContext",
-            "id": "MaterialQualityContext-mechanics",
-            "name": "context",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "quality_context",
-            "id": "MaterialSchemaCheck-mechanics",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialQualityContext-mechanics",
-        "target": "MaterialSchemaCheck-mechanics",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialQualityContext",
-            "id": "MaterialQualityContext-mechanics",
-            "name": "table_out",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "MaterialSchemaCheck-mechanics",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialQualityContext-mechanics",
-        "target": "MaterialTypeCheck-mechanics",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialQualityContext",
-            "id": "MaterialQualityContext-mechanics",
-            "name": "table_out",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "MaterialTypeCheck-mechanics",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialUnitCheck-mechanics",
+        "source": "MaterialDuplicateCheck-mechanics",
         "target": "MaterialQualitySummary-demo",
         "data": {
           "sourceHandle": {
-            "dataType": "MaterialUnitCheck",
-            "id": "MaterialUnitCheck-mechanics",
+            "dataType": "MaterialDuplicateCheck",
+            "id": "MaterialDuplicateCheck-mechanics",
             "name": "report",
             "output_types": [
               "JSON"
@@ -2401,6 +2401,29 @@
           "sourceHandle": {
             "dataType": "MaterialQualityContext",
             "id": "MaterialQualityContext-mechanics",
+            "name": "table_out",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialDuplicateCheck-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialTypeCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
             "name": "context",
             "output_types": [
               "JSON"
@@ -2408,33 +2431,10 @@
           },
           "targetHandle": {
             "fieldName": "quality_context",
-            "id": "MaterialDuplicateCheck-mechanics",
+            "id": "MaterialTypeCheck-mechanics",
             "inputTypes": [
               "Data",
               "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialDemoTable-mechanics",
-        "target": "MaterialQualityContext-mechanics",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialDemoTable",
-            "id": "MaterialDemoTable-mechanics",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "MaterialQualityContext-mechanics",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
             ],
             "type": "other"
           }

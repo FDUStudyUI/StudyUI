@@ -16,3 +16,8 @@ Ruling: review exclusions are accepted boundaries: source-file authenticity is n
 
 Wheel verification: regular 0.2.0 install in separate verification environment discovered eight nodes and executed all five stored flows, including 0/8/0 mechanics findings. The uv-created verification environment has no pip module; use uv pip install --python, not python -m pip.
 `nTask 1/2: implemented, 118 tests passing; RED shared context 21 failures -> GREEN; native/mechanics 4 failures -> GREEN. Corrected serialization edge IDs before connection and explicitly preserved object values when masking missing sentinels (large-int regression RED -> GREEN). Fixture manifest includes both incompatible and mixed unit warnings. Task 3 in progress: isolated real UI installation.
+
+Current suite: 128 passed, lint clean, regular wheel verified eight components and five stored graphs. Browser install bottleneck traced to pythonhosted download route; an Aliyun PyPI mirror throughput probe was 1 MiB in 1.14 seconds, so switch only the isolated UI installer to that mirror.
+
+Task 1: complete. Task 2: complete. Task 3 local acceptance: complete.
+Final verification: original environment 128 passed / 4 upstream warnings, full UI environment 128 passed / 7 upstream warnings, Ruff clean, fresh wheel eight components / five stored flows. Real Chrome UI 0/8/0, expected failure/restoration, no page errors/API HTTP failures; screenshots inspected. 17 wheel/core/component files matched source SHA-256. GitHub PR and CI verification pending.

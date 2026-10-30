@@ -52,9 +52,11 @@ def create_mechanics_payload(case="dirty"):
     payload = graph.dump(
         name=name, description="模拟拉伸测试数据：共享规则、来源追溯、实验分组与人工修订后复核。非真实实验。"
     )
-    positions = {source.get_id(): {"x": 0, "y": 1200}, context.get_id(): {"x": 550, "y": 1200},
-                 summary.get_id(): {"x": 1650, "y": 1200}}
-    positions.update({node.get_id(): {"x": 1100, "y": i * 650} for i, node in enumerate(nodes)})
+    positions = {source.get_id(): {"x": 0, "y": 700}, context.get_id(): {"x": 550, "y": 700},
+                 summary.get_id(): {"x": 2300, "y": 700}}
+    # A two-column, three-row check area fits native UI's minimum zoom on laptops.
+    positions.update({node.get_id(): {"x": 1100 + (i // 3) * 600, "y": (i % 3) * 700}
+                      for i, node in enumerate(nodes)})
     for node in payload["data"]["nodes"]:
         node["position"] = positions[node["id"]]
         node["type"] = "genericNode"
