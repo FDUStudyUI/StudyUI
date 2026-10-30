@@ -6,6 +6,7 @@ from datetime import datetime
 import numpy as np
 
 from materials_quality.common import ReportBuilder, groups, missing, numeric, select_columns
+from materials_quality.common import missing_tokens as normalize_missing_tokens
 
 
 def check_schema(table, *, required_columns, aliases=None, finding_limit=500):
@@ -159,8 +160,12 @@ def _matches(value, rule):
         return False
 
 
-def check_types(table, *, expectations, finding_limit=500):
-    report = ReportBuilder(table, "types", {"expectations": expectations}, finding_limit)
+def check_types(table, *, expectations, finding_limit=500, missing_tokens=None):
+    tokens = normalize_missing_tokens(missing_tokens)
+    parameters = {"expectations": expectations}
+    if missing_tokens is not None:
+        parameters["missing_tokens"] = list(tokens)
+    report = ReportBuilder(table, "types", parameters, finding_limit)
     if not isinstance(expectations, dict) or not expectations:
         raise ValueError("expectations must be a non-empty object")
     selected = select_columns(table, list(expectations))
@@ -169,7 +174,7 @@ def check_types(table, *, expectations, finding_limit=500):
     for column in selected:
         checked = invalid = 0
         for position, value in enumerate(table[column]):
-            if missing(value):
+            if missing(value, tokens):
                 continue
             checked += 1
             if not _matches(value, rules[column]):
@@ -186,7 +191,9 @@ def check_types(table, *, expectations, finding_limit=500):
             "checked_count": checked,
             "invalid_count": invalid,
             "missing_count": len(table) - checked,
-            "observed_python_types": sorted({type(v).__name__ for v in table[column] if not missing(v)}),
+            "observed_python_types": sorted(
+                {type(v).__name__ for v in table[column] if not missing(v, tokens)}
+            ),
         }
     return report.finish({"columns": metrics})
 

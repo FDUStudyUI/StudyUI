@@ -3,6 +3,7 @@
 from copy import deepcopy
 
 from materials_quality.common import FINDING_COLUMNS, validate_limit
+from materials_quality.context import provenance_identity
 
 
 def _count(value):
@@ -73,6 +74,15 @@ def aggregate_reports(reports, *, finding_limit=500):
         raise ValueError("reports must be a list of quality report objects")
     for report in reports:
         _validate_report(report)
+    traced = ["provenance" in r for r in reports]
+    if any(traced):
+        if not all(traced):
+            raise ValueError("cannot mix traced reports with unverified legacy reports")
+        identities = {provenance_identity(r) for r in reports}
+        if len(identities) != 1:
+            raise ValueError("reports belong to different datasets, sources, rulesets or provenance modes")
+        if len({r["check_id"] for r in reports}) != len(reports):
+            raise ValueError("duplicate check IDs would count the same check more than once")
     total = sum(r["total_findings"] for r in reports)
     findings = [f for r in reports for f in r["findings"]][:finding_limit]
     failed = sum(not r["passed"] for r in reports)
@@ -82,7 +92,9 @@ def aggregate_reports(reports, *, finding_limit=500):
             "check_id": "aggregate",
             "execution_status": "completed" if reports else "insufficient",
             "passed": bool(reports) and failed == 0,
-            "dataset": {},
+            "dataset": reports[0]["dataset"] if any(traced) else {},
+            "provenance_status": "verified" if any(traced) else "unverified_legacy",
+            "provenance": reports[0]["provenance"] if any(traced) else None,
             "parameters": {"finding_limit": finding_limit},
             "metrics": {
                 "completed_checks": len(reports),

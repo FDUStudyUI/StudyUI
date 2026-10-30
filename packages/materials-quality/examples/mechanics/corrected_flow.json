@@ -1,0 +1,2448 @@
+{
+  "data": {
+    "nodes": [
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "import json\n\nfrom lfx.custom import Component\nfrom lfx.io import MultilineInput, Output\nfrom lfx.schema import DataFrame\n\n\nclass MaterialDemoTable(Component):\n    display_name = \"演示数据（人工样例）\"\n    description = \"仅用于演示与测试；JSON记录为人工构造，不是真实实验数据。\"\n    name = \"MaterialDemoTable\"\n    icon = \"FlaskConical\"\n    inputs = [MultilineInput(name=\"records_json\", display_name=\"人工样例 JSON\", value=\"[]\")]\n    outputs = [Output(name=\"table\", display_name=\"表格\", method=\"build_table\")]\n\n    def build_table(self) -> DataFrame:\n        def reject_constant(value):\n            raise ValueError(f\"Invalid JSON constant {value}\")\n\n        records = json.loads(self.records_json, parse_constant=reject_constant)\n        if not isinstance(records, list) or any(not isinstance(r, dict) for r in records):\n            raise ValueError(\"records_json must be a list of record objects\")\n        self.status = f\"人工演示数据：{len(records)}行；非真实实验数据\"\n        return DataFrame(records)\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "records_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "records_json",
+                "value": "[{\"sample_id\":\"A\",\"condition\":\"ambient\",\"replicate\":1,\"temperature\":25,\"stress\":300,\"date\":\"2026-10-30\"},{\"sample_id\":\"A\",\"condition\":\"ambient\",\"replicate\":2,\"temperature\":25,\"stress\":302,\"date\":\"2026-10-30\"},{\"sample_id\":\"B\",\"condition\":\"ambient\",\"replicate\":1,\"temperature\":25,\"stress\":304,\"date\":\"2026-10-30\"},{\"sample_id\":\"B\",\"condition\":\"ambient\",\"replicate\":2,\"temperature\":25,\"stress\":306,\"date\":\"2026-10-30\"},{\"sample_id\":\"C\",\"condition\":\"ambient\",\"replicate\":1,\"temperature\":25,\"stress\":308,\"date\":\"2026-10-30\"},{\"sample_id\":\"C\",\"condition\":\"ambient\",\"replicate\":2,\"temperature\":25,\"stress\":310,\"date\":\"2026-10-30\"},{\"sample_id\":\"A\",\"condition\":\"hot\",\"replicate\":1,\"temperature\":80,\"stress\":200,\"date\":\"2026-10-30\"},{\"sample_id\":\"A\",\"condition\":\"hot\",\"replicate\":2,\"temperature\":80,\"stress\":202,\"date\":\"2026-10-30\"},{\"sample_id\":\"B\",\"condition\":\"hot\",\"replicate\":1,\"temperature\":80,\"stress\":204,\"date\":\"2026-10-30\"},{\"sample_id\":\"B\",\"condition\":\"hot\",\"replicate\":2,\"temperature\":80,\"stress\":206,\"date\":\"2026-10-30\"},{\"sample_id\":\"C\",\"condition\":\"hot\",\"replicate\":1,\"temperature\":80,\"stress\":208,\"date\":\"2026-10-30\"},{\"sample_id\":\"C\",\"condition\":\"hot\",\"replicate\":2,\"temperature\":80,\"stress\":210,\"date\":\"2026-10-30\"}]",
+                "display_name": "人工样例 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "仅用于演示与测试；JSON记录为人工构造，不是真实实验数据。",
+            "icon": "FlaskConical",
+            "base_classes": [
+              "Table"
+            ],
+            "display_name": "演示数据（人工样例）",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table",
+                "display_name": "表格",
+                "method": "build_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "MaterialDemoTable",
+          "id": "MaterialDemoTable-mechanics"
+        },
+        "id": "MaterialDemoTable-mechanics",
+        "position": {
+          "x": 0,
+          "y": 700
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "reports": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "reports",
+                "value": [],
+                "display_name": "检查报告",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "连接各检查节点的报告端口；只汇总已接入且成功完成的检查。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "from lfx.custom import Component\nfrom lfx.io import DataInput, IntInput, Output\nfrom lfx.schema import Data, DataFrame, Message\n\nfrom materials_quality.aggregate import aggregate_reports\nfrom materials_quality.langflow_support import findings_table\n\n\nclass MaterialQualitySummary(Component):\n    display_name = \"材料数据·检查报告汇总\"\n    description = \"汇总已完成的检查报告；无检查或有问题时不会给出全部通过。\"\n    icon = \"ClipboardList\"\n    name = \"MaterialQualitySummary\"\n    inputs = [\n        DataInput(\n            name=\"reports\",\n            display_name=\"检查报告\",\n            is_list=True,\n            value=[],\n            info=\"连接各检查节点的报告端口；只汇总已接入且成功完成的检查。\",\n        ),\n        IntInput(name=\"finding_limit\", display_name=\"汇总问题明细上限\", value=500, advanced=True),\n    ]\n    outputs = [\n        Output(name=\"report\", display_name=\"汇总报告\", method=\"build_report\", group_outputs=True),\n        Output(name=\"findings\", display_name=\"汇总问题明细\", method=\"build_findings\", group_outputs=True),\n        Output(name=\"summary\", display_name=\"摘要\", method=\"build_summary\", group_outputs=True),\n    ]\n\n    def build_report(self) -> Data:\n        reports = self.reports or []\n        reports = reports if isinstance(reports, list) else [reports]\n        if any(not isinstance(r, Data) for r in reports):\n            raise ValueError(\"reports must contain native Langflow Data objects\")\n        result = aggregate_reports([r.data for r in reports], finding_limit=self.finding_limit)\n        self.status = f\"已汇总 {len(reports)} 项检查；问题数 {result['total_findings']}\"\n        return Data(data=result)\n\n    def build_findings(self) -> DataFrame:\n        return findings_table(self.build_report().data)\n\n    def build_summary(self) -> Message:\n        report = self.build_report().data\n        metrics = report[\"metrics\"]\n        verdict = \"接入的检查均未发现所检查的问题\" if report[\"passed\"] else \"需要复核（或未接入检查）\"\n        return Message(\n            text=(\n                f\"数据质量检查：{verdict}。已完成 {metrics['completed_checks']} 项，\"\n                f\"其中 {metrics['failed_checks']} 项有问题，共 {report['total_findings']} 条发现。\"\n                \"原始数据未修改；未接入的检查不在本报告覆盖范围内。\"\n            )\n        )\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "finding_limit": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "finding_limit",
+                "value": 500,
+                "display_name": "汇总问题明细上限",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              }
+            },
+            "description": "汇总已完成的检查报告；无检查或有问题时不会给出全部通过。",
+            "icon": "ClipboardList",
+            "base_classes": [
+              "JSON",
+              "Message",
+              "Table"
+            ],
+            "display_name": "材料数据·检查报告汇总",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "汇总报告",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "findings",
+                "display_name": "汇总问题明细",
+                "method": "build_findings",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "summary",
+                "display_name": "摘要",
+                "method": "build_summary",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "MaterialQualitySummary",
+          "id": "MaterialQualitySummary-demo"
+        },
+        "id": "MaterialQualitySummary-demo",
+        "position": {
+          "x": 2300,
+          "y": 700
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "接入 Langflow Table/DataFrame；检查不修改原始数据。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "quality_context": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "quality_context",
+                "value": "",
+                "display_name": "共享规则与来源",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "可选：连接数据规则与追溯节点。连接后共享规则优先，忽略本节点独立规则。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "aliases_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "aliases_json",
+                "value": "{}",
+                "display_name": "字段别名 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "例如 {\"sample_id\": [\"样品编号\"]}；不自动猜测同义字段。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "from lfx.custom import Component\nfrom lfx.io import MultilineInput\nfrom lfx.schema import Data, DataFrame\n\nfrom materials_quality.checks import check_schema\nfrom materials_quality.langflow_support import (\n    check_inputs,\n    check_outputs,\n    findings_table,\n    original_table,\n    parse_json,\n    report_data,\n)\n\n\nclass MaterialSchemaCheck(Component):\n    display_name = \"材料数据·结构检查\"\n    description = \"检查必需字段及显式别名，报告缺失和歧义，不重命名原表。\"\n    icon = \"ListChecks\"\n    name = \"MaterialSchemaCheck\"\n    inputs = check_inputs(\n        [\n            MultilineInput(name=\"required_columns_json\", display_name=\"必需字段 JSON\", value='[\"sample_id\"]'),\n            MultilineInput(\n                name=\"aliases_json\",\n                display_name=\"字段别名 JSON\",\n                value=\"{}\",\n                info='例如 {\"sample_id\": [\"样品编号\"]}；不自动猜测同义字段。',\n            ),\n        ]\n    )\n    outputs = check_outputs()\n\n    def build_report(self) -> Data:\n        if self.quality_context is not None:\n            return report_data(self, check_schema)\n        return report_data(\n            self,\n            check_schema,\n            required_columns=parse_json(self.required_columns_json, \"required_columns_json\", list),\n            aliases=parse_json(self.aliases_json, \"aliases_json\", dict),\n        )\n\n    def pass_table(self) -> DataFrame:\n        return original_table(self)\n\n    def build_findings(self) -> DataFrame:\n        return findings_table(self.build_report().data)\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "finding_limit": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "finding_limit",
+                "value": 500,
+                "display_name": "问题明细上限",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "1–10000；限制明细预览，不影响完整计数和检查结论。",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              },
+              "required_columns_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "required_columns_json",
+                "value": "[\"sample_id\"]",
+                "display_name": "必需字段 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "检查必需字段及显式别名，报告缺失和歧义，不重命名原表。",
+            "icon": "ListChecks",
+            "base_classes": [
+              "JSON",
+              "Table"
+            ],
+            "display_name": "材料数据·结构检查",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table_out",
+                "display_name": "原始表格",
+                "method": "pass_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "findings",
+                "display_name": "问题明细",
+                "method": "build_findings",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "检查报告",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "MaterialSchemaCheck",
+          "id": "MaterialSchemaCheck-mechanics"
+        },
+        "id": "MaterialSchemaCheck-mechanics",
+        "position": {
+          "x": 1100,
+          "y": 0
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "原始表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "from lfx.custom import Component\nfrom lfx.io import DataFrameInput, MultilineInput, Output, StrInput\nfrom lfx.schema import Data, DataFrame\n\nfrom materials_quality.context import make_context\nfrom materials_quality.langflow_support import parse_json\n\n\nclass MaterialQualityContext(Component):\n    display_name = \"材料数据·共享规则与追溯\"\n    description = \"绑定原始表格指纹、来源声明和共享规则；各检查连接同一规则端口。\"\n    name = \"MaterialQualityContext\"\n    icon = \"Fingerprint\"\n    inputs = [\n        DataFrameInput(name=\"input_table\", display_name=\"原始表格\", required=True),\n        MultilineInput(name=\"rules_json\", display_name=\"共享规则 JSON\",\n                       value='{\"missing_tokens\":[\"\"],\"checks\":{\"missing\":{}}}'),\n        StrInput(name=\"rule_set_id\", display_name=\"规则集名称\", value=\"custom\"),\n        StrInput(name=\"rule_set_version\", display_name=\"规则集版本\", value=\"1\"),\n        StrInput(name=\"dataset_id\", display_name=\"数据集编号\", value=\"\", advanced=True),\n        StrInput(name=\"source_name\", display_name=\"来源文件名\", value=\"\", advanced=True),\n        StrInput(name=\"source_sha256\", display_name=\"声明的原文件 SHA-256\", value=\"\", advanced=True,\n                 info=\"可选来源声明；节点绑定内存表格指纹，不验证原文件真实性。\"),\n    ]\n    outputs = [\n        Output(name=\"context\", display_name=\"共享规则与来源\", method=\"build_context\", group_outputs=True),\n        Output(name=\"table_out\", display_name=\"原始表格\", method=\"pass_table\", group_outputs=True),\n    ]\n\n    def build_context(self) -> Data:\n        source = {key: getattr(self, key) for key in (\"dataset_id\", \"source_name\", \"source_sha256\")\n                  if getattr(self, key)}\n        context = make_context(self.input_table, parse_json(self.rules_json, \"rules_json\", dict), source,\n                               self.rule_set_id, self.rule_set_version)\n        fingerprint = context[\"dataset\"][\"fingerprint\"][:12]\n        self.status = f\"规则 {self.rule_set_id}@{self.rule_set_version}；指纹 {fingerprint}\"\n        return Data(data=context)\n\n    def pass_table(self) -> DataFrame:\n        return DataFrame(self.input_table.copy(deep=True))\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "dataset_id": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "dataset_id",
+                "value": "synthetic-tensile-corrected",
+                "display_name": "数据集编号",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "rule_set_id": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "rule_set_id",
+                "value": "synthetic-tensile-review",
+                "display_name": "规则集名称",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "rule_set_version": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "rule_set_version",
+                "value": "1.0",
+                "display_name": "规则集版本",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "rules_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "rules_json",
+                "value": "{\n  \"missing_tokens\": [\"\", \"-200\"],\n  \"group_by\": [\"condition\"],\n  \"checks\": {\n    \"schema\": {\"required_columns\": [\"sample_id\", \"condition\", \"replicate\", \"temperature\", \"stress\", \"date\"]},\n    \"missing\": {\"columns\": [\"sample_id\", \"condition\", \"replicate\", \"temperature\", \"stress\", \"date\"]},\n    \"types\": {\"expectations\": {\"sample_id\": \"string\", \"condition\": {\"type\": \"category\", \"allowed\": [\"ambient\", \"hot\"]}, \"replicate\": \"integer\", \"temperature\": \"number\", \"stress\": \"number\", \"date\": {\"type\": \"datetime\", \"format\": \"%Y-%m-%d\"}}},\n    \"units\": {\"source_units\": {\"stress\": \"MPa\", \"temperature\": \"degC\"}, \"expected_units\": {\"stress\": \"Pa\", \"temperature\": \"K\"}},\n    \"duplicates\": {\"columns\": [\"sample_id\", \"condition\", \"replicate\"]},\n    \"outliers\": {\"columns\": [\"stress\"], \"method\": \"iqr\", \"multiplier\": 1.5}\n  }\n}\n",
+                "display_name": "共享规则 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "source_name": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "source_name",
+                "value": "corrected.csv",
+                "display_name": "来源文件名",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "source_sha256": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "source_sha256",
+                "value": "330dd2de02ed94d3eb0093013759e10cf3bd977c16313586fe9d7163bf63648a",
+                "display_name": "声明的原文件 SHA-256",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "可选来源声明；节点绑定内存表格指纹，不验证原文件真实性。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              }
+            },
+            "description": "绑定原始表格指纹、来源声明和共享规则；各检查连接同一规则端口。",
+            "icon": "Fingerprint",
+            "base_classes": [
+              "JSON",
+              "Table"
+            ],
+            "display_name": "材料数据·共享规则与追溯",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "context",
+                "display_name": "共享规则与来源",
+                "method": "build_context",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table_out",
+                "display_name": "原始表格",
+                "method": "pass_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "MaterialQualityContext",
+          "id": "MaterialQualityContext-mechanics"
+        },
+        "id": "MaterialQualityContext-mechanics",
+        "position": {
+          "x": 550,
+          "y": 700
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "接入 Langflow Table/DataFrame；检查不修改原始数据。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "quality_context": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "quality_context",
+                "value": "",
+                "display_name": "共享规则与来源",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "可选：连接数据规则与追溯节点。连接后共享规则优先，忽略本节点独立规则。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "from lfx.custom import Component\nfrom lfx.io import MultilineInput\nfrom lfx.schema import Data, DataFrame\n\nfrom materials_quality.checks import check_missing\nfrom materials_quality.langflow_support import (\n    check_inputs,\n    check_outputs,\n    column_list,\n    findings_table,\n    original_table,\n    parse_json,\n    report_data,\n)\n\n\nclass MaterialMissingCheck(Component):\n    display_name = \"材料数据·缺失检查\"\n    description = \"统计缺失数量、比例、位置、分组及模式；不填补数据。\"\n    icon = \"ScanSearch\"\n    name = \"MaterialMissingCheck\"\n    inputs = check_inputs(\n        [\n            MultilineInput(\n                name=\"columns_json\", display_name=\"检查列 JSON\", value=\"[]\", info=\"[] 表示所有列。\"\n            ),\n            MultilineInput(\n                name=\"missing_tokens_json\",\n                display_name=\"缺失标记 JSON\",\n                value='[\"\"]',\n                info='按数据说明填写，如 [\"\", \"NA\", \"-200\"]；不会默认把 NA 当缺失。',\n            ),\n            MultilineInput(name=\"group_by_json\", display_name=\"分组列 JSON\", value=\"[]\", advanced=True),\n        ]\n    )\n    outputs = check_outputs()\n\n    def build_report(self) -> Data:\n        if self.quality_context is not None:\n            return report_data(self, check_missing)\n        return report_data(\n            self,\n            check_missing,\n            columns=column_list(self.columns_json),\n            missing_tokens=parse_json(self.missing_tokens_json, \"missing_tokens_json\", list),\n            group_by=column_list(self.group_by_json, \"group_by_json\"),\n        )\n\n    def pass_table(self) -> DataFrame:\n        return original_table(self)\n\n    def build_findings(self) -> DataFrame:\n        return findings_table(self.build_report().data)\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "columns_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "columns_json",
+                "value": "[]",
+                "display_name": "检查列 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "[] 表示所有列。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "finding_limit": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "finding_limit",
+                "value": 500,
+                "display_name": "问题明细上限",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "1–10000；限制明细预览，不影响完整计数和检查结论。",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              },
+              "group_by_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "group_by_json",
+                "value": "[]",
+                "display_name": "分组列 JSON",
+                "advanced": true,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "missing_tokens_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "missing_tokens_json",
+                "value": "[\"\"]",
+                "display_name": "缺失标记 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "按数据说明填写，如 [\"\", \"NA\", \"-200\"]；不会默认把 NA 当缺失。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "统计缺失数量、比例、位置、分组及模式；不填补数据。",
+            "icon": "ScanSearch",
+            "base_classes": [
+              "JSON",
+              "Table"
+            ],
+            "display_name": "材料数据·缺失检查",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table_out",
+                "display_name": "原始表格",
+                "method": "pass_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "findings",
+                "display_name": "问题明细",
+                "method": "build_findings",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "检查报告",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "MaterialMissingCheck",
+          "id": "MaterialMissingCheck-mechanics"
+        },
+        "id": "MaterialMissingCheck-mechanics",
+        "position": {
+          "x": 1100,
+          "y": 700
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "接入 Langflow Table/DataFrame；检查不修改原始数据。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "quality_context": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "quality_context",
+                "value": "",
+                "display_name": "共享规则与来源",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "可选：连接数据规则与追溯节点。连接后共享规则优先，忽略本节点独立规则。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "from lfx.custom import Component\nfrom lfx.io import MultilineInput\nfrom lfx.schema import Data, DataFrame\n\nfrom materials_quality.checks import check_types\nfrom materials_quality.langflow_support import (\n    check_inputs,\n    check_outputs,\n    findings_table,\n    original_table,\n    parse_json,\n    report_data,\n)\n\n\nclass MaterialTypeCheck(Component):\n    display_name = \"材料数据·类型格式检查\"\n    description = \"按显式数值、整数、日期、布尔和分类规则检查，不写回类型转换。\"\n    icon = \"Braces\"\n    name = \"MaterialTypeCheck\"\n    inputs = check_inputs(\n        [\n            MultilineInput(\n                name=\"expectations_json\",\n                display_name=\"字段类型规则 JSON\",\n                value='{\"value\": \"number\"}',\n                info=\"支持 number/integer/string/boolean；日期需要 format，分类需要 allowed。\",\n            ),\n        ]\n    )\n    outputs = check_outputs()\n\n    def build_report(self) -> Data:\n        if self.quality_context is not None:\n            return report_data(self, check_types)\n        return report_data(\n            self, check_types, expectations=parse_json(self.expectations_json, \"expectations_json\", dict)\n        )\n\n    def pass_table(self) -> DataFrame:\n        return original_table(self)\n\n    def build_findings(self) -> DataFrame:\n        return findings_table(self.build_report().data)\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "expectations_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "expectations_json",
+                "value": "{\"value\": \"number\"}",
+                "display_name": "字段类型规则 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "支持 number/integer/string/boolean；日期需要 format，分类需要 allowed。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "finding_limit": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "finding_limit",
+                "value": 500,
+                "display_name": "问题明细上限",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "1–10000；限制明细预览，不影响完整计数和检查结论。",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              }
+            },
+            "description": "按显式数值、整数、日期、布尔和分类规则检查，不写回类型转换。",
+            "icon": "Braces",
+            "base_classes": [
+              "JSON",
+              "Table"
+            ],
+            "display_name": "材料数据·类型格式检查",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table_out",
+                "display_name": "原始表格",
+                "method": "pass_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "findings",
+                "display_name": "问题明细",
+                "method": "build_findings",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "检查报告",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "MaterialTypeCheck",
+          "id": "MaterialTypeCheck-mechanics"
+        },
+        "id": "MaterialTypeCheck-mechanics",
+        "position": {
+          "x": 1100,
+          "y": 1400
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "接入 Langflow Table/DataFrame；检查不修改原始数据。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "quality_context": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "quality_context",
+                "value": "",
+                "display_name": "共享规则与来源",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "可选：连接数据规则与追溯节点。连接后共享规则优先，忽略本节点独立规则。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "from lfx.custom import Component\nfrom lfx.io import MultilineInput\nfrom lfx.schema import Data, DataFrame\n\nfrom materials_quality.langflow_support import (\n    check_inputs,\n    check_outputs,\n    column_list,\n    findings_table,\n    original_table,\n    parse_json,\n    report_data,\n)\nfrom materials_quality.units import check_units\n\n\nclass MaterialUnitCheck(Component):\n    display_name = \"材料数据·单位检查\"\n    description = \"检查声明/单元格单位、量纲兼容及混合单位；不猜测单位或自动换算。\"\n    icon = \"Ruler\"\n    name = \"MaterialUnitCheck\"\n    inputs = check_inputs(\n        [\n            MultilineInput(\n                name=\"source_units_json\",\n                display_name=\"原始单位 JSON\",\n                value=\"{}\",\n                info='例如 {\"stress\": \"MPa\", \"temperature\": \"degC\"}。',\n            ),\n            MultilineInput(\n                name=\"expected_units_json\", display_name=\"目标量纲单位 JSON\", value='{\"stress\": \"Pa\"}'\n            ),\n            MultilineInput(\n                name=\"columns_json\",\n                display_name=\"检查列 JSON\",\n                value=\"[]\",\n                advanced=True,\n                info=\"[] 表示目标量纲单位中列出的字段。\",\n            ),\n        ]\n    )\n    outputs = check_outputs()\n\n    def build_report(self) -> Data:\n        if self.quality_context is not None:\n            return report_data(self, check_units)\n        return report_data(\n            self,\n            check_units,\n            source_units=parse_json(self.source_units_json, \"source_units_json\", dict),\n            expected_units=parse_json(self.expected_units_json, \"expected_units_json\", dict),\n            columns=column_list(self.columns_json),\n        )\n\n    def pass_table(self) -> DataFrame:\n        return original_table(self)\n\n    def build_findings(self) -> DataFrame:\n        return findings_table(self.build_report().data)\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "columns_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "columns_json",
+                "value": "[]",
+                "display_name": "检查列 JSON",
+                "advanced": true,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "[] 表示目标量纲单位中列出的字段。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "expected_units_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "expected_units_json",
+                "value": "{\"stress\": \"Pa\"}",
+                "display_name": "目标量纲单位 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "finding_limit": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "finding_limit",
+                "value": 500,
+                "display_name": "问题明细上限",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "1–10000；限制明细预览，不影响完整计数和检查结论。",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              },
+              "source_units_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "source_units_json",
+                "value": "{}",
+                "display_name": "原始单位 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "例如 {\"stress\": \"MPa\", \"temperature\": \"degC\"}。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "检查声明/单元格单位、量纲兼容及混合单位；不猜测单位或自动换算。",
+            "icon": "Ruler",
+            "base_classes": [
+              "JSON",
+              "Table"
+            ],
+            "display_name": "材料数据·单位检查",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table_out",
+                "display_name": "原始表格",
+                "method": "pass_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "findings",
+                "display_name": "问题明细",
+                "method": "build_findings",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "检查报告",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "MaterialUnitCheck",
+          "id": "MaterialUnitCheck-mechanics"
+        },
+        "id": "MaterialUnitCheck-mechanics",
+        "position": {
+          "x": 1700,
+          "y": 0
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "接入 Langflow Table/DataFrame；检查不修改原始数据。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "quality_context": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "quality_context",
+                "value": "",
+                "display_name": "共享规则与来源",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "可选：连接数据规则与追溯节点。连接后共享规则优先，忽略本节点独立规则。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "from lfx.custom import Component\nfrom lfx.io import MultilineInput\nfrom lfx.schema import Data, DataFrame\n\nfrom materials_quality.checks import check_duplicates\nfrom materials_quality.langflow_support import (\n    check_inputs,\n    check_outputs,\n    column_list,\n    findings_table,\n    original_table,\n    report_data,\n)\n\n\nclass MaterialDuplicateCheck(Component):\n    display_name = \"材料数据·重复记录检查\"\n    description = \"检查整行或指定键重复，标记所有成员；不删除可能有效的重复实验。\"\n    icon = \"CopyCheck\"\n    name = \"MaterialDuplicateCheck\"\n    inputs = check_inputs(\n        [\n            MultilineInput(\n                name=\"columns_json\",\n                display_name=\"重复判定键 JSON\",\n                value=\"[]\",\n                info='[] 为整行；如 [\"sample_id\", \"measurement_id\"]。',\n            ),\n        ]\n    )\n    outputs = check_outputs()\n\n    def build_report(self) -> Data:\n        if self.quality_context is not None:\n            return report_data(self, check_duplicates)\n        return report_data(self, check_duplicates, columns=column_list(self.columns_json))\n\n    def pass_table(self) -> DataFrame:\n        return original_table(self)\n\n    def build_findings(self) -> DataFrame:\n        return findings_table(self.build_report().data)\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "columns_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "columns_json",
+                "value": "[]",
+                "display_name": "重复判定键 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "[] 为整行；如 [\"sample_id\", \"measurement_id\"]。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "finding_limit": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "finding_limit",
+                "value": 500,
+                "display_name": "问题明细上限",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "1–10000；限制明细预览，不影响完整计数和检查结论。",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              }
+            },
+            "description": "检查整行或指定键重复，标记所有成员；不删除可能有效的重复实验。",
+            "icon": "CopyCheck",
+            "base_classes": [
+              "JSON",
+              "Table"
+            ],
+            "display_name": "材料数据·重复记录检查",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table_out",
+                "display_name": "原始表格",
+                "method": "pass_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "findings",
+                "display_name": "问题明细",
+                "method": "build_findings",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "检查报告",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "MaterialDuplicateCheck",
+          "id": "MaterialDuplicateCheck-mechanics"
+        },
+        "id": "MaterialDuplicateCheck-mechanics",
+        "position": {
+          "x": 1700,
+          "y": 700
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "接入 Langflow Table/DataFrame；检查不修改原始数据。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "quality_context": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "quality_context",
+                "value": "",
+                "display_name": "共享规则与来源",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "可选：连接数据规则与追溯节点。连接后共享规则优先，忽略本节点独立规则。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "bounds_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "bounds_json",
+                "value": "{}",
+                "display_name": "明确范围 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "range 方法必填，例如 {\"temperature\": {\"min\": 0, \"max\": 100}}。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "from lfx.custom import Component\nfrom lfx.io import DropdownInput, FloatInput, MultilineInput\nfrom lfx.schema import Data, DataFrame\n\nfrom materials_quality.langflow_support import (\n    check_inputs,\n    check_outputs,\n    column_list,\n    findings_table,\n    original_table,\n    parse_json,\n    report_data,\n)\nfrom materials_quality.outliers import check_outliers\n\n\nclass MaterialOutlierCheck(Component):\n    display_name = \"材料数据·异常值标记\"\n    description = \"按明确范围、IQR或MAD标记可疑值；统计离群不等于实验错误。\"\n    icon = \"ChartScatter\"\n    name = \"MaterialOutlierCheck\"\n    inputs = check_inputs(\n        [\n            MultilineInput(name=\"columns_json\", display_name=\"数值列 JSON\", value='[\"value\"]'),\n            DropdownInput(\n                name=\"detection_method\", display_name=\"检查方法\", options=[\"range\", \"iqr\", \"mad\"], value=\"iqr\"\n            ),\n            MultilineInput(\n                name=\"bounds_json\",\n                display_name=\"明确范围 JSON\",\n                value=\"{}\",\n                info='range 方法必填，例如 {\"temperature\": {\"min\": 0, \"max\": 100}}。',\n            ),\n            FloatInput(name=\"iqr_multiplier\", display_name=\"IQR倍数\", value=1.5, advanced=True),\n            FloatInput(name=\"mad_threshold\", display_name=\"MAD稳健Z阈值\", value=3.5, advanced=True),\n            MultilineInput(name=\"group_by_json\", display_name=\"分组列 JSON\", value=\"[]\", advanced=True),\n        ]\n    )\n    outputs = check_outputs()\n\n    def build_report(self) -> Data:\n        if self.quality_context is not None:\n            return report_data(self, check_outliers)\n        columns = column_list(self.columns_json)\n        if columns is None:\n            raise ValueError(\"columns_json: explicitly select numeric columns\")\n        return report_data(\n            self,\n            check_outliers,\n            columns=columns,\n            method=self.detection_method,\n            bounds=parse_json(self.bounds_json, \"bounds_json\", dict),\n            multiplier=self.iqr_multiplier,\n            mad_threshold=self.mad_threshold,\n            group_by=column_list(self.group_by_json, \"group_by_json\"),\n        )\n\n    def pass_table(self) -> DataFrame:\n        return original_table(self)\n\n    def build_findings(self) -> DataFrame:\n        return findings_table(self.build_report().data)\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "columns_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "columns_json",
+                "value": "[\"value\"]",
+                "display_name": "数值列 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "detection_method": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [
+                  "range",
+                  "iqr",
+                  "mad"
+                ],
+                "options_metadata": [],
+                "combobox": false,
+                "dialog_inputs": {},
+                "toggle": false,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "detection_method",
+                "value": "iqr",
+                "display_name": "检查方法",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "external_options": {},
+                "type": "str",
+                "_input_type": "DropdownInput"
+              },
+              "finding_limit": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "finding_limit",
+                "value": 500,
+                "display_name": "问题明细上限",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "1–10000；限制明细预览，不影响完整计数和检查结论。",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              },
+              "group_by_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "group_by_json",
+                "value": "[]",
+                "display_name": "分组列 JSON",
+                "advanced": true,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "iqr_multiplier": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "iqr_multiplier",
+                "value": 1.5,
+                "display_name": "IQR倍数",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "float",
+                "_input_type": "FloatInput"
+              },
+              "mad_threshold": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "mad_threshold",
+                "value": 3.5,
+                "display_name": "MAD稳健Z阈值",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "float",
+                "_input_type": "FloatInput"
+              }
+            },
+            "description": "按明确范围、IQR或MAD标记可疑值；统计离群不等于实验错误。",
+            "icon": "ChartScatter",
+            "base_classes": [
+              "JSON",
+              "Table"
+            ],
+            "display_name": "材料数据·异常值标记",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table_out",
+                "display_name": "原始表格",
+                "method": "pass_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "findings",
+                "display_name": "问题明细",
+                "method": "build_findings",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "检查报告",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "MaterialOutlierCheck",
+          "id": "MaterialOutlierCheck-mechanics"
+        },
+        "id": "MaterialOutlierCheck-mechanics",
+        "position": {
+          "x": 1700,
+          "y": 1400
+        },
+        "type": "genericNode"
+      }
+    ],
+    "edges": [
+      {
+        "source": "MaterialTypeCheck-mechanics",
+        "target": "MaterialQualitySummary-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialTypeCheck",
+            "id": "MaterialTypeCheck-mechanics",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "MaterialQualitySummary-demo",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialSchemaCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "table_out",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialSchemaCheck-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialMissingCheck-mechanics",
+        "target": "MaterialQualitySummary-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialMissingCheck",
+            "id": "MaterialMissingCheck-mechanics",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "MaterialQualitySummary-demo",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialOutlierCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "table_out",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialOutlierCheck-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialTypeCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "table_out",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialTypeCheck-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialTypeCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "context",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "quality_context",
+            "id": "MaterialTypeCheck-mechanics",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialDuplicateCheck-mechanics",
+        "target": "MaterialQualitySummary-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialDuplicateCheck",
+            "id": "MaterialDuplicateCheck-mechanics",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "MaterialQualitySummary-demo",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialDemoTable-mechanics",
+        "target": "MaterialQualityContext-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialDemoTable",
+            "id": "MaterialDemoTable-mechanics",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialQualityContext-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialOutlierCheck-mechanics",
+        "target": "MaterialQualitySummary-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialOutlierCheck",
+            "id": "MaterialOutlierCheck-mechanics",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "MaterialQualitySummary-demo",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialSchemaCheck-mechanics",
+        "target": "MaterialQualitySummary-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialSchemaCheck",
+            "id": "MaterialSchemaCheck-mechanics",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "MaterialQualitySummary-demo",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialMissingCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "table_out",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialMissingCheck-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialUnitCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "context",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "quality_context",
+            "id": "MaterialUnitCheck-mechanics",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialSchemaCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "context",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "quality_context",
+            "id": "MaterialSchemaCheck-mechanics",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialDuplicateCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "context",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "quality_context",
+            "id": "MaterialDuplicateCheck-mechanics",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialOutlierCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "context",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "quality_context",
+            "id": "MaterialOutlierCheck-mechanics",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialUnitCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "table_out",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialUnitCheck-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialMissingCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "context",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "quality_context",
+            "id": "MaterialMissingCheck-mechanics",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialUnitCheck-mechanics",
+        "target": "MaterialQualitySummary-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialUnitCheck",
+            "id": "MaterialUnitCheck-mechanics",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "MaterialQualitySummary-demo",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialQualityContext-mechanics",
+        "target": "MaterialDuplicateCheck-mechanics",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialQualityContext",
+            "id": "MaterialQualityContext-mechanics",
+            "name": "table_out",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialDuplicateCheck-mechanics",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      }
+    ]
+  },
+  "is_component": false,
+  "name": "材料力学测试质检（模拟）-corrected",
+  "description": "模拟拉伸测试数据：共享规则、来源追溯、实验分组与人工修订后复核。非真实实验。"
+}

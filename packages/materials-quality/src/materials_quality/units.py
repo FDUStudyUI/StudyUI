@@ -5,6 +5,7 @@ import re
 import pint
 
 from materials_quality.common import ReportBuilder, missing, numeric, select_columns
+from materials_quality.common import missing_tokens as normalize_missing_tokens
 
 _REGISTRY = pint.UnitRegistry(autoconvert_offset_to_baseunit=True)
 _ALIASES = {"℃": "degC", "°C": "degC", "摄氏度": "degC", "°F": "degF", "℉": "degF", "微米": "um"}
@@ -21,11 +22,15 @@ def _unit(text):
         raise ValueError(f"unknown or invalid unit: {text!r}") from exc
 
 
-def check_units(table, *, source_units, expected_units, columns=None, finding_limit=500):
+def check_units(table, *, source_units, expected_units, columns=None, finding_limit=500, missing_tokens=None):
+    tokens = normalize_missing_tokens(missing_tokens)
+    parameters = {"source_units": source_units, "expected_units": expected_units, "columns": columns}
+    if missing_tokens is not None:
+        parameters["missing_tokens"] = list(tokens)
     report = ReportBuilder(
         table,
         "units",
-        {"source_units": source_units, "expected_units": expected_units, "columns": columns},
+        parameters,
         finding_limit,
     )
     if not isinstance(source_units, dict) or not isinstance(expected_units, dict) or not expected_units:
@@ -54,7 +59,7 @@ def check_units(table, *, source_units, expected_units, columns=None, finding_li
         unspecified = 0
         checked = 0
         for position, value in enumerate(table[column]):
-            if missing(value):
+            if missing(value, tokens):
                 continue
             match = _QUANTITY.fullmatch(value) if isinstance(value, str) else None
             unit_text = match.group(2) if match else ""

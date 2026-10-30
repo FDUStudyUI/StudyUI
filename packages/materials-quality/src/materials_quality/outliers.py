@@ -5,6 +5,7 @@ import math
 import numpy as np
 
 from materials_quality.common import ReportBuilder, groups, missing, numeric, select_columns
+from materials_quality.common import missing_tokens as normalize_missing_tokens
 
 
 def _finite_parameter(value, name, *, positive=False):
@@ -65,7 +66,9 @@ def check_outliers(
     mad_threshold=3.5,
     group_by=None,
     finding_limit=500,
+    missing_tokens=None,
 ):
+    tokens = normalize_missing_tokens(missing_tokens)
     report = ReportBuilder(
         table,
         "outliers",
@@ -79,6 +82,8 @@ def check_outliers(
         },
         finding_limit,
     )
+    if missing_tokens is not None:
+        report.parameters["missing_tokens"] = list(tokens)
     selected = select_columns(table, columns)
     if method not in {"range", "iqr", "mad"}:
         raise ValueError("method must be range, iqr or mad")
@@ -105,7 +110,7 @@ def check_outliers(
             precision_lost = False
             for position in positions:
                 value = table[column].iloc[position]
-                if missing(value):
+                if missing(value, tokens):
                     continue
                 try:
                     exact = numeric(value)
