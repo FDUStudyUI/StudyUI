@@ -82,7 +82,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 122695,
+          "bytes": 122710,
           "format": ".html"
         },
         {
@@ -115,13 +115,38 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 235236,
+          "bytes": 310852,
           "format": ".html"
         },
         {
           "name": "spectra-overlay.png",
-          "bytes": 46448,
+          "bytes": 103216,
           "format": ".png"
+        },
+        {
+          "name": "spectra-overlay.svg",
+          "bytes": 25096,
+          "format": ".svg"
+        },
+        {
+          "name": "spectra-overlay.pdf",
+          "bytes": 22466,
+          "format": ".pdf"
+        },
+        {
+          "name": "spectra-overlay.tiff",
+          "bytes": 482890,
+          "format": ".tiff"
+        },
+        {
+          "name": "spectra-overlay.json",
+          "bytes": 45400,
+          "format": ".json"
+        },
+        {
+          "name": "spectra-overlay.md",
+          "bytes": 107,
+          "format": ".md"
         }
       ],
       "fixture_hashes_rechecked": 2,
@@ -145,13 +170,38 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 148906,
+          "bytes": 214175,
           "format": ".html"
         },
         {
           "name": "mechanics-overlay.png",
-          "bytes": 31730,
+          "bytes": 78782,
           "format": ".png"
+        },
+        {
+          "name": "mechanics-overlay.svg",
+          "bytes": 18902,
+          "format": ".svg"
+        },
+        {
+          "name": "mechanics-overlay.pdf",
+          "bytes": 19465,
+          "format": ".pdf"
+        },
+        {
+          "name": "mechanics-overlay.tiff",
+          "bytes": 450146,
+          "format": ".tiff"
+        },
+        {
+          "name": "mechanics-overlay.json",
+          "bytes": 17100,
+          "format": ".json"
+        },
+        {
+          "name": "mechanics-overlay.md",
+          "bytes": 118,
+          "format": ".md"
         }
       ],
       "fixture_hashes_rechecked": 1,
@@ -216,23 +266,98 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 119285,
+          "bytes": 331879,
           "format": ".html"
         },
         {
           "name": "distribution-histogram.png",
-          "bytes": 19804,
+          "bytes": 60643,
           "format": ".png"
+        },
+        {
+          "name": "distribution-histogram.svg",
+          "bytes": 16852,
+          "format": ".svg"
+        },
+        {
+          "name": "distribution-histogram.pdf",
+          "bytes": 18685,
+          "format": ".pdf"
+        },
+        {
+          "name": "distribution-histogram.tiff",
+          "bytes": 596888,
+          "format": ".tiff"
+        },
+        {
+          "name": "distribution-histogram.json",
+          "bytes": 2716,
+          "format": ".json"
+        },
+        {
+          "name": "distribution-histogram.md",
+          "bytes": 131,
+          "format": ".md"
         },
         {
           "name": "distribution-qq.png",
-          "bytes": 39102,
+          "bytes": 94994,
           "format": ".png"
         },
         {
+          "name": "distribution-qq.svg",
+          "bytes": 17353,
+          "format": ".svg"
+        },
+        {
+          "name": "distribution-qq.pdf",
+          "bytes": 19906,
+          "format": ".pdf"
+        },
+        {
+          "name": "distribution-qq.tiff",
+          "bytes": 480650,
+          "format": ".tiff"
+        },
+        {
+          "name": "distribution-qq.json",
+          "bytes": 2939,
+          "format": ".json"
+        },
+        {
+          "name": "distribution-qq.md",
+          "bytes": 128,
+          "format": ".md"
+        },
+        {
           "name": "performance-box.png",
-          "bytes": 17737,
+          "bytes": 75278,
           "format": ".png"
+        },
+        {
+          "name": "performance-box.svg",
+          "bytes": 17341,
+          "format": ".svg"
+        },
+        {
+          "name": "performance-box.pdf",
+          "bytes": 22028,
+          "format": ".pdf"
+        },
+        {
+          "name": "performance-box.tiff",
+          "bytes": 508100,
+          "format": ".tiff"
+        },
+        {
+          "name": "performance-box.json",
+          "bytes": 3313,
+          "format": ".json"
+        },
+        {
+          "name": "performance-box.md",
+          "bytes": 153,
+          "format": ".md"
         }
       ],
       "fixture_hashes_rechecked": 0,
@@ -255,7 +380,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 101087,
+          "bytes": 144438,
           "format": ".html"
         },
         {
@@ -270,8 +395,33 @@
         },
         {
           "name": "statistics-prediction.png",
-          "bytes": 39357,
+          "bytes": 70424,
           "format": ".png"
+        },
+        {
+          "name": "statistics-prediction.svg",
+          "bytes": 20763,
+          "format": ".svg"
+        },
+        {
+          "name": "statistics-prediction.pdf",
+          "bytes": 17406,
+          "format": ".pdf"
+        },
+        {
+          "name": "statistics-prediction.tiff",
+          "bytes": 413832,
+          "format": ".tiff"
+        },
+        {
+          "name": "statistics-prediction.json",
+          "bytes": 2623,
+          "format": ".json"
+        },
+        {
+          "name": "statistics-prediction.md",
+          "bytes": 92,
+          "format": ".md"
         }
       ],
       "fixture_hashes_rechecked": 0,

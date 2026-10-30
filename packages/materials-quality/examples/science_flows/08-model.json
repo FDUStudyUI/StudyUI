@@ -2033,7 +2033,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "config_json",
-                "value": "{\"output_dir\":\"@asset:output\",\"method\":\"prediction\",\"y_true\":\"y\",\"y_pred\":\"y_pred\"}",
+                "value": "{\"profile\":\"paper\",\"data_kind\":\"synthetic\",\"output_dir\":\"@asset:output\",\"method\":\"prediction\",\"y_true\":\"y\",\"y_pred\":\"y_pred\"}",
                 "display_name": "方法与参数 JSON",
                 "advanced": false,
                 "api_editable": false,
@@ -2143,12 +2143,12 @@
     ],
     "edges": [
       {
-        "source": "ScienceStatsPredict-predict",
+        "source": "ScienceStatsEvaluate-evaluate",
         "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceStatsPredict",
-            "id": "ScienceStatsPredict-predict",
+            "dataType": "ScienceStatsEvaluate",
+            "id": "ScienceStatsEvaluate-evaluate",
             "name": "report",
             "output_types": [
               "JSON"
@@ -2166,23 +2166,69 @@
         }
       },
       {
-        "source": "SciencePreprocessFilter-development",
-        "target": "ScienceExportReport-report",
+        "source": "ScienceFixtureBundle-08-model",
+        "target": "SciencePreprocessFilter-external",
         "data": {
           "sourceHandle": {
-            "dataType": "SciencePreprocessFilter",
-            "id": "SciencePreprocessFilter-development",
-            "name": "report",
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-08-model",
+            "name": "data",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
+            "fieldName": "input_data",
+            "id": "SciencePreprocessFilter-external",
             "inputTypes": [
               "Data",
               "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-08-model",
+        "target": "ScienceVizStatistics-plot",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-08-model",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceVizStatistics-plot",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessFilter-development",
+        "target": "ScienceStatsRegression-train",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessFilter",
+            "id": "SciencePreprocessFilter-development",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceStatsRegression-train",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
             ],
             "type": "other"
           }
@@ -2212,12 +2258,12 @@
         }
       },
       {
-        "source": "SciencePreprocessFilter-development",
-        "target": "ScienceStatsRegression-train",
+        "source": "ScienceStatsPredict-predict",
+        "target": "ScienceStatsEvaluate-evaluate",
         "data": {
           "sourceHandle": {
-            "dataType": "SciencePreprocessFilter",
-            "id": "SciencePreprocessFilter-development",
+            "dataType": "ScienceStatsPredict",
+            "id": "ScienceStatsPredict-predict",
             "name": "report",
             "output_types": [
               "JSON"
@@ -2225,7 +2271,7 @@
           },
           "targetHandle": {
             "fieldName": "input_data",
-            "id": "ScienceStatsRegression-train",
+            "id": "ScienceStatsEvaluate-evaluate",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2235,23 +2281,23 @@
         }
       },
       {
-        "source": "ScienceStatsPredict-predict",
-        "target": "ScienceStatsEvaluate-evaluate",
+        "source": "ScienceStatsRegression-train",
+        "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceStatsPredict",
-            "id": "ScienceStatsPredict-predict",
-            "name": "table",
+            "dataType": "ScienceStatsRegression",
+            "id": "ScienceStatsRegression-train",
+            "name": "report",
             "output_types": [
-              "Table"
+              "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_table",
-            "id": "ScienceStatsEvaluate-evaluate",
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
             "inputTypes": [
-              "DataFrame",
-              "Table"
+              "Data",
+              "JSON"
             ],
             "type": "other"
           }
@@ -2281,35 +2327,12 @@
         }
       },
       {
-        "source": "ScienceFixtureBundle-08-model",
-        "target": "SciencePreprocessFilter-external",
+        "source": "ScienceStatsPredict-predict",
+        "target": "ScienceStatsEvaluate-evaluate",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-08-model",
-            "name": "data",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "SciencePreprocessFilter-external",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "SciencePreprocessFilter-external",
-        "target": "ScienceStatsPredict-predict",
-        "data": {
-          "sourceHandle": {
-            "dataType": "SciencePreprocessFilter",
-            "id": "SciencePreprocessFilter-external",
+            "dataType": "ScienceStatsPredict",
+            "id": "ScienceStatsPredict-predict",
             "name": "table",
             "output_types": [
               "Table"
@@ -2317,10 +2340,33 @@
           },
           "targetHandle": {
             "fieldName": "input_table",
-            "id": "ScienceStatsPredict-predict",
+            "id": "ScienceStatsEvaluate-evaluate",
             "inputTypes": [
               "DataFrame",
               "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessFilter-development",
+        "target": "ScienceStatsRegression-train",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessFilter",
+            "id": "SciencePreprocessFilter-development",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceStatsRegression-train",
+            "inputTypes": [
+              "Data",
+              "JSON"
             ],
             "type": "other"
           }
@@ -2351,41 +2397,41 @@
       },
       {
         "source": "ScienceFixtureBundle-08-model",
-        "target": "SciencePreprocessFilter-external",
+        "target": "SciencePreprocessFilter-development",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceFixtureBundle",
             "id": "ScienceFixtureBundle-08-model",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "SciencePreprocessFilter-external",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceStatsRegression-train",
-        "target": "ScienceStatsPredict-predict",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceStatsRegression",
-            "id": "ScienceStatsRegression-train",
-            "name": "report",
+            "name": "data",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
             "fieldName": "input_data",
+            "id": "SciencePreprocessFilter-development",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessFilter-external",
+        "target": "ScienceStatsPredict-predict",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessFilter",
+            "id": "SciencePreprocessFilter-external",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
             "id": "ScienceStatsPredict-predict",
             "inputTypes": [
               "Data",
@@ -2419,58 +2465,12 @@
         }
       },
       {
-        "source": "ScienceStatsEvaluate-evaluate",
-        "target": "ScienceVizStatistics-plot",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceStatsEvaluate",
-            "id": "ScienceStatsEvaluate-evaluate",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceVizStatistics-plot",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
         "source": "ScienceStatsPredict-predict",
-        "target": "ScienceStatsEvaluate-evaluate",
+        "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceStatsPredict",
             "id": "ScienceStatsPredict-predict",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceStatsEvaluate-evaluate",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "SciencePreprocessFilter-external",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "SciencePreprocessFilter",
-            "id": "SciencePreprocessFilter-external",
             "name": "report",
             "output_types": [
               "JSON"
@@ -2489,103 +2489,11 @@
       },
       {
         "source": "SciencePreprocessFilter-development",
-        "target": "ScienceStatsRegression-train",
+        "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
             "dataType": "SciencePreprocessFilter",
             "id": "SciencePreprocessFilter-development",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "ScienceStatsRegression-train",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceFixtureBundle-08-model",
-        "target": "SciencePreprocessFilter-development",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-08-model",
-            "name": "data",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "SciencePreprocessFilter-development",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceStatsEvaluate-evaluate",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceStatsEvaluate",
-            "id": "ScienceStatsEvaluate-evaluate",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceFixtureBundle-08-model",
-        "target": "ScienceVizStatistics-plot",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-08-model",
-            "name": "data",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceVizStatistics-plot",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceStatsRegression-train",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceStatsRegression",
-            "id": "ScienceStatsRegression-train",
             "name": "report",
             "output_types": [
               "JSON"
@@ -2609,6 +2517,29 @@
           "sourceHandle": {
             "dataType": "SciencePreprocessFilter",
             "id": "SciencePreprocessFilter-external",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceStatsPredict-predict",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessFilter-external",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessFilter",
+            "id": "SciencePreprocessFilter-external",
             "name": "report",
             "output_types": [
               "JSON"
@@ -2616,6 +2547,75 @@
           },
           "targetHandle": {
             "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceStatsEvaluate-evaluate",
+        "target": "ScienceVizStatistics-plot",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceStatsEvaluate",
+            "id": "ScienceStatsEvaluate-evaluate",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceVizStatistics-plot",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-08-model",
+        "target": "SciencePreprocessFilter-external",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-08-model",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "SciencePreprocessFilter-external",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceStatsRegression-train",
+        "target": "ScienceStatsPredict-predict",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceStatsRegression",
+            "id": "ScienceStatsRegression-train",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
             "id": "ScienceStatsPredict-predict",
             "inputTypes": [
               "Data",

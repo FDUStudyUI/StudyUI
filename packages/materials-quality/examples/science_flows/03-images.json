@@ -1854,123 +1854,8 @@
     ],
     "edges": [
       {
-        "source": "ScienceIoImageImport-image",
-        "target": "ScienceExtractImageOcr-words",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoImageImport",
-            "id": "ScienceIoImageImport-image",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceExtractImageOcr-words",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceFixtureBundle-03-images",
-        "target": "ScienceExtractChartDigitize-digitize",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-03-images",
-            "name": "data",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceExtractChartDigitize-digitize",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceExtractImageOcr-words",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceExtractImageOcr",
-            "id": "ScienceExtractImageOcr-words",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceExtractImageTables-grid",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceExtractImageTables",
-            "id": "ScienceExtractImageTables-grid",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoImageImport-image",
-        "target": "ScienceExtractImageTables-grid",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoImageImport",
-            "id": "ScienceIoImageImport-image",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceExtractImageTables-grid",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
         "source": "ScienceExtractChartDigitize-digitize",
-        "target": "ScienceExportTable-digitized-csv",
+        "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceExtractChartDigitize",
@@ -1981,30 +1866,7 @@
             ]
           },
           "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceExportTable-digitized-csv",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceFixtureBundle-03-images",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-03-images",
-            "name": "data",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
+            "fieldName": "reports",
             "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
@@ -2061,20 +1923,20 @@
         }
       },
       {
-        "source": "ScienceExtractChartDigitize-digitize",
-        "target": "ScienceExportReport-report",
+        "source": "ScienceIoImageImport-image",
+        "target": "ScienceExtractImageOcr-words",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceExtractChartDigitize",
-            "id": "ScienceExtractChartDigitize-digitize",
+            "dataType": "ScienceIoImageImport",
+            "id": "ScienceIoImageImport-image",
             "name": "report",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
+            "fieldName": "input_data",
+            "id": "ScienceExtractImageOcr-words",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2108,6 +1970,52 @@
       },
       {
         "source": "ScienceFixtureBundle-03-images",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-03-images",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoImageImport-image",
+        "target": "ScienceExtractImageTables-grid",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoImageImport",
+            "id": "ScienceIoImageImport-image",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceExtractImageTables-grid",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-03-images",
         "target": "ScienceIoImageImport-image",
         "data": {
           "sourceHandle": {
@@ -2121,6 +2029,98 @@
           "targetHandle": {
             "fieldName": "input_data",
             "id": "ScienceIoImageImport-image",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExtractImageOcr-words",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceExtractImageOcr",
+            "id": "ScienceExtractImageOcr-words",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-03-images",
+        "target": "ScienceExtractChartDigitize-digitize",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-03-images",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceExtractChartDigitize-digitize",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExtractChartDigitize-digitize",
+        "target": "ScienceExportTable-digitized-csv",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceExtractChartDigitize",
+            "id": "ScienceExtractChartDigitize-digitize",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceExportTable-digitized-csv",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExtractImageTables-grid",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceExtractImageTables",
+            "id": "ScienceExtractImageTables-grid",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
               "JSON"

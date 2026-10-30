@@ -2144,7 +2144,30 @@
     "edges": [
       {
         "source": "ScienceLitExtract-extract",
-        "target": "ScienceLitSources-sources",
+        "target": "ScienceLitCompare-compare",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceLitExtract",
+            "id": "ScienceLitExtract-extract",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceLitCompare-compare",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceLitExtract-extract",
+        "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceLitExtract",
@@ -2155,8 +2178,8 @@
             ]
           },
           "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceLitSources-sources",
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2189,196 +2212,12 @@
         }
       },
       {
-        "source": "ScienceLitSummary-summary",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceLitSummary",
-            "id": "ScienceLitSummary-summary",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceLitSources-sources",
-        "target": "ScienceLitSummary-summary",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceLitSources",
-            "id": "ScienceLitSources-sources",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceLitSummary-summary",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
         "source": "ScienceLitMetadata-metadata",
         "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceLitMetadata",
             "id": "ScienceLitMetadata-metadata",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceLitSearch-search",
-        "target": "ScienceLitMetadata-metadata",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceLitSearch",
-            "id": "ScienceLitSearch-search",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceLitMetadata-metadata",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceLitSearch-search",
-        "target": "ScienceLitExtract-extract",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceLitSearch",
-            "id": "ScienceLitSearch-search",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceLitExtract-extract",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceLitSearch-search",
-        "target": "ScienceLitExtract-extract",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceLitSearch",
-            "id": "ScienceLitSearch-search",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "ScienceLitExtract-extract",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceLitSearch-search",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceLitSearch",
-            "id": "ScienceLitSearch-search",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceLitExtract-extract",
-        "target": "ScienceLitCompare-compare",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceLitExtract",
-            "id": "ScienceLitExtract-extract",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "ScienceLitCompare-compare",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceLitExtract-extract",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceLitExtract",
-            "id": "ScienceLitExtract-extract",
             "name": "report",
             "output_types": [
               "JSON"
@@ -2442,8 +2281,146 @@
         }
       },
       {
-        "source": "ScienceLitSources-sources",
+        "source": "ScienceLitSearch-search",
+        "target": "ScienceLitExtract-extract",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceLitSearch",
+            "id": "ScienceLitSearch-search",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceLitExtract-extract",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceLitSearch-search",
+        "target": "ScienceLitMetadata-metadata",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceLitSearch",
+            "id": "ScienceLitSearch-search",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceLitMetadata-metadata",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceLitSearch-search",
+        "target": "ScienceLitExtract-extract",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceLitSearch",
+            "id": "ScienceLitSearch-search",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceLitExtract-extract",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-09-literature",
+        "target": "ScienceLitSearch-search",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-09-literature",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceLitSearch-search",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceLitSummary-summary",
         "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceLitSummary",
+            "id": "ScienceLitSummary-summary",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceLitExtract-extract",
+        "target": "ScienceLitSources-sources",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceLitExtract",
+            "id": "ScienceLitExtract-extract",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceLitSources-sources",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceLitSources-sources",
+        "target": "ScienceLitSummary-summary",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceLitSources",
@@ -2454,8 +2431,8 @@
             ]
           },
           "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
+            "fieldName": "input_data",
+            "id": "ScienceLitSummary-summary",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2488,20 +2465,43 @@
         }
       },
       {
-        "source": "ScienceFixtureBundle-09-literature",
-        "target": "ScienceLitSearch-search",
+        "source": "ScienceLitSearch-search",
+        "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-09-literature",
-            "name": "data",
+            "dataType": "ScienceLitSearch",
+            "id": "ScienceLitSearch-search",
+            "name": "report",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceLitSearch-search",
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceLitSources-sources",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceLitSources",
+            "id": "ScienceLitSources-sources",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
               "JSON"

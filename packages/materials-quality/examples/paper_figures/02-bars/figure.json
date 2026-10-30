@@ -1,0 +1,125 @@
+{
+  "source": {
+    "table_sha256": "0a51e9155d73486f56ac9b0772dbab7da1ef27966c3ae3e0336be95f44047089",
+    "rows": 6,
+    "columns": [
+      "group",
+      "specimen",
+      "stress"
+    ]
+  },
+  "method": "bar",
+  "labels": {
+    "x": "group",
+    "y": "Peak stress (MPa)"
+  },
+  "plot_data": {
+    "groups": [
+      {
+        "label": "Baseline",
+        "n": 3,
+        "y": [
+          422.4,
+          440.0,
+          457.6
+        ],
+        "mean": 440.0,
+        "error": 17.600000000000023
+      },
+      {
+        "label": "Modified",
+        "n": 3,
+        "y": [
+          460.79999999999995,
+          480.0,
+          499.20000000000005
+        ],
+        "mean": 480.0,
+        "error": 19.200000000000045
+      }
+    ]
+  },
+  "error_definition": "sample standard deviation",
+  "observations_displayed": 6,
+  "statistical_definition": "Mean ± sample SD; dots: all observations",
+  "figure_contract": {
+    "backend": "python-matplotlib",
+    "profile": "paper",
+    "data_kind": "synthetic",
+    "evidence_role": "comparison",
+    "purpose": "Mean and observed spread",
+    "width_mm": 150.0,
+    "height_mm": 99.0,
+    "series_styles": {
+      "Baseline": {
+        "color": "#0072b2",
+        "linestyle": "-.",
+        "marker": "*"
+      },
+      "Modified": {
+        "color": "#d55e00",
+        "linestyle": "-.",
+        "marker": "P"
+      }
+    },
+    "statistical_definition": "Mean ± sample SD; dots: all observations",
+    "observations_displayed": 6,
+    "font_families": [
+      "DejaVu Sans",
+      "Microsoft YaHei",
+      "SimHei"
+    ],
+    "minimum_text_points": 8,
+    "units": {
+      "stress": "MPa"
+    },
+    "layout_warnings": []
+  },
+  "figure_verification": [
+    {
+      "path": "figure.png",
+      "format": "png",
+      "sha256": "228ff5257f0643bccf6980821aa317e0c4a4e9c4e41763b4eb50f836c926b082",
+      "size": [
+        1771,
+        1169
+      ],
+      "dpi": [
+        299.9994,
+        299.9994
+      ]
+    },
+    {
+      "path": "figure.svg",
+      "format": "svg",
+      "sha256": "3fb74eaf297ed808431b90d39214806b6289f630cb4bad7684b86ecae43ff8ba",
+      "editable_text_elements": 14
+    },
+    {
+      "path": "figure.pdf",
+      "format": "pdf",
+      "sha256": "2de95d6c5422b853875a3752a34e09abf445dc94bee5cb5d450bbfa03d9f27da",
+      "page_points": [
+        425.19683837890625,
+        280.6299133300781
+      ],
+      "text_characters": 187
+    },
+    {
+      "path": "figure.tiff",
+      "format": "tiff",
+      "sha256": "f19724acf898c623d5eeb2f9c37acf92fd1d18ff5f43d7361358358594c726c4",
+      "size": [
+        3543,
+        2338
+      ],
+      "dpi": [
+        "600.0",
+        "600.0"
+      ]
+    }
+  ],
+  "figure_previews": [
+    "figure.png"
+  ]
+}

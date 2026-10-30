@@ -12,6 +12,7 @@ from scipy import stats
 from statsmodels.stats.multitest import multipletests
 
 from .contracts import NodeResult, numeric_matrix, require_table
+from .plot_style import plot_operation
 
 
 def _method(config, allowed, default):
@@ -99,6 +100,7 @@ def grouped(table=None, *, config=None, data=None, tables=None):
     )
 
 
+@plot_operation
 def distribution(table=None, *, config=None, data=None, tables=None):
     c = config or {}
     column = c.get("column")
@@ -108,23 +110,51 @@ def distribution(table=None, *, config=None, data=None, tables=None):
         raise ValueError("normality check requires nonconstant observations")
     bins = c.get("bins", "auto")
     counts, edges = np.histogram(v, bins=bins)
+    if int(counts.sum()) != len(v):
+        raise ValueError(
+            "histogram bins must cover all observations; filter the table upstream to restrict range"
+        )
     (theoretical, ordered), (slope, intercept, r) = stats.probplot(v, dist="norm")
     shapiro = stats.shapiro(v)
     from .visualization import _figure, _finish
 
     fig, ax = _figure(c)
     ax.hist(v, bins=edges, color="#236B8E", edgecolor="white")
-    ax.set(xlabel=str(column), ylabel="Count", title="Distribution")
-    histogram = _finish(fig, c, "distribution-histogram", {})
+    from .visualization import _label
+
+    ax.set(xlabel=_label(column, c), ylabel="Count", title="Distribution")
+    histogram = _finish(
+        fig,
+        c,
+        "distribution-histogram",
+        {
+            "method": "histogram",
+            "plot_data": {"values": v.tolist(), "count": counts.tolist(), "edges": edges.tolist()},
+            "observations_displayed": len(v),
+            "statistical_definition": "Counts of all supplied observations",
+        },
+    )
     fig, ax = _figure(c)
     ax.scatter(theoretical, ordered, s=24)
     ax.plot(theoretical, slope * theoretical + intercept, color="#C8543D")
-    ax.set(xlabel="Theoretical normal quantile", ylabel=str(column), title="Normal Q-Q plot")
-    qq = _finish(fig, c, "distribution-qq", {})
+    ax.set(xlabel="Theoretical normal quantile", ylabel=_label(column, c), title="Normal Q-Q plot")
+    qq = _finish(
+        fig,
+        c,
+        "distribution-qq",
+        {
+            "method": "normal_qq",
+            "plot_data": {"theoretical": theoretical.tolist(), "ordered": ordered.tolist()},
+            "observations_displayed": len(v),
+            "statistical_definition": "Normal quantiles; fitted reference line",
+        },
+    )
     warnings = ["Shapiro p-values may be inaccurate for n > 5000."] if len(v) > 5000 else []
     return NodeResult(
         data={
             "method": "histogram_qq_shapiro",
+            "figure_previews": histogram.data["figure_previews"] + qq.data["figure_previews"],
+            "figures": [histogram.data, qq.data],
             "n": len(v),
             "histogram": {"count": counts.tolist(), "edges": edges.tolist()},
             "qq": {
@@ -138,7 +168,7 @@ def distribution(table=None, *, config=None, data=None, tables=None):
             "assumptions": ["Independent observations; normality is a model check, not proof."],
         },
         artifacts=histogram.artifacts + qq.artifacts,
-        warnings=warnings,
+        warnings=warnings + histogram.warnings + qq.warnings,
     )
 
 

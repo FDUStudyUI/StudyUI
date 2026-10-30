@@ -49,6 +49,8 @@ class Flow:
         node = component_class(key)()
         node.set_id(f"{node.name}-{alias}")
         config = {"output_dir": "@asset:output", **(config or {})}
+        if key.startswith("viz.") or key == "stats.distribution":
+            config = {"profile": "paper", "data_kind": "synthetic", **config}
         data_node = self.nodes[upstream] if upstream else self.source
         inputs = {
             "config_json": encoded(config),
@@ -217,7 +219,12 @@ def spectra_flow():
     f.add(
         "overlay",
         "viz.spectra",
-        {"method": "overlay", "x": "x", "columns": ["raw_y", "normalized"]},
+        {
+            "method": "overlay",
+            "x": "x",
+            "columns": ["raw_y", "corrected"],
+            "title": "Raw and baseline-corrected spectrum",
+        },
         table="raman",
         upstream="raman",
     )
@@ -520,10 +527,21 @@ def read_artifact(path):
     raw = path.read_bytes()
     if not raw:
         raise ValueError(f"Empty artifact {path.name}")
-    if path.suffix == ".png":
+    if path.suffix in {".png", ".tiff"}:
         with Image.open(path) as image:
             image.load()
             assert min(image.size) > 0
+            if path.suffix == ".tiff":
+                assert min(image.info["dpi"]) >= 599
+    elif path.suffix == ".svg":
+        from xml.etree import ElementTree as ET
+
+        assert ET.parse(path).getroot().tag.endswith("svg")
+    elif path.suffix == ".pdf":
+        import fitz
+
+        with fitz.open(path) as document:
+            assert len(document) == 1 and document[0].rect.width > 0
     elif path.suffix == ".csv":
         assert len(pd.read_csv(path).columns)
     elif path.suffix == ".xlsx":

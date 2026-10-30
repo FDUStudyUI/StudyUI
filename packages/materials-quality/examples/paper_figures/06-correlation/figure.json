@@ -1,0 +1,110 @@
+{
+  "source": {
+    "table_sha256": "9e38eaa533dd883419753a50ce9b3c888c7739d7f5491fc77ddc9b4137e44858",
+    "rows": 24,
+    "columns": [
+      "observed",
+      "predicted",
+      "contrast",
+      "oscillation"
+    ]
+  },
+  "method": "correlation",
+  "plot_data": {
+    "columns": [
+      "observed",
+      "contrast",
+      "oscillation"
+    ],
+    "matrix": [
+      [
+        1.0,
+        -1.0,
+        -0.3569046742918106
+      ],
+      [
+        -1.0,
+        1.0,
+        0.3569046742918106
+      ],
+      [
+        -0.3569046742918106,
+        0.3569046742918106,
+        1.0
+      ]
+    ],
+    "method": "pearson"
+  },
+  "figure_contract": {
+    "backend": "python-matplotlib",
+    "profile": "paper",
+    "data_kind": "synthetic",
+    "evidence_role": "diagnostic",
+    "purpose": "Association, not causation",
+    "width_mm": 150.0,
+    "height_mm": 99.0,
+    "series_styles": {},
+    "statistical_definition": "",
+    "observations_displayed": null,
+    "font_families": [
+      "DejaVu Sans",
+      "Microsoft YaHei",
+      "SimHei"
+    ],
+    "minimum_text_points": 8,
+    "units": {
+      "observed": "MPa",
+      "predicted": "MPa",
+      "contrast": "MPa",
+      "oscillation": "dimensionless"
+    },
+    "layout_warnings": []
+  },
+  "figure_verification": [
+    {
+      "path": "figure.png",
+      "format": "png",
+      "sha256": "82474134c831beff2ae695619b4980e4bc74db368c8f4f21b9f065d4357e64d2",
+      "size": [
+        1771,
+        1169
+      ],
+      "dpi": [
+        299.9994,
+        299.9994
+      ]
+    },
+    {
+      "path": "figure.svg",
+      "format": "svg",
+      "sha256": "7083eb782c93d4cd07c3e4ee378874464d7db309c5da521da96a3c526044a550",
+      "editable_text_elements": 27
+    },
+    {
+      "path": "figure.pdf",
+      "format": "pdf",
+      "sha256": "b700a6274ac79429113998091234c9fedab3d035aa8270efbb1fe27cab0b62db",
+      "page_points": [
+        425.19683837890625,
+        280.6299133300781
+      ],
+      "text_characters": 239
+    },
+    {
+      "path": "figure.tiff",
+      "format": "tiff",
+      "sha256": "d6bfcf82124d5ffe154476d73152c7794e79be46f168fa9a75d264a3b5bba947",
+      "size": [
+        3543,
+        2338
+      ],
+      "dpi": [
+        "600.0",
+        "600.0"
+      ]
+    }
+  ],
+  "figure_previews": [
+    "figure.png"
+  ]
+}

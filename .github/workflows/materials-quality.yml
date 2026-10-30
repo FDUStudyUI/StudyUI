@@ -35,6 +35,8 @@ jobs:
       - run: python -m scripts.build_science_components
       - run: python -m scripts.build_requirements_matrix
       - run: python -m scripts.build_science_examples --verify
+      - run: python -m scripts.render_paper_gallery --output artifacts/paper-figures
+      - run: python -m scripts.qa_paper_gallery
       - run: python -m scripts.run_example examples/dirty_quality_flow.json --output artifacts/dirty_report.json
       - run: python -m scripts.run_example examples/mechanics/dirty_flow.json --output artifacts/mechanics_dirty.json
       - run: python -m scripts.run_example examples/mechanics/corrected_flow.json --output artifacts/mechanics_corrected.json
@@ -46,6 +48,8 @@ jobs:
           name: materials-quality-verification
           path: |
             packages/materials-quality/artifacts/*.json
+            packages/materials-quality/artifacts/paper-figures/
+            packages/materials-quality/artifacts/paper-qa/
             packages/materials-quality/dist/*.whl
   ui:
     runs-on: ubuntu-latest

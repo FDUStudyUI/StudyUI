@@ -877,7 +877,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "config_json",
-                "value": "{\"output_dir\":\"@asset:output\",\"method\":\"overlay\",\"x\":\"strain\",\"y\":\"stress\",\"sample\":\"specimen\",\"units\":{\"stress\":\"MPa\"}}",
+                "value": "{\"profile\":\"paper\",\"data_kind\":\"synthetic\",\"output_dir\":\"@asset:output\",\"method\":\"overlay\",\"x\":\"strain\",\"y\":\"stress\",\"sample\":\"specimen\",\"units\":{\"stress\":\"MPa\"}}",
                 "display_name": "方法与参数 JSON",
                 "advanced": false,
                 "api_editable": false,
@@ -1565,52 +1565,6 @@
     ],
     "edges": [
       {
-        "source": "ScienceMaterialsThermal-dsc",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceMaterialsThermal",
-            "id": "ScienceMaterialsThermal-dsc",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceMaterialsMechanics-mechanics",
-        "target": "ScienceVizMechanics-curve",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceMaterialsMechanics",
-            "id": "ScienceMaterialsMechanics-mechanics",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceVizMechanics-curve",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
         "source": "ScienceFixtureBundle-05-mechanics-thermal",
         "target": "ScienceIoTableImport-heat",
         "data": {
@@ -1657,19 +1611,19 @@
         }
       },
       {
-        "source": "ScienceFixtureBundle-05-mechanics-thermal",
+        "source": "ScienceMaterialsMechanics-mechanics",
         "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-05-mechanics-thermal",
-            "name": "data",
+            "dataType": "ScienceMaterialsMechanics",
+            "id": "ScienceMaterialsMechanics-mechanics",
+            "name": "report",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_data",
+            "fieldName": "reports",
             "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
@@ -1720,6 +1674,75 @@
             "inputTypes": [
               "DataFrame",
               "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoTableImport-heat",
+        "target": "ScienceMaterialsThermal-dsc",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoTableImport",
+            "id": "ScienceIoTableImport-heat",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceMaterialsThermal-dsc",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-05-mechanics-thermal",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-05-mechanics-thermal",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceMaterialsMechanics-mechanics",
+        "target": "ScienceVizMechanics-curve",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceMaterialsMechanics",
+            "id": "ScienceMaterialsMechanics-mechanics",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceVizMechanics-curve",
+            "inputTypes": [
+              "Data",
+              "JSON"
             ],
             "type": "other"
           }
@@ -1772,69 +1795,46 @@
         }
       },
       {
-        "source": "ScienceMaterialsMechanics-mechanics",
+        "source": "ScienceMaterialsThermal-dsc",
         "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceMaterialsMechanics",
-            "id": "ScienceMaterialsMechanics-mechanics",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoTableImport-heat",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoTableImport",
-            "id": "ScienceIoTableImport-heat",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoTableImport-heat",
-        "target": "ScienceMaterialsThermal-dsc",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoTableImport",
-            "id": "ScienceIoTableImport-heat",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
+            "dataType": "ScienceMaterialsThermal",
             "id": "ScienceMaterialsThermal-dsc",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
             "inputTypes": [
-              "DataFrame",
-              "Table"
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoTableImport-heat",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoTableImport",
+            "id": "ScienceIoTableImport-heat",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
             ],
             "type": "other"
           }

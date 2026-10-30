@@ -1854,75 +1854,6 @@
     ],
     "edges": [
       {
-        "source": "ScienceIoTextImport-fixed",
-        "target": "ScienceExtractConvertFile-convert",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoTextImport",
-            "id": "ScienceIoTextImport-fixed",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceExtractConvertFile-convert",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceExtractPdfTables-grid",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceExtractPdfTables",
-            "id": "ScienceExtractPdfTables-grid",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceExtractConvertFile-convert",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceExtractConvertFile",
-            "id": "ScienceExtractConvertFile-convert",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
         "source": "ScienceFixtureBundle-02-documents",
         "target": "ScienceExportReport-report",
         "data": {
@@ -1937,6 +1868,29 @@
           "targetHandle": {
             "fieldName": "input_data",
             "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-02-documents",
+        "target": "ScienceIoTextImport-fixed",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-02-documents",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceIoTextImport-fixed",
             "inputTypes": [
               "Data",
               "JSON"
@@ -1969,29 +1923,6 @@
         }
       },
       {
-        "source": "ScienceExtractPdfText-text",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceExtractPdfText",
-            "id": "ScienceExtractPdfText-text",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
         "source": "ScienceFixtureBundle-02-documents",
         "target": "ScienceIoPdfImport-pdf",
         "data": {
@@ -2006,29 +1937,6 @@
           "targetHandle": {
             "fieldName": "input_data",
             "id": "ScienceIoPdfImport-pdf",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoPdfImport-pdf",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoPdfImport",
-            "id": "ScienceIoPdfImport-pdf",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2107,20 +2015,112 @@
         }
       },
       {
-        "source": "ScienceFixtureBundle-02-documents",
-        "target": "ScienceIoTextImport-fixed",
+        "source": "ScienceExtractPdfText-text",
+        "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-02-documents",
-            "name": "data",
+            "dataType": "ScienceExtractPdfText",
+            "id": "ScienceExtractPdfText-text",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExtractPdfTables-grid",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceExtractPdfTables",
+            "id": "ScienceExtractPdfTables-grid",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoTextImport-fixed",
+        "target": "ScienceExtractConvertFile-convert",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoTextImport",
+            "id": "ScienceIoTextImport-fixed",
+            "name": "report",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
             "fieldName": "input_data",
-            "id": "ScienceIoTextImport-fixed",
+            "id": "ScienceExtractConvertFile-convert",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExtractConvertFile-convert",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceExtractConvertFile",
+            "id": "ScienceExtractConvertFile-convert",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoPdfImport-pdf",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoPdfImport",
+            "id": "ScienceIoPdfImport-pdf",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
               "JSON"

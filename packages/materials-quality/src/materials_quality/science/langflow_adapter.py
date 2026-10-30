@@ -281,7 +281,7 @@ def execute(component, key):
             "figures": [
                 {"path": p, "caption": e.get("operation", "Figure")}
                 for e in reports
-                for p in e.get("artifacts", [])
+                for p in e.get("data", {}).get("figure_previews", e.get("artifacts", []))
                 if Path(p).suffix.lower() in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
             ],
         }

@@ -27,7 +27,7 @@ def run(output_dir):
     records, figures = [], []
 
     def invoke(name, method, table, config=None, data=None):
-        config = {**(config or {}), "output_dir": str(output / f"{name}-{method}")}
+        config = {"data_kind": "synthetic", **(config or {}), "output_dir": str(output / f"{name}-{method}")}
         result = getattr(nodes, name)(table, config=config, data=data)
         records.append(
             {

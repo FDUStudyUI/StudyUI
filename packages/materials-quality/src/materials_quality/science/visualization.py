@@ -10,24 +10,15 @@ import matplotlib
 matplotlib.use("Agg")
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
-from PIL import Image
 
 from materials_quality.common import numeric
+from materials_quality.units import _unit
 
 from .contracts import NodeResult, artifact_path, numeric_matrix, require_table
-
-_COLORS = ["#236B8E", "#C8543D", "#548B55", "#8064A2", "#BD8B26", "#398D96"]
-
-
-def _figure(c):
-    width, height = c.get("figsize", [7, 4.6])
-    if not 2 <= float(width) <= 30 or not 2 <= float(height) <= 30:
-        raise ValueError("figure size must be between 2 and 30 inches per dimension")
-    fig, ax = plt.subplots(figsize=(width, height), layout="constrained")
-    ax.spines[["top", "right"]].set_visible(False)
-    ax.grid(axis="y", alpha=0.16)
-    return fig, ax
+from .plot_style import PALETTE as _COLORS
+from .plot_style import figure as _figure
+from .plot_style import finish as _finish
+from .plot_style import legend, plot_operation, styled_series
 
 
 def _safe(value):
@@ -41,47 +32,6 @@ def _safe(value):
     return json.loads(json.dumps(value, default=fallback, allow_nan=False))
 
 
-def _finish(fig, c, name, payload):
-    formats = c.get("formats", ["png"])
-    if not isinstance(formats, list) or not formats or set(formats) - {"png", "svg", "pdf"}:
-        plt.close(fig)
-        raise ValueError("formats must be a nonempty list of png/svg/pdf")
-    # Always retain a raster preview to inspect exports consistently.
-    formats = ["png"] + [f for f in formats if f != "png"]
-    paths, verified = [], []
-    directory = c.get("output_dir")
-    try:
-        for fmt in formats:
-            path = artifact_path({**c, **({"output_dir": directory} if directory else {})}, f"{name}.{fmt}")
-            directory = str(path.parent)
-            fig.savefig(path, dpi=int(c.get("dpi", 150)), format=fmt, facecolor="white")
-            if fmt == "png":
-                with Image.open(path) as image:
-                    image.load()
-                    arr = np.asarray(image.convert("RGB"))
-                    if min(image.size) < 100 or float(arr.std()) < 1:
-                        raise ValueError("exported figure is empty or unreadable")
-                    verified.append(
-                        {
-                            "path": str(path),
-                            "size": list(image.size),
-                            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                        }
-                    )
-            elif fmt == "svg":
-                import xml.etree.ElementTree as ET
-
-                if not ET.parse(path).getroot().tag.endswith("svg"):
-                    raise ValueError("invalid SVG export")
-            elif not path.read_bytes().startswith(b"%PDF"):
-                raise ValueError("invalid PDF export")
-            paths.append(str(path))
-    finally:
-        plt.close(fig)
-    payload = _safe({**payload, "figure_verification": verified})
-    return NodeResult(data=payload, artifacts=paths)
-
-
 def _method(c, methods, default):
     method = c.get("method", default)
     if method not in methods:
@@ -91,7 +41,8 @@ def _method(c, methods, default):
 
 def _label(column, c):
     unit = c.get("units", {}).get(column)
-    return f"{column} ({unit})" if unit else str(column)
+    label = c.get("labels", {}).get(column, column)
+    return f"{label} ({unit})" if unit else str(label)
 
 
 def _grouped(frame, c):
@@ -104,6 +55,7 @@ def _grouped(frame, c):
     return [("all", frame)]
 
 
+@plot_operation
 def performance(table=None, *, config=None, data=None, tables=None):
     c = config or {}
     method = _method(c, {"scatter", "bar", "box", "violin"}, "scatter")
@@ -118,34 +70,80 @@ def performance(table=None, *, config=None, data=None, tables=None):
     fig, ax = _figure(c)
     group_data = []
     for i, (label, block) in enumerate(blocks):
+        style = styled_series(label, c)
         values = block[y].to_numpy(float)
         record = {"label": label, "n": len(block), "y": values.tolist(), "mean": float(values.mean())}
         if method == "scatter":
             xx = block[x].to_numpy(float)
-            ax.scatter(xx, values, s=30, alpha=0.8, label=label, color=_COLORS[i % len(_COLORS)])
+            ax.scatter(
+                xx,
+                values,
+                s=30,
+                alpha=0.85,
+                label=label,
+                color=style["color"],
+                marker=style["marker"],
+                edgecolors="white",
+                linewidths=0.4,
+                rasterized=len(values) > 2000,
+                zorder=3,
+            )
             record["x"] = xx.tolist()
         elif method == "bar":
             # Error bars express observed sample spread, never significance.
             error = float(values.std(ddof=1)) if len(values) > 1 else 0.0
-            ax.bar(i, values.mean(), yerr=error, capsize=4, color=_COLORS[i % len(_COLORS)], alpha=0.85)
+            ax.bar(
+                i,
+                values.mean(),
+                yerr=error,
+                capsize=4,
+                color=style["color"],
+                alpha=0.4,
+                edgecolor=style["color"],
+                error_kw={"ecolor": "#243746", "linewidth": 1.1},
+            )
             record["error"] = error
         group_data.append(record)
     if method == "box":
-        ax.boxplot(
+        boxes = ax.boxplot(
             [b[y].to_numpy(float) for _, b in blocks],
             tick_labels=[label for label, _ in blocks],
             patch_artist=True,
-            boxprops={"facecolor": "#C7DEE9"},
+            showfliers=False,
+            medianprops={"color": "#243746", "linewidth": 1.5},
         )
+        for box, (label, _) in zip(boxes["boxes"], blocks, strict=True):
+            box.set(facecolor=styled_series(label, c)["color"], alpha=0.3)
     elif method == "violin":
         parts = ax.violinplot([b[y].to_numpy(float) for _, b in blocks], showmeans=True, showextrema=True)
-        for body in parts["bodies"]:
-            body.set_facecolor(_COLORS[0])
+        for body, (label, _) in zip(parts["bodies"], blocks, strict=True):
+            body.set_facecolor(styled_series(label, c)["color"])
+            body.set_alpha(0.25)
         ax.set_xticks(np.arange(1, len(blocks) + 1), [label for label, _ in blocks])
     elif method == "bar":
         ax.set_xticks(np.arange(len(blocks)), [label for label, _ in blocks])
+    if method in {"bar", "box", "violin"}:
+        offset = 0 if method == "bar" else 1
+        for i, (label, block) in enumerate(blocks):
+            values = block[y].to_numpy(float)
+            style = styled_series(label, c)
+            ax.scatter(
+                i + offset + np.linspace(-0.12, 0.12, len(values)),
+                values,
+                s=16,
+                color=style["color"],
+                marker=style["marker"],
+                alpha=0.8,
+                edgecolors="white",
+                linewidths=0.3,
+                zorder=4,
+                rasterized=len(values) > 2000,
+            )
+        ax.set_xticks(
+            np.arange(len(blocks)) + offset, [f"{label}\n(n={len(block)})" for label, block in blocks]
+        )
     if c.get("group") and method == "scatter":
-        ax.legend(frameon=False)
+        legend(ax)
     labels = {"x": _label(x, c) if method == "scatter" else str(c.get("group", "Group")), "y": _label(y, c)}
     ax.set(xlabel=labels["x"], ylabel=labels["y"], title=str(c.get("title", "Performance comparison")))
     result = _finish(
@@ -157,10 +155,19 @@ def performance(table=None, *, config=None, data=None, tables=None):
             "labels": labels,
             "plot_data": {"groups": group_data},
             "error_definition": "sample standard deviation" if method == "bar" else None,
+            "observations_displayed": len(frame),
+            "statistical_definition": {
+                "bar": "Mean ± sample SD; dots: all observations",
+                "box": "Median; box: Q1–Q3; whiskers: 1.5×IQR; dots: all observations",
+                "violin": "Gaussian KDE and mean; dots: all observations",
+                "scatter": "All supplied observations",
+            }[method],
         },
     )
     if method == "bar" and any(len(b) == 1 for _, b in blocks):
         result.warnings.append("Singleton groups have no estimated uncertainty; displayed error is zero.")
+    if method == "violin" and any(len(b) < 5 for _, b in blocks):
+        result.warnings.append("Small-sample KDE is exploratory; inspect all overlaid observations.")
     return result
 
 
@@ -174,6 +181,7 @@ def _ordered_curve(block, x, y):
     return matrix[:, 0], matrix[:, 1]
 
 
+@plot_operation
 def spectra(table=None, *, config=None, data=None, tables=None):
     c = config or {}
     method = _method(c, {"line", "overlay", "difference"}, "overlay")
@@ -209,9 +217,23 @@ def spectra(table=None, *, config=None, data=None, tables=None):
                     "display_offset": offset,
                 }
             )
-    for i, curve in enumerate(curves):
-        ax.plot(curve["x"], curve["y"], label=curve["label"], color=_COLORS[i % len(_COLORS)])
+    for curve in curves:
+        style = styled_series(curve["label"], c)
+        ax.plot(
+            curve["x"],
+            curve["y"],
+            label=curve["label"],
+            color=style["color"],
+            linestyle=style["linestyle"],
+            marker=style["marker"],
+            markevery=max(1, len(curve["x"]) // 14),
+            markersize=3,
+        )
     peaks = c.get("peaks", [])
+    if peaks:
+        ax.margins(y=0.18)
+        if all(min(curve["y"]) >= 0 for curve in curves):
+            ax.set_ylim(bottom=0)
     for peak in peaks:
         if not isinstance(peak, dict) or "x" not in peak or not np.isfinite(float(peak["x"])):
             raise ValueError("peaks must contain finite x and optional label")
@@ -229,7 +251,7 @@ def spectra(table=None, *, config=None, data=None, tables=None):
         )
     labels = {"x": _label(x, c), "y": c.get("y_label", "Intensity")}
     ax.set(xlabel=labels["x"], ylabel=labels["y"], title=str(c.get("title", "Spectrum / diffraction")))
-    ax.legend(frameon=False)
+    legend(ax)
     return _finish(
         fig,
         c,
@@ -238,6 +260,7 @@ def spectra(table=None, *, config=None, data=None, tables=None):
     )
 
 
+@plot_operation
 def mechanics(table=None, *, config=None, data=None, tables=None):
     c = config or {}
     method = _method(c, {"overlay", "mean_error"}, "overlay")
@@ -255,13 +278,22 @@ def mechanics(table=None, *, config=None, data=None, tables=None):
         raise ValueError("error must be std, sem or ci95")
     from scipy import stats
 
-    for gi, (label, block) in enumerate(_grouped(frame, c)):
+    for label, block in _grouped(frame, c):
         specimen_curves = [
             (str(s), *_ordered_curve(b, x, y)) for s, b in block.groupby(sample, sort=False, observed=True)
         ]
         if method == "overlay":
             for specimen, xx, yy in specimen_curves:
-                ax.plot(xx, yy, label=f"{label}: {specimen}", alpha=0.8, color=_COLORS[gi % len(_COLORS)])
+                identity = label if c.get("group") else specimen
+                style = styled_series(identity, c)
+                ax.plot(
+                    xx,
+                    yy,
+                    label=f"{label}: {specimen}" if c.get("group") else specimen,
+                    alpha=0.8,
+                    color=style["color"],
+                    linestyle=style["linestyle"],
+                )
                 curves.append({"label": label, "sample": specimen, "x": xx.tolist(), "y": yy.tolist()})
         else:
             if len(specimen_curves) < 2:
@@ -295,8 +327,18 @@ def mechanics(table=None, *, config=None, data=None, tables=None):
                 error /= np.sqrt(len(matrix))
             if error_type == "ci95":
                 error *= stats.t.ppf(0.975, len(matrix) - 1)
-            color = _COLORS[gi % len(_COLORS)]
-            ax.plot(xx, mean, label=label, color=color)
+            style = styled_series(label, c)
+            color = style["color"]
+            ax.plot(
+                xx,
+                mean,
+                label=f"{label} (n={len(matrix)} specimens)",
+                color=color,
+                linestyle=style["linestyle"],
+                marker=style["marker"],
+                markevery=max(1, len(xx) // 14),
+                markersize=3,
+            )
             ax.fill_between(xx, mean - error, mean + error, alpha=0.18, color=color)
             curves.append(
                 {
@@ -311,7 +353,7 @@ def mechanics(table=None, *, config=None, data=None, tables=None):
             )
     labels = {"x": _label(x, c), "y": _label(y, c)}
     ax.set(xlabel=labels["x"], ylabel=labels["y"], title=str(c.get("title", "Stress–strain response")))
-    ax.legend(frameon=False)
+    legend(ax)
     return _finish(
         fig,
         c,
@@ -320,11 +362,21 @@ def mechanics(table=None, *, config=None, data=None, tables=None):
             "method": method,
             "labels": labels,
             "error_definition": error_type if method == "mean_error" else None,
+            "statistical_definition": (
+                {
+                    "std": "Mean ± sample SD across specimen curves",
+                    "sem": "Mean ± SEM across specimen curves",
+                    "ci95": "Mean and pointwise 95% Student t CI across specimen curves",
+                }[error_type]
+                if method == "mean_error"
+                else "Individual specimen curves"
+            ),
             "plot_data": {"curves": curves},
         },
     )
 
 
+@plot_operation
 def statistics_plot(table=None, *, config=None, data=None, tables=None):
     c = config or {}
     method = _method(c, {"histogram", "correlation", "residual", "prediction"}, "histogram")
@@ -334,6 +386,10 @@ def statistics_plot(table=None, *, config=None, data=None, tables=None):
         col = c.get("column")
         values = numeric_matrix(frame, [col])[:, 0]
         count, edges, _ = ax.hist(values, bins=c.get("bins", "auto"), color=_COLORS[0], edgecolor="white")
+        if int(count.sum()) != len(values):
+            raise ValueError(
+                "histogram bins must cover all observations; filter the table upstream to restrict range"
+            )
         payload = {"count": count.astype(int).tolist(), "edges": edges.tolist(), "values": values.tolist()}
         ax.set(xlabel=_label(col, c), ylabel="Count")
     elif method == "correlation":
@@ -346,7 +402,11 @@ def statistics_plot(table=None, *, config=None, data=None, tables=None):
             raise ValueError("correlation_method must be pearson, spearman, or kendall")
         matrix = pd.DataFrame(values, columns=columns).corr(method=corr_method).to_numpy()
         image = ax.imshow(matrix, vmin=-1, vmax=1, cmap="RdBu_r")
-        fig.colorbar(image, ax=ax, label=f"{corr_method} correlation")
+        fig.colorbar(
+            image,
+            ax=ax,
+            label={"pearson": "Pearson r", "spearman": "Spearman ρ", "kendall": "Kendall τ"}[corr_method],
+        )
         ax.set_xticks(range(len(columns)), columns, rotation=30)
         ax.set_yticks(range(len(columns)), columns)
         ax.grid(False)
@@ -363,12 +423,23 @@ def statistics_plot(table=None, *, config=None, data=None, tables=None):
         payload = {"columns": columns, "matrix": matrix.tolist(), "method": corr_method}
     else:
         true_col, pred_col = c.get("y_true", "y_true"), c.get("y_pred", "y_pred")
+        unit_true, unit_pred = c.get("units", {}).get(true_col), c.get("units", {}).get(pred_col)
+        if (unit_true is None) != (unit_pred is None) or (
+            unit_true is not None and unit_true != unit_pred and _unit(unit_true) != _unit(unit_pred)
+        ):
+            raise ValueError(
+                "declare matching units for observed and predicted values; convert units upstream"
+            )
         observed, predicted = numeric_matrix(frame, [true_col, pred_col]).T
         if method == "residual":
             residual = observed - predicted
             ax.scatter(predicted, residual, color=_COLORS[0], s=28)
-            ax.axhline(0, color=_COLORS[1], lw=1)
-            ax.set(xlabel="Predicted", ylabel="Residual (observed − predicted)")
+            ax.axhline(0, color="#52606D", lw=1, linestyle="--")
+            unit = c.get("units", {}).get(true_col)
+            ax.set(
+                xlabel="Predicted" + (f" ({unit})" if unit else ""),
+                ylabel="Residual: observed − predicted" + (f" ({unit})" if unit else ""),
+            )
             payload = {
                 "y_true": observed.tolist(),
                 "y_pred": predicted.tolist(),
@@ -377,8 +448,13 @@ def statistics_plot(table=None, *, config=None, data=None, tables=None):
         else:
             ax.scatter(observed, predicted, color=_COLORS[0], s=28)
             low, high = min(observed.min(), predicted.min()), max(observed.max(), predicted.max())
-            ax.plot([low, high], [low, high], "--", color=_COLORS[1], lw=1)
-            ax.set(xlabel="Observed", ylabel="Predicted")
+            ax.plot([low, high], [low, high], "--", color="#52606D", lw=1, label="Identity")
+            unit = c.get("units", {}).get(true_col)
+            ax.set(
+                xlabel="Observed" + (f" ({unit})" if unit else ""),
+                ylabel="Predicted" + (f" ({unit})" if unit else ""),
+            )
+            ax.set_aspect("equal", adjustable="box")
             payload = {"y_true": observed.tolist(), "y_pred": predicted.tolist()}
     ax.set_title(str(c.get("title", method.replace("_", " ").title())))
     return _finish(fig, c, f"statistics-{method}", {"method": method, "plot_data": payload})

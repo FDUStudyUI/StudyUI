@@ -877,7 +877,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "config_json",
-                "value": "{\"output_dir\":\"@asset:output\",\"column\":\"value\"}",
+                "value": "{\"profile\":\"paper\",\"data_kind\":\"synthetic\",\"output_dir\":\"@asset:output\",\"column\":\"value\"}",
                 "display_name": "方法与参数 JSON",
                 "advanced": false,
                 "api_editable": false,
@@ -2033,7 +2033,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "config_json",
-                "value": "{\"output_dir\":\"@asset:output\",\"method\":\"box\",\"group\":\"group\",\"x\":\"x\",\"y\":\"value\"}",
+                "value": "{\"profile\":\"paper\",\"data_kind\":\"synthetic\",\"output_dir\":\"@asset:output\",\"method\":\"box\",\"group\":\"group\",\"x\":\"x\",\"y\":\"value\"}",
                 "display_name": "方法与参数 JSON",
                 "advanced": false,
                 "api_editable": false,
@@ -2144,126 +2144,34 @@
     "edges": [
       {
         "source": "ScienceFixtureBundle-07-statistics",
-        "target": "ScienceStatsCorrelation-correlation",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-07-statistics",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "ScienceStatsCorrelation-correlation",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceStatsSignificance-anova",
-        "target": "ScienceStatsMultiple-tukey",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceStatsSignificance",
-            "id": "ScienceStatsSignificance-anova",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceStatsMultiple-tukey",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceStatsMultiple-tukey",
-        "target": "ScienceVizPerformance-box",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceStatsMultiple",
-            "id": "ScienceStatsMultiple-tukey",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceVizPerformance-box",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceFixtureBundle-07-statistics",
-        "target": "ScienceStatsSignificance-anova",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-07-statistics",
-            "name": "data",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceStatsSignificance-anova",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceStatsSignificance-anova",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceStatsSignificance",
-            "id": "ScienceStatsSignificance-anova",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceFixtureBundle-07-statistics",
         "target": "ScienceStatsDistribution-distribution",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceFixtureBundle",
             "id": "ScienceFixtureBundle-07-statistics",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceStatsDistribution-distribution",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-07-statistics",
+        "target": "ScienceStatsCorrelation-correlation",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-07-statistics",
             "name": "data",
             "output_types": [
               "JSON"
@@ -2271,7 +2179,7 @@
           },
           "targetHandle": {
             "fieldName": "input_data",
-            "id": "ScienceStatsDistribution-distribution",
+            "id": "ScienceStatsCorrelation-correlation",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2282,41 +2190,18 @@
       },
       {
         "source": "ScienceFixtureBundle-07-statistics",
-        "target": "ScienceStatsMultiple-tukey",
+        "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceFixtureBundle",
             "id": "ScienceFixtureBundle-07-statistics",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "ScienceStatsMultiple-tukey",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceStatsCorrelation-correlation",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceStatsCorrelation",
-            "id": "ScienceStatsCorrelation-correlation",
-            "name": "report",
+            "name": "data",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "reports",
+            "fieldName": "input_data",
             "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
@@ -2350,19 +2235,88 @@
         }
       },
       {
-        "source": "ScienceFixtureBundle-07-statistics",
-        "target": "ScienceExportReport-report",
+        "source": "ScienceStatsGrouped-grouped",
+        "target": "ScienceVizPerformance-box",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-07-statistics",
-            "name": "data",
+            "dataType": "ScienceStatsGrouped",
+            "id": "ScienceStatsGrouped-grouped",
+            "name": "report",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_data",
+            "fieldName": "reports",
+            "id": "ScienceVizPerformance-box",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-07-statistics",
+        "target": "ScienceStatsMultiple-tukey",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-07-statistics",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceStatsMultiple-tukey",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceStatsDistribution-distribution",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceStatsDistribution",
+            "id": "ScienceStatsDistribution-distribution",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceStatsGrouped-grouped",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceStatsGrouped",
+            "id": "ScienceStatsGrouped-grouped",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
             "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
@@ -2402,17 +2356,40 @@
           "sourceHandle": {
             "dataType": "ScienceFixtureBundle",
             "id": "ScienceFixtureBundle-07-statistics",
-            "name": "table",
+            "name": "data",
             "output_types": [
-              "Table"
+              "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_table",
+            "fieldName": "input_data",
             "id": "ScienceStatsDistribution-distribution",
             "inputTypes": [
-              "DataFrame",
-              "Table"
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceStatsSignificance-anova",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceStatsSignificance",
+            "id": "ScienceStatsSignificance-anova",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
             ],
             "type": "other"
           }
@@ -2443,7 +2420,7 @@
       },
       {
         "source": "ScienceFixtureBundle-07-statistics",
-        "target": "ScienceVizPerformance-box",
+        "target": "ScienceStatsGrouped-grouped",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceFixtureBundle",
@@ -2455,53 +2432,7 @@
           },
           "targetHandle": {
             "fieldName": "input_data",
-            "id": "ScienceVizPerformance-box",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceStatsGrouped-grouped",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceStatsGrouped",
             "id": "ScienceStatsGrouped-grouped",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceStatsGrouped-grouped",
-        "target": "ScienceVizPerformance-box",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceStatsGrouped",
-            "id": "ScienceStatsGrouped-grouped",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceVizPerformance-box",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2535,7 +2466,7 @@
       },
       {
         "source": "ScienceFixtureBundle-07-statistics",
-        "target": "ScienceStatsGrouped-grouped",
+        "target": "ScienceVizPerformance-box",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceFixtureBundle",
@@ -2547,30 +2478,7 @@
           },
           "targetHandle": {
             "fieldName": "input_data",
-            "id": "ScienceStatsGrouped-grouped",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceStatsDistribution-distribution",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceStatsDistribution",
-            "id": "ScienceStatsDistribution-distribution",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
+            "id": "ScienceVizPerformance-box",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2581,7 +2489,7 @@
       },
       {
         "source": "ScienceFixtureBundle-07-statistics",
-        "target": "ScienceStatsCorrelation-correlation",
+        "target": "ScienceStatsSignificance-anova",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceFixtureBundle",
@@ -2593,7 +2501,30 @@
           },
           "targetHandle": {
             "fieldName": "input_data",
-            "id": "ScienceStatsCorrelation-correlation",
+            "id": "ScienceStatsSignificance-anova",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceStatsSignificance-anova",
+        "target": "ScienceStatsMultiple-tukey",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceStatsSignificance",
+            "id": "ScienceStatsSignificance-anova",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceStatsMultiple-tukey",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2617,6 +2548,75 @@
           "targetHandle": {
             "fieldName": "input_table",
             "id": "ScienceStatsSignificance-anova",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceStatsMultiple-tukey",
+        "target": "ScienceVizPerformance-box",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceStatsMultiple",
+            "id": "ScienceStatsMultiple-tukey",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceVizPerformance-box",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceStatsCorrelation-correlation",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceStatsCorrelation",
+            "id": "ScienceStatsCorrelation-correlation",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-07-statistics",
+        "target": "ScienceStatsCorrelation-correlation",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-07-statistics",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceStatsCorrelation-correlation",
             "inputTypes": [
               "DataFrame",
               "Table"

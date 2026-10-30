@@ -1,0 +1,135 @@
+{
+  "source": {
+    "table_sha256": "08f476e46658f5435c0226c575ff74a6edfe0f0d4b054f8d2142d3b53c7264d0",
+    "rows": 24,
+    "columns": [
+      "observed",
+      "predicted"
+    ]
+  },
+  "method": "prediction",
+  "plot_data": {
+    "y_true": [
+      40.0,
+      44.78260869565217,
+      49.565217391304344,
+      54.34782608695652,
+      59.130434782608695,
+      63.91304347826087,
+      68.69565217391305,
+      73.47826086956522,
+      78.26086956521739,
+      83.04347826086956,
+      87.82608695652173,
+      92.6086956521739,
+      97.3913043478261,
+      102.17391304347825,
+      106.95652173913044,
+      111.73913043478261,
+      116.52173913043478,
+      121.30434782608695,
+      126.08695652173913,
+      130.8695652173913,
+      135.65217391304347,
+      140.43478260869566,
+      145.2173913043478,
+      150.0
+    ],
+    "y_pred": [
+      44.54911456470562,
+      49.57197506985807,
+      54.505547019193294,
+      59.34701599221188,
+      64.09528465186534,
+      68.75099320230211,
+      73.31650745348828,
+      77.7958747152155,
+      82.1947483427679,
+      86.52028234094901,
+      90.78099799137506,
+      94.98662498951269,
+      99.1479200531569,
+      103.27646638404603,
+      107.3844577212682,
+      111.48447101236862,
+      115.58923194027022,
+      119.71137767730805,
+      123.86322128937387,
+      128.05652218240428,
+      132.30226687079733,
+      136.61046415491057,
+      140.98995852616306,
+      145.4482652784461
+    ]
+  },
+  "figure_contract": {
+    "backend": "python-matplotlib",
+    "profile": "paper",
+    "data_kind": "synthetic",
+    "evidence_role": "diagnostic",
+    "purpose": "Visualize supplied pairs; this plot does not establish a held-out test split.",
+    "width_mm": 150.0,
+    "height_mm": 99.0,
+    "series_styles": {},
+    "statistical_definition": "",
+    "observations_displayed": null,
+    "font_families": [
+      "DejaVu Sans",
+      "Microsoft YaHei",
+      "SimHei"
+    ],
+    "minimum_text_points": 8,
+    "units": {
+      "observed": "MPa",
+      "predicted": "MPa"
+    },
+    "layout_warnings": []
+  },
+  "figure_verification": [
+    {
+      "path": "figure.png",
+      "format": "png",
+      "sha256": "533c73b0e1defb6a06927e25ba9f163d84684655713fd800d0b21a0d380064ae",
+      "size": [
+        1771,
+        1169
+      ],
+      "dpi": [
+        299.9994,
+        299.9994
+      ]
+    },
+    {
+      "path": "figure.svg",
+      "format": "svg",
+      "sha256": "ba083d867d8242f6a70ab5cf2a68ff52071a00d1b9753f71a402ebab99639e6e",
+      "editable_text_elements": 16
+    },
+    {
+      "path": "figure.pdf",
+      "format": "pdf",
+      "sha256": "b6cf2bd0ca6cf93c3761b97aaae2881b1a4f93f28edfff3e557df5ac06baa510",
+      "page_points": [
+        425.19683837890625,
+        280.6299133300781
+      ],
+      "text_characters": 143
+    },
+    {
+      "path": "figure.tiff",
+      "format": "tiff",
+      "sha256": "5a83aae3e85bb8ce50d45346601d69fea46e76fbe78c015f8a34e170b5a46d97",
+      "size": [
+        3543,
+        2338
+      ],
+      "dpi": [
+        "600.0",
+        "600.0"
+      ]
+    }
+  ],
+  "figure_previews": [
+    "figure.png"
+  ]
+}

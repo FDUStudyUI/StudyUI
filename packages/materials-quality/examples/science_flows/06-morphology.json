@@ -1565,20 +1565,43 @@
     ],
     "edges": [
       {
-        "source": "ScienceFixtureBundle-06-morphology",
-        "target": "ScienceMaterialsSemEds-eds",
+        "source": "ScienceMaterialsMicrostructure-pores",
+        "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-06-morphology",
-            "name": "data",
+            "dataType": "ScienceMaterialsMicrostructure",
+            "id": "ScienceMaterialsMicrostructure-pores",
+            "name": "report",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceMaterialsSemEds-eds",
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoImageImport-image",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoImageImport",
+            "id": "ScienceIoImageImport-image",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
               "JSON"
@@ -1634,12 +1657,58 @@
         }
       },
       {
-        "source": "ScienceMaterialsMicrostructure-pores",
+        "source": "ScienceIoImageImport-image",
+        "target": "ScienceMaterialsMicrostructure-pores",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoImageImport",
+            "id": "ScienceIoImageImport-image",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceMaterialsMicrostructure-pores",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-06-morphology",
+        "target": "ScienceMaterialsSemEds-eds",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-06-morphology",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceMaterialsSemEds-eds",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExportTable-areas",
         "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceMaterialsMicrostructure",
-            "id": "ScienceMaterialsMicrostructure-pores",
+            "dataType": "ScienceExportTable",
+            "id": "ScienceExportTable-areas",
             "name": "report",
             "output_types": [
               "JSON"
@@ -1680,29 +1749,6 @@
         }
       },
       {
-        "source": "ScienceExportTable-areas",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceExportTable",
-            "id": "ScienceExportTable-areas",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
         "source": "ScienceFixtureBundle-06-morphology",
         "target": "ScienceExportReport-report",
         "data": {
@@ -1717,52 +1763,6 @@
           "targetHandle": {
             "fieldName": "input_data",
             "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoImageImport-image",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoImageImport",
-            "id": "ScienceIoImageImport-image",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoImageImport-image",
-        "target": "ScienceMaterialsMicrostructure-pores",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoImageImport",
-            "id": "ScienceIoImageImport-image",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceMaterialsMicrostructure-pores",
             "inputTypes": [
               "Data",
               "JSON"

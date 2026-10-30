@@ -3010,54 +3010,8 @@
     ],
     "edges": [
       {
-        "source": "SciencePreprocessMissing-fill",
-        "target": "SciencePreprocessUnits-units",
-        "data": {
-          "sourceHandle": {
-            "dataType": "SciencePreprocessMissing",
-            "id": "SciencePreprocessMissing-fill",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "SciencePreprocessUnits-units",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "SciencePreprocessUnits-units",
-        "target": "SciencePreprocessFilter-select",
-        "data": {
-          "sourceHandle": {
-            "dataType": "SciencePreprocessUnits",
-            "id": "SciencePreprocessUnits-units",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "SciencePreprocessFilter-select",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
         "source": "ScienceFixtureBundle-01-tables",
-        "target": "ScienceIoTableImport-csv",
+        "target": "SciencePreprocessMerge-join",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceFixtureBundle",
@@ -3069,7 +3023,30 @@
           },
           "targetHandle": {
             "fieldName": "input_data",
-            "id": "ScienceIoTableImport-csv",
+            "id": "SciencePreprocessMerge-join",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoDatabaseImport-sql",
+        "target": "SciencePreprocessMerge-join",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoDatabaseImport",
+            "id": "ScienceIoDatabaseImport-sql",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "SciencePreprocessMerge-join",
             "inputTypes": [
               "Data",
               "JSON"
@@ -3085,84 +3062,15 @@
           "sourceHandle": {
             "dataType": "SciencePreprocessUnits",
             "id": "SciencePreprocessUnits-units",
-            "name": "report",
+            "name": "table",
             "output_types": [
-              "JSON"
+              "Table"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_data",
+            "fieldName": "input_table",
             "id": "SciencePreprocessFilter-select",
             "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoTableImport-csv",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoTableImport",
-            "id": "ScienceIoTableImport-csv",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "SciencePreprocessMerge-join",
-        "target": "SciencePreprocessNormalize-scale",
-        "data": {
-          "sourceHandle": {
-            "dataType": "SciencePreprocessMerge",
-            "id": "SciencePreprocessMerge-join",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "SciencePreprocessNormalize-scale",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "SciencePreprocessNormalize-scale",
-        "target": "ScienceExportTable-csvout",
-        "data": {
-          "sourceHandle": {
-            "dataType": "SciencePreprocessNormalize",
-            "id": "SciencePreprocessNormalize-scale",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "ScienceExportTable-csvout",
-            "inputTypes": [
               "DataFrame",
               "Table"
             ],
@@ -3171,35 +3079,34 @@
         }
       },
       {
-        "source": "SciencePreprocessMerge-join",
-        "target": "SciencePreprocessNormalize-scale",
+        "source": "SciencePreprocessFilter-select",
+        "target": "SciencePreprocessMerge-join",
         "data": {
           "sourceHandle": {
-            "dataType": "SciencePreprocessMerge",
-            "id": "SciencePreprocessMerge-join",
+            "dataType": "SciencePreprocessFilter",
+            "id": "SciencePreprocessFilter-select",
             "name": "table",
             "output_types": [
               "Table"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_table",
-            "id": "SciencePreprocessNormalize-scale",
+            "fieldName": "input_tables",
+            "id": "SciencePreprocessMerge-join",
             "inputTypes": [
-              "DataFrame",
-              "Table"
+              "DataFrame"
             ],
             "type": "other"
           }
         }
       },
       {
-        "source": "SciencePreprocessMerge-join",
-        "target": "ScienceExportReport-report",
+        "source": "SciencePreprocessFilter-select",
+        "target": "SciencePreprocessMerge-join",
         "data": {
           "sourceHandle": {
-            "dataType": "SciencePreprocessMerge",
-            "id": "SciencePreprocessMerge-join",
+            "dataType": "SciencePreprocessFilter",
+            "id": "SciencePreprocessFilter-select",
             "name": "report",
             "output_types": [
               "JSON"
@@ -3207,7 +3114,7 @@
           },
           "targetHandle": {
             "fieldName": "reports",
-            "id": "ScienceExportReport-report",
+            "id": "SciencePreprocessMerge-join",
             "inputTypes": [
               "Data",
               "JSON"
@@ -3240,68 +3147,23 @@
         }
       },
       {
-        "source": "SciencePreprocessReshape-types",
-        "target": "SciencePreprocessMissing-fill",
+        "source": "ScienceIoTableImport-csv",
+        "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "SciencePreprocessReshape",
-            "id": "SciencePreprocessReshape-types",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "SciencePreprocessMissing-fill",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "SciencePreprocessNormalize-scale",
-        "target": "ScienceExportTable-csvout",
-        "data": {
-          "sourceHandle": {
-            "dataType": "SciencePreprocessNormalize",
-            "id": "SciencePreprocessNormalize-scale",
+            "dataType": "ScienceIoTableImport",
+            "id": "ScienceIoTableImport-csv",
             "name": "report",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceExportTable-csvout",
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
               "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "SciencePreprocessFilter-select",
-        "target": "SciencePreprocessMerge-join",
-        "data": {
-          "sourceHandle": {
-            "dataType": "SciencePreprocessFilter",
-            "id": "SciencePreprocessFilter-select",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_tables",
-            "id": "SciencePreprocessMerge-join",
-            "inputTypes": [
-              "DataFrame"
             ],
             "type": "other"
           }
@@ -3331,12 +3193,12 @@
         }
       },
       {
-        "source": "SciencePreprocessFilter-select",
-        "target": "SciencePreprocessMerge-join",
+        "source": "SciencePreprocessUnits-units",
+        "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "SciencePreprocessFilter",
-            "id": "SciencePreprocessFilter-select",
+            "dataType": "SciencePreprocessUnits",
+            "id": "SciencePreprocessUnits-units",
             "name": "report",
             "output_types": [
               "JSON"
@@ -3344,7 +3206,52 @@
           },
           "targetHandle": {
             "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoDatabaseImport-sql",
+        "target": "SciencePreprocessMerge-join",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoDatabaseImport",
+            "id": "ScienceIoDatabaseImport-sql",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_tables",
             "id": "SciencePreprocessMerge-join",
+            "inputTypes": [
+              "DataFrame"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessMissing-fill",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessMissing",
+            "id": "SciencePreprocessMissing-fill",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
             "inputTypes": [
               "Data",
               "JSON"
@@ -3368,52 +3275,6 @@
           "targetHandle": {
             "fieldName": "input_data",
             "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "SciencePreprocessReshape-types",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "SciencePreprocessReshape",
-            "id": "SciencePreprocessReshape-types",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "SciencePreprocessReshape-types",
-        "target": "SciencePreprocessMissing-fill",
-        "data": {
-          "sourceHandle": {
-            "dataType": "SciencePreprocessReshape",
-            "id": "SciencePreprocessReshape-types",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "SciencePreprocessMissing-fill",
             "inputTypes": [
               "Data",
               "JSON"
@@ -3440,74 +3301,6 @@
             "inputTypes": [
               "Data",
               "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "SciencePreprocessFilter-select",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "SciencePreprocessFilter",
-            "id": "SciencePreprocessFilter-select",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceFixtureBundle-01-tables",
-        "target": "SciencePreprocessMerge-join",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-01-tables",
-            "name": "data",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "SciencePreprocessMerge-join",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoDatabaseImport-sql",
-        "target": "SciencePreprocessMerge-join",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoDatabaseImport",
-            "id": "ScienceIoDatabaseImport-sql",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_tables",
-            "id": "SciencePreprocessMerge-join",
-            "inputTypes": [
-              "DataFrame"
             ],
             "type": "other"
           }
@@ -3537,23 +3330,23 @@
         }
       },
       {
-        "source": "ScienceIoTableImport-csv",
-        "target": "SciencePreprocessReshape-types",
+        "source": "SciencePreprocessMerge-join",
+        "target": "SciencePreprocessNormalize-scale",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceIoTableImport",
-            "id": "ScienceIoTableImport-csv",
-            "name": "table",
+            "dataType": "SciencePreprocessMerge",
+            "id": "SciencePreprocessMerge-join",
+            "name": "report",
             "output_types": [
-              "Table"
+              "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_table",
-            "id": "SciencePreprocessReshape-types",
+            "fieldName": "input_data",
+            "id": "SciencePreprocessNormalize-scale",
             "inputTypes": [
-              "DataFrame",
-              "Table"
+              "Data",
+              "JSON"
             ],
             "type": "other"
           }
@@ -3583,12 +3376,35 @@
         }
       },
       {
-        "source": "SciencePreprocessMissing-fill",
+        "source": "SciencePreprocessMerge-join",
         "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "SciencePreprocessMissing",
-            "id": "SciencePreprocessMissing-fill",
+            "dataType": "SciencePreprocessMerge",
+            "id": "SciencePreprocessMerge-join",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessReshape-types",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessReshape",
+            "id": "SciencePreprocessReshape-types",
             "name": "report",
             "output_types": [
               "JSON"
@@ -3629,20 +3445,43 @@
         }
       },
       {
-        "source": "ScienceIoDatabaseImport-sql",
-        "target": "SciencePreprocessMerge-join",
+        "source": "SciencePreprocessMissing-fill",
+        "target": "SciencePreprocessUnits-units",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceIoDatabaseImport",
-            "id": "ScienceIoDatabaseImport-sql",
+            "dataType": "SciencePreprocessMissing",
+            "id": "SciencePreprocessMissing-fill",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "SciencePreprocessUnits-units",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessNormalize-scale",
+        "target": "ScienceExportTable-csvout",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessNormalize",
+            "id": "SciencePreprocessNormalize-scale",
             "name": "report",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "reports",
-            "id": "SciencePreprocessMerge-join",
+            "fieldName": "input_data",
+            "id": "ScienceExportTable-csvout",
             "inputTypes": [
               "Data",
               "JSON"
@@ -3652,12 +3491,104 @@
         }
       },
       {
+        "source": "ScienceFixtureBundle-01-tables",
+        "target": "ScienceIoTableImport-csv",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-01-tables",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceIoTableImport-csv",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessMerge-join",
+        "target": "SciencePreprocessNormalize-scale",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessMerge",
+            "id": "SciencePreprocessMerge-join",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "SciencePreprocessNormalize-scale",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessReshape-types",
+        "target": "SciencePreprocessMissing-fill",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessReshape",
+            "id": "SciencePreprocessReshape-types",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "SciencePreprocessMissing-fill",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
         "source": "SciencePreprocessUnits-units",
-        "target": "ScienceExportReport-report",
+        "target": "SciencePreprocessFilter-select",
         "data": {
           "sourceHandle": {
             "dataType": "SciencePreprocessUnits",
             "id": "SciencePreprocessUnits-units",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "SciencePreprocessFilter-select",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessFilter-select",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessFilter",
+            "id": "SciencePreprocessFilter-select",
             "name": "report",
             "output_types": [
               "JSON"
@@ -3669,6 +3600,75 @@
             "inputTypes": [
               "Data",
               "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessReshape-types",
+        "target": "SciencePreprocessMissing-fill",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessReshape",
+            "id": "SciencePreprocessReshape-types",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "SciencePreprocessMissing-fill",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "SciencePreprocessNormalize-scale",
+        "target": "ScienceExportTable-csvout",
+        "data": {
+          "sourceHandle": {
+            "dataType": "SciencePreprocessNormalize",
+            "id": "SciencePreprocessNormalize-scale",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceExportTable-csvout",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoTableImport-csv",
+        "target": "SciencePreprocessReshape-types",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoTableImport",
+            "id": "ScienceIoTableImport-csv",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "SciencePreprocessReshape-types",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
             ],
             "type": "other"
           }

@@ -8,6 +8,8 @@ Langflow 的电脑或服务器执行。所有处理输出新结果，保留原�
 覆盖数据接入、内容提取、质量检查、预处理、材料分析、统计建模、可视化报告、文献检索。
 [逐项要求对照](docs/requirements-matrix.md)保留全部原文方法；
 [可导入工作流](examples/science_flows/README.md)提供带合成数据的连线示例。
+绘图已统一采用科研图规范：[六例画廊与四格式文件](examples/paper_figures/README.md)、
+[论文模式配置](docs/publication-plots.md)。
 XRD 匹配需要参考谱库，图像量化需要标尺，断裂判定需要实验确认，EDS 读取外部定量结果。
 统计离群点是待研究者复核的发现，不等同于错误实验。
 

@@ -2,7 +2,7 @@
   "runtime": "Python 3.10 / Langflow + LFX 1.13.0",
   "browser": "Microsoft Edge via Playwright",
   "ui_science": {
-    "utc": "2026-10-30T15:54:01.868837+00:00",
+    "utc": "2026-10-30T16:50:44.410334+00:00",
     "cases": {
       "01-tables": {
         "nodes": 11,
@@ -167,10 +167,10 @@
   "source_requirements": 50,
   "new_operations": 44,
   "tests": {
-    "passed": 415,
+    "passed": 432,
     "failed": 0,
     "third_party_deprecation_warnings": 7,
-    "seconds": 95.96
+    "seconds": 115.91
   },
   "wheel": {
     "version": "0.3.0",
@@ -179,9 +179,28 @@
     "verified": true
   },
   "locked_environment_tests": {
-    "passed": 413,
+    "passed": 430,
     "failed": 0,
-    "seconds": 88.22,
+    "seconds": 119.59,
     "browser_specific_tests_excluded": 2
+  },
+  "publication_plots": {
+    "synthetic_gallery_bundles": 6,
+    "formats": [
+      "png",
+      "svg",
+      "pdf",
+      "tiff"
+    ],
+    "pdf_width_mm": 150,
+    "tiff_dpi": 600,
+    "new_regression_cases": 17,
+    "source_and_numeric_readback": true,
+    "visual_inspection": [
+      "actual_size",
+      "color",
+      "grayscale"
+    ],
+    "independent_review": "passed"
   }
 }

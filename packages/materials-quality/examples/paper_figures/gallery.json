@@ -1,0 +1,402 @@
+[
+  {
+    "key": "01-box",
+    "config": {
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "width_mm": 150,
+      "color_map": {
+        "Baseline": "#0072B2",
+        "Modified": "#D55E00"
+      },
+      "method": "box",
+      "y": "stress",
+      "group": "group",
+      "labels": {
+        "stress": "Peak stress"
+      },
+      "title": "Specimen-level comparison",
+      "units": {
+        "stress": "MPa"
+      }
+    },
+    "source_sha256": "04ad2b00e425f070b1066d74687889a2c71fa0a7b4cb38e54e9f7f48f0393b87",
+    "preview": "01-box.png",
+    "artifacts": [
+      "01-box/figure.png",
+      "01-box/figure.svg",
+      "01-box/figure.pdf",
+      "01-box/figure.tiff",
+      "01-box/figure.json",
+      "01-box/figure.md"
+    ],
+    "figure_contract": {
+      "backend": "python-matplotlib",
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "evidence_role": "comparison",
+      "purpose": "Specimen-level comparison",
+      "width_mm": 150.0,
+      "height_mm": 99.0,
+      "series_styles": {
+        "Baseline": {
+          "color": "#0072b2",
+          "linestyle": "-.",
+          "marker": "*"
+        },
+        "Modified": {
+          "color": "#d55e00",
+          "linestyle": "-.",
+          "marker": "P"
+        }
+      },
+      "statistical_definition": "Median; box: Q1–Q3; whiskers: 1.5×IQR; dots: all observations",
+      "observations_displayed": 6,
+      "font_families": [
+        "DejaVu Sans",
+        "Microsoft YaHei",
+        "SimHei"
+      ],
+      "minimum_text_points": 8,
+      "units": {
+        "stress": "MPa"
+      },
+      "layout_warnings": []
+    },
+    "source": "01-box/source.csv"
+  },
+  {
+    "key": "02-bars",
+    "config": {
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "width_mm": 150,
+      "color_map": {
+        "Baseline": "#0072B2",
+        "Modified": "#D55E00"
+      },
+      "method": "bar",
+      "y": "stress",
+      "group": "group",
+      "labels": {
+        "stress": "Peak stress"
+      },
+      "title": "Mean and observed spread",
+      "units": {
+        "stress": "MPa"
+      }
+    },
+    "source_sha256": "04ad2b00e425f070b1066d74687889a2c71fa0a7b4cb38e54e9f7f48f0393b87",
+    "preview": "02-bars.png",
+    "artifacts": [
+      "02-bars/figure.png",
+      "02-bars/figure.svg",
+      "02-bars/figure.pdf",
+      "02-bars/figure.tiff",
+      "02-bars/figure.json",
+      "02-bars/figure.md"
+    ],
+    "figure_contract": {
+      "backend": "python-matplotlib",
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "evidence_role": "comparison",
+      "purpose": "Mean and observed spread",
+      "width_mm": 150.0,
+      "height_mm": 99.0,
+      "series_styles": {
+        "Baseline": {
+          "color": "#0072b2",
+          "linestyle": "-.",
+          "marker": "*"
+        },
+        "Modified": {
+          "color": "#d55e00",
+          "linestyle": "-.",
+          "marker": "P"
+        }
+      },
+      "statistical_definition": "Mean ± sample SD; dots: all observations",
+      "observations_displayed": 6,
+      "font_families": [
+        "DejaVu Sans",
+        "Microsoft YaHei",
+        "SimHei"
+      ],
+      "minimum_text_points": 8,
+      "units": {
+        "stress": "MPa"
+      },
+      "layout_warnings": []
+    },
+    "source": "02-bars/source.csv"
+  },
+  {
+    "key": "03-spectra",
+    "config": {
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "width_mm": 150,
+      "color_map": {
+        "Baseline": "#0072B2",
+        "Modified": "#D55E00"
+      },
+      "method": "overlay",
+      "x": "two_theta",
+      "columns": [
+        "Baseline",
+        "Modified"
+      ],
+      "labels": {
+        "two_theta": "$2\\theta$"
+      },
+      "y_label": "Normalized intensity",
+      "peaks": [
+        {
+          "x": 32,
+          "label": "32.0°"
+        }
+      ],
+      "title": "Peak position comparison",
+      "units": {
+        "two_theta": "degree",
+        "Baseline": "dimensionless",
+        "Modified": "dimensionless"
+      }
+    },
+    "source_sha256": "9e7c985def4da6e3434ad648b186e3af12bdde9392747cae45cbea0457e22ded",
+    "preview": "03-spectra.png",
+    "artifacts": [
+      "03-spectra/figure.png",
+      "03-spectra/figure.svg",
+      "03-spectra/figure.pdf",
+      "03-spectra/figure.tiff",
+      "03-spectra/figure.json",
+      "03-spectra/figure.md"
+    ],
+    "figure_contract": {
+      "backend": "python-matplotlib",
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "evidence_role": "comparison",
+      "purpose": "Peak position comparison",
+      "width_mm": 150.0,
+      "height_mm": 99.0,
+      "series_styles": {
+        "Baseline": {
+          "color": "#0072b2",
+          "linestyle": "-.",
+          "marker": "*"
+        },
+        "Modified": {
+          "color": "#d55e00",
+          "linestyle": "-.",
+          "marker": "P"
+        }
+      },
+      "statistical_definition": "",
+      "observations_displayed": null,
+      "font_families": [
+        "DejaVu Sans",
+        "Microsoft YaHei",
+        "SimHei"
+      ],
+      "minimum_text_points": 8,
+      "units": {
+        "two_theta": "degree",
+        "Baseline": "dimensionless",
+        "Modified": "dimensionless"
+      },
+      "layout_warnings": []
+    },
+    "source": "03-spectra/source.csv"
+  },
+  {
+    "key": "04-mechanics",
+    "config": {
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "width_mm": 150,
+      "color_map": {
+        "Baseline": "#0072B2",
+        "Modified": "#D55E00"
+      },
+      "method": "mean_error",
+      "x": "strain",
+      "y": "stress",
+      "sample": "specimen",
+      "group": "group",
+      "error": "ci95",
+      "labels": {
+        "strain": "Strain",
+        "stress": "Stress"
+      },
+      "title": "Specimen response and uncertainty",
+      "units": {
+        "strain": "dimensionless",
+        "stress": "MPa"
+      }
+    },
+    "source_sha256": "f862edd5c6cf6cba6657025ecde34ebcb1f752d5565b0dfe255dbd3b175ef422",
+    "preview": "04-mechanics.png",
+    "artifacts": [
+      "04-mechanics/figure.png",
+      "04-mechanics/figure.svg",
+      "04-mechanics/figure.pdf",
+      "04-mechanics/figure.tiff",
+      "04-mechanics/figure.json",
+      "04-mechanics/figure.md"
+    ],
+    "figure_contract": {
+      "backend": "python-matplotlib",
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "evidence_role": "comparison",
+      "purpose": "Specimen response and uncertainty",
+      "width_mm": 150.0,
+      "height_mm": 99.0,
+      "series_styles": {
+        "Baseline": {
+          "color": "#0072b2",
+          "linestyle": "-.",
+          "marker": "*"
+        },
+        "Modified": {
+          "color": "#d55e00",
+          "linestyle": "-.",
+          "marker": "P"
+        }
+      },
+      "statistical_definition": "Mean and pointwise 95% Student t CI across specimen curves",
+      "observations_displayed": null,
+      "font_families": [
+        "DejaVu Sans",
+        "Microsoft YaHei",
+        "SimHei"
+      ],
+      "minimum_text_points": 8,
+      "units": {
+        "strain": "dimensionless",
+        "stress": "MPa"
+      },
+      "layout_warnings": []
+    },
+    "source": "04-mechanics/source.csv"
+  },
+  {
+    "key": "05-prediction",
+    "config": {
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "width_mm": 150,
+      "color_map": {
+        "Baseline": "#0072B2",
+        "Modified": "#D55E00"
+      },
+      "method": "prediction",
+      "y_true": "observed",
+      "y_pred": "predicted",
+      "title": "Supplied prediction pairs",
+      "purpose": "Visualize supplied pairs; this plot does not establish a held-out test split.",
+      "units": {
+        "observed": "MPa",
+        "predicted": "MPa"
+      }
+    },
+    "source_sha256": "cb31118d3e2b8433b6c50eab90f16eef8d2700e01ba36eb0f14ba9eca79a306c",
+    "preview": "05-prediction.png",
+    "artifacts": [
+      "05-prediction/figure.png",
+      "05-prediction/figure.svg",
+      "05-prediction/figure.pdf",
+      "05-prediction/figure.tiff",
+      "05-prediction/figure.json",
+      "05-prediction/figure.md"
+    ],
+    "figure_contract": {
+      "backend": "python-matplotlib",
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "evidence_role": "diagnostic",
+      "purpose": "Visualize supplied pairs; this plot does not establish a held-out test split.",
+      "width_mm": 150.0,
+      "height_mm": 99.0,
+      "series_styles": {},
+      "statistical_definition": "",
+      "observations_displayed": null,
+      "font_families": [
+        "DejaVu Sans",
+        "Microsoft YaHei",
+        "SimHei"
+      ],
+      "minimum_text_points": 8,
+      "units": {
+        "observed": "MPa",
+        "predicted": "MPa"
+      },
+      "layout_warnings": []
+    },
+    "source": "05-prediction/source.csv"
+  },
+  {
+    "key": "06-correlation",
+    "config": {
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "width_mm": 150,
+      "color_map": {
+        "Baseline": "#0072B2",
+        "Modified": "#D55E00"
+      },
+      "method": "correlation",
+      "columns": [
+        "observed",
+        "contrast",
+        "oscillation"
+      ],
+      "title": "Association, not causation",
+      "units": {
+        "observed": "MPa",
+        "predicted": "MPa",
+        "contrast": "MPa",
+        "oscillation": "dimensionless"
+      }
+    },
+    "source_sha256": "cbbd403143648b68aeba31dd7c0d0dafb4bf457695579823208d2b6c4f042ddd",
+    "preview": "06-correlation.png",
+    "artifacts": [
+      "06-correlation/figure.png",
+      "06-correlation/figure.svg",
+      "06-correlation/figure.pdf",
+      "06-correlation/figure.tiff",
+      "06-correlation/figure.json",
+      "06-correlation/figure.md"
+    ],
+    "figure_contract": {
+      "backend": "python-matplotlib",
+      "profile": "paper",
+      "data_kind": "synthetic",
+      "evidence_role": "diagnostic",
+      "purpose": "Association, not causation",
+      "width_mm": 150.0,
+      "height_mm": 99.0,
+      "series_styles": {},
+      "statistical_definition": "",
+      "observations_displayed": null,
+      "font_families": [
+        "DejaVu Sans",
+        "Microsoft YaHei",
+        "SimHei"
+      ],
+      "minimum_text_points": 8,
+      "units": {
+        "observed": "MPa",
+        "predicted": "MPa",
+        "contrast": "MPa",
+        "oscillation": "dimensionless"
+      },
+      "layout_warnings": []
+    },
+    "source": "06-correlation/source.csv"
+  }
+]

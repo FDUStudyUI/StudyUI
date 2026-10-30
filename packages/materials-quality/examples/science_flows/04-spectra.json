@@ -1744,7 +1744,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "config_json",
-                "value": "{\"output_dir\":\"@asset:output\",\"method\":\"overlay\",\"x\":\"x\",\"columns\":[\"raw_y\",\"normalized\"]}",
+                "value": "{\"profile\":\"paper\",\"data_kind\":\"synthetic\",\"output_dir\":\"@asset:output\",\"method\":\"overlay\",\"x\":\"x\",\"columns\":[\"raw_y\",\"corrected\"],\"title\":\"Raw and baseline-corrected spectrum\"}",
                 "display_name": "方法与参数 JSON",
                 "advanced": false,
                 "api_editable": false,
@@ -1854,12 +1854,12 @@
     ],
     "edges": [
       {
-        "source": "ScienceVizSpectra-overlay",
+        "source": "ScienceMaterialsSpectra-raman",
         "target": "ScienceExportReport-report",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceVizSpectra",
-            "id": "ScienceVizSpectra-overlay",
+            "dataType": "ScienceMaterialsSpectra",
+            "id": "ScienceMaterialsSpectra-raman",
             "name": "report",
             "output_types": [
               "JSON"
@@ -1868,98 +1868,6 @@
           "targetHandle": {
             "fieldName": "reports",
             "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoTableImport-spectrum",
-        "target": "ScienceMaterialsSpectra-raman",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoTableImport",
-            "id": "ScienceIoTableImport-spectrum",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceMaterialsSpectra-raman",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceMaterialsSpectra-raman",
-        "target": "ScienceVizSpectra-overlay",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceMaterialsSpectra",
-            "id": "ScienceMaterialsSpectra-raman",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "ScienceVizSpectra-overlay",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceFixtureBundle-04-spectra",
-        "target": "ScienceIoInstrumentImport-instrument",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-04-spectra",
-            "name": "data",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceIoInstrumentImport-instrument",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoInstrumentImport-instrument",
-        "target": "ScienceMaterialsXrd-xrd",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoInstrumentImport",
-            "id": "ScienceIoInstrumentImport-instrument",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceMaterialsXrd-xrd",
             "inputTypes": [
               "Data",
               "JSON"
@@ -1992,6 +1900,29 @@
         }
       },
       {
+        "source": "ScienceIoInstrumentImport-instrument",
+        "target": "ScienceMaterialsXrd-xrd",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoInstrumentImport",
+            "id": "ScienceIoInstrumentImport-instrument",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceMaterialsXrd-xrd",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
         "source": "ScienceFixtureBundle-04-spectra",
         "target": "ScienceExportReport-report",
         "data": {
@@ -2006,121 +1937,6 @@
           "targetHandle": {
             "fieldName": "input_data",
             "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoTableImport-spectrum",
-        "target": "ScienceMaterialsSpectra-raman",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoTableImport",
-            "id": "ScienceIoTableImport-spectrum",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "ScienceMaterialsSpectra-raman",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoInstrumentImport-instrument",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoInstrumentImport",
-            "id": "ScienceIoInstrumentImport-instrument",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoTableImport-spectrum",
-        "target": "ScienceExportReport-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoTableImport",
-            "id": "ScienceIoTableImport-spectrum",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceIoInstrumentImport-instrument",
-        "target": "ScienceMaterialsXrd-xrd",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceIoInstrumentImport",
-            "id": "ScienceIoInstrumentImport-instrument",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "ScienceMaterialsXrd-xrd",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceFixtureBundle-04-spectra",
-        "target": "ScienceMaterialsXrd-xrd",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-04-spectra",
-            "name": "data",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_data",
-            "id": "ScienceMaterialsXrd-xrd",
             "inputTypes": [
               "Data",
               "JSON"
@@ -2177,11 +1993,195 @@
       },
       {
         "source": "ScienceMaterialsSpectra-raman",
-        "target": "ScienceExportReport-report",
+        "target": "ScienceVizSpectra-overlay",
         "data": {
           "sourceHandle": {
             "dataType": "ScienceMaterialsSpectra",
             "id": "ScienceMaterialsSpectra-raman",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceVizSpectra-overlay",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-04-spectra",
+        "target": "ScienceIoInstrumentImport-instrument",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-04-spectra",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceIoInstrumentImport-instrument",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceVizSpectra-overlay",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceVizSpectra",
+            "id": "ScienceVizSpectra-overlay",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-04-spectra",
+        "target": "ScienceMaterialsXrd-xrd",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-04-spectra",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceMaterialsXrd-xrd",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoTableImport-spectrum",
+        "target": "ScienceMaterialsSpectra-raman",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoTableImport",
+            "id": "ScienceIoTableImport-spectrum",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceMaterialsSpectra-raman",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoTableImport-spectrum",
+        "target": "ScienceMaterialsSpectra-raman",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoTableImport",
+            "id": "ScienceIoTableImport-spectrum",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceMaterialsSpectra-raman",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoTableImport-spectrum",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoTableImport",
+            "id": "ScienceIoTableImport-spectrum",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoInstrumentImport-instrument",
+        "target": "ScienceMaterialsXrd-xrd",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoInstrumentImport",
+            "id": "ScienceIoInstrumentImport-instrument",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceMaterialsXrd-xrd",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoInstrumentImport-instrument",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoInstrumentImport",
+            "id": "ScienceIoInstrumentImport-instrument",
             "name": "report",
             "output_types": [
               "JSON"
