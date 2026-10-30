@@ -55,11 +55,17 @@ def _run(page):
     expect(inspect).to_have_attribute("aria-label", "Inspect output", timeout=60000)
 
 
+def _output_dialog(page):
+    # Langflow's assistant onboarding also has role=dialog. Bind the locator
+    # to the output viewer's own close control rather than every page dialog.
+    return page.get_by_role("dialog").filter(has=page.get_by_test_id("btn-close-modal"))
+
+
 def _report(page):
     page.get_by_test_id("output-inspection-汇总报告-materialqualitysummary").click()
     page.get_by_test_id("copy-output-button").wait_for(state="visible")
     # Wait for the actual JSON editor, then use the UI's copy action.
-    expect(page.get_by_role("dialog")).to_contain_text('"schema_version"')
+    expect(_output_dialog(page)).to_contain_text('"schema_version"')
     page.get_by_test_id("copy-output-button").click()
     text = page.evaluate("navigator.clipboard.readText()")
     return json.loads(text)
@@ -68,11 +74,12 @@ def _report(page):
 def _edit_rules(page, value):
     node = page.locator('.react-flow__node[data-id^="MaterialQualityContext-"]')
     node.get_by_role("button", name="Expand text editor", exact=True).click()
-    textarea = page.get_by_role("dialog").locator("textarea")
+    editor = page.get_by_role("dialog").filter(has=page.get_by_test_id("genericModalBtnSave"))
+    textarea = editor.locator("textarea")
     previous = textarea.input_value()
     textarea.fill(value)
-    page.get_by_test_id("genericModalBtnSave").click()
-    page.get_by_role("dialog").wait_for(state="hidden")
+    editor.get_by_test_id("genericModalBtnSave").click()
+    editor.wait_for(state="hidden")
     return previous
 
 
@@ -130,7 +137,7 @@ def accept_ui(base_url, output, executable=None):
                 page.screenshot(animations="disabled", path=str(output / f"{case}-provenance.png"))
                 page.get_by_test_id("btn-close-modal").click()
                 page.get_by_test_id("output-inspection-汇总问题明细-materialqualitysummary").click()
-                dialog = page.get_by_role("dialog")
+                dialog = _output_dialog(page)
                 if case == "dirty":
                     expect(dialog).to_contain_text("OUTLIER_IQR")
                     expect(dialog).to_contain_text("MISSING_VALUE")
@@ -138,7 +145,7 @@ def accept_ui(base_url, output, executable=None):
                 page.screenshot(animations="disabled", path=str(output / f"{case}-findings.png"))
                 page.get_by_test_id("btn-close-modal").click()
                 page.get_by_test_id("output-inspection-摘要-materialqualitysummary").click()
-                summary = page.get_by_role("dialog").locator("textarea")
+                summary = _output_dialog(page).locator("textarea")
                 expect(summary).to_have_value(re.compile(
                     f"已完成 6 项.*共 {len(wanted['findings'])} 条发现", re.DOTALL
                 ))

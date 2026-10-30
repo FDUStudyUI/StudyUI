@@ -12,6 +12,10 @@
 
 验收发现六项检查纵向排列在最小缩放下会截掉末尾节点，已改成两列三行布局并重新验收。上游失败提示框有自动消失动画，脚本在读取错误后直接恢复参数，避免点击正在消失的 Dismiss 按钮导致测试不稳定。
 
+合并后回归另外复现了助手引导提示也使用 dialog 角色的情况。编辑窗口的关闭等待和输出查看现在只匹配带相应窗口控件的 dialog，避免把助手提示误判为未关闭的编辑器。两个真实浏览器 DOM 回归测试确定性覆盖这个定位边界，真实 Langflow 端到端验收继续单独执行。
+
+定位回归可运行 `python -m pytest tests/test_ui_selectors.py -q`。需安装 ui-test extra 及 Playwright Chromium；Windows 使用系统 Chrome 时，先设置 `$env:PLAYWRIGHT_CHROME_EXECUTABLE='C:\Program Files\Google\Chrome\Application\chrome.exe'`。仅安装核心依赖时，这组浏览器回归会跳过。
+
 ## 可核查证据
 
 - [机器验收结果](ui-evidence/acceptance.json)：实际结果、中文摘要、浏览器版本、导入文件 SHA-256、页面错误列表。
