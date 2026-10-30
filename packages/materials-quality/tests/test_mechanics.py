@@ -1,3 +1,4 @@
+import hashlib
 import importlib
 import json
 from pathlib import Path
@@ -51,3 +52,15 @@ def test_mechanics_stored_workflow_matches_independent_manifest(case, stored):
         assert all(f["row_position"] != 2 for f in outliers["findings"])
     else:
         assert next(r for r in report["checks"] if r["check_id"] == "duplicates")["passed"]
+
+
+@pytest.mark.parametrize("case", ["clean", "dirty", "corrected"])
+def test_exported_source_digest_survives_git_lf_checkout(case):
+    """Git stores these text fixtures as LF; provenance must bind that delivered file."""
+    from scripts.run_example import execute_payload
+
+    case_root = ROOT / "examples/mechanics"
+    csv_after_checkout = (case_root / f"{case}.csv").read_bytes().replace(b"\r\n", b"\n")
+    flow_after_checkout = (case_root / f"{case}_flow.json").read_bytes().replace(b"\r\n", b"\n")
+    report = execute_payload(json.loads(flow_after_checkout))
+    assert report["provenance"]["source"]["source_sha256"] == hashlib.sha256(csv_after_checkout).hexdigest()

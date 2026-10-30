@@ -67,7 +67,9 @@ def main():
     for case in ("clean", "dirty", "corrected"):
         path = CASES / f"{case}_flow.json"
         payload = create_mechanics_payload(case)
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
+        path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8", newline="\n"
+        )
         print(path)
 
 

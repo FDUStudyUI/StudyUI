@@ -1,8 +1,8 @@
 {
   "synthetic": true,
   "authority": "教学案例作者根据预先定义的模拟真值手工修订；不能用于自动恢复真实缺失数据",
-  "raw_sha256": "f6309a5aa9d6733cdefa921039abf1519cbe43c26a6d3736c17bd717b6939b3e",
-  "corrected_sha256": "8aced84f924727806650e2399834340d97bc35a5614b4f65b332039e1c84c4fe",
+  "raw_sha256": "b4f92f668c2945db3050e9a71a82f0d55d55a6a9b5e261a25fe72d090c87cc45",
+  "corrected_sha256": "330dd2de02ed94d3eb0093013759e10cf3bd977c16313586fe9d7163bf63648a",
   "changes": [
     {
       "row_position": 2,

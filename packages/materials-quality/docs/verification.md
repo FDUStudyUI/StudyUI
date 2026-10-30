@@ -8,7 +8,7 @@ Windows，Python 3.10.8，LFX 1.13.0，pandas 2.3.3，Pint 0.24.4。
 
 ## 已执行
 
-- 原运行时及真实 UI 环境完整 pytest 均为 **128 passed**。
+- 原运行时及真实 UI 环境完整 pytest 均为 **131 passed**。
 - Ruff：**All checks passed**。
 - 真实 Langflow 自定义代码加载器接受八个组件；独立 wheel 安装后的目录发现列出全部八个组件。
 - 两份示例均通过原生 Graph 序列化、重新导入与实际执行。
@@ -35,3 +35,5 @@ Windows，Python 3.10.8，LFX 1.13.0，pandas 2.3.3，Pint 0.24.4。
 - 浏览器画布视觉及交互验收已通过，证据位于 docs/ui-evidence/。数据为模拟教学数据，人工修订依据预先定义的模拟真值，不代表可自动恢复真实实验数据。
 - GitHub Actions 的 Linux 结果以仓库 Actions 页面为准，不以本地 Windows 结果代替。
 - 团队实际部署版本尚待确认；当前不声明其他 Langflow/LFX 版本已通过测试。
+
+补充跨平台交付回归：模拟 Git LF 检出验证三份 CSV 摘要；生成的 JSON 使用固定 LF，避免 Windows 换行转换使证据摘要失效。三项回归先失败后通过。

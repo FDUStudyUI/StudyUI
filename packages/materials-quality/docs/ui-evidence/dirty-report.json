@@ -16,7 +16,7 @@
     "source": {
       "dataset_id": "synthetic-tensile-dirty",
       "source_name": "dirty.csv",
-      "source_sha256": "f6309a5aa9d6733cdefa921039abf1519cbe43c26a6d3736c17bd717b6939b3e"
+      "source_sha256": "b4f92f668c2945db3050e9a71a82f0d55d55a6a9b5e261a25fe72d090c87cc45"
     },
     "rule_set": {
       "id": "synthetic-tensile-review",
@@ -97,7 +97,7 @@
         ]
       }
     },
-    "parameters_sha256": "2c0858118be1e2966020e6cca6d02720dee162e5ced67f470c71a69a7261e676",
+    "parameters_sha256": "a7dc57604bc529279733f7f8aa05457e123f01ea6fb1375de7dc36e1cf22611b",
     "missing_tokens": [
       "",
       "-200"
@@ -116,31 +116,22 @@
   "truncated": false,
   "findings": [
     {
-      "check_id": "outliers",
-      "code": "OUTLIER_IQR",
-      "severity": "warning",
-      "column": "stress",
-      "row_position": 5,
-      "row_index": 5,
-      "reason": "Outside the declared/estimated iqr rule for group {'condition': 'ambient'}. Suspicious observation only; retained for researcher review."
+      "check_id": "units",
+      "code": "UNIT_INCOMPATIBLE",
+      "severity": "error",
+      "column": "temperature",
+      "row_position": 6,
+      "row_index": 6,
+      "reason": "Inline megapascal is incompatible with expected kelvin."
     },
     {
-      "check_id": "duplicates",
-      "code": "DUPLICATE_RECORD",
+      "check_id": "units",
+      "code": "UNIT_MIXED",
       "severity": "warning",
-      "column": null,
-      "row_position": 10,
-      "row_index": 10,
-      "reason": "Repeated combination of ['sample_id', 'condition', 'replicate']; review whether this is a valid replicate."
-    },
-    {
-      "check_id": "duplicates",
-      "code": "DUPLICATE_RECORD",
-      "severity": "warning",
-      "column": null,
-      "row_position": 11,
-      "row_index": 11,
-      "reason": "Repeated combination of ['sample_id', 'condition', 'replicate']; review whether this is a valid replicate."
+      "column": "temperature",
+      "row_position": null,
+      "row_index": null,
+      "reason": "Multiple source units in one column: ['degree_Celsius', 'megapascal']; values were not converted."
     },
     {
       "check_id": "missing",
@@ -150,6 +141,15 @@
       "row_position": 2,
       "row_index": 2,
       "reason": "Null or explicitly configured missing token."
+    },
+    {
+      "check_id": "outliers",
+      "code": "OUTLIER_IQR",
+      "severity": "warning",
+      "column": "stress",
+      "row_position": 5,
+      "row_index": 5,
+      "reason": "Outside the declared/estimated iqr rule for group {'condition': 'ambient'}. Suspicious observation only; retained for researcher review."
     },
     {
       "check_id": "types",
@@ -170,158 +170,28 @@
       "reason": "Value does not satisfy {'type': 'number'}."
     },
     {
-      "check_id": "units",
-      "code": "UNIT_INCOMPATIBLE",
-      "severity": "error",
-      "column": "temperature",
-      "row_position": 6,
-      "row_index": 6,
-      "reason": "Inline megapascal is incompatible with expected kelvin."
+      "check_id": "duplicates",
+      "code": "DUPLICATE_RECORD",
+      "severity": "warning",
+      "column": null,
+      "row_position": 10,
+      "row_index": 10,
+      "reason": "Repeated combination of ['sample_id', 'condition', 'replicate']; review whether this is a valid replicate."
     },
     {
-      "check_id": "units",
-      "code": "UNIT_MIXED",
+      "check_id": "duplicates",
+      "code": "DUPLICATE_RECORD",
       "severity": "warning",
-      "column": "temperature",
-      "row_position": null,
-      "row_index": null,
-      "reason": "Multiple source units in one column: ['degree_Celsius', 'megapascal']; values were not converted."
+      "column": null,
+      "row_position": 11,
+      "row_index": 11,
+      "reason": "Repeated combination of ['sample_id', 'condition', 'replicate']; review whether this is a valid replicate."
     }
   ],
   "checks": [
     {
       "schema_version": "1.0",
-      "check_id": "schema",
-      "execution_status": "completed",
-      "passed": true,
-      "dataset": {
-        "rows": 12,
-        "columns": 6,
-        "fingerprint": "f30e1fe9a7dcce84d29bb4eee5f28171ab62e704d4f5c6b71710938e97a01cbf"
-      },
-      "parameters": {
-        "required_columns": [
-          "sample_id",
-          "condition",
-          "replicate",
-          "temperature",
-          "stress",
-          "date"
-        ],
-        "aliases": {}
-      },
-      "metrics": {
-        "resolved_columns": {
-          "sample_id": "sample_id",
-          "condition": "condition",
-          "replicate": "replicate",
-          "temperature": "temperature",
-          "stress": "stress",
-          "date": "date"
-        }
-      },
-      "total_findings": 0,
-      "returned_findings": 0,
-      "truncated": false,
-      "findings": [],
-      "provenance": {
-        "version": "1",
-        "mode": "shared",
-        "dataset_fingerprint": "f30e1fe9a7dcce84d29bb4eee5f28171ab62e704d4f5c6b71710938e97a01cbf",
-        "source": {
-          "dataset_id": "synthetic-tensile-dirty",
-          "source_name": "dirty.csv",
-          "source_sha256": "f6309a5aa9d6733cdefa921039abf1519cbe43c26a6d3736c17bd717b6939b3e"
-        },
-        "rule_set": {
-          "id": "synthetic-tensile-review",
-          "version": "1.0",
-          "sha256": "ba68a130a67ff2ddcb556161ac83a3252e29a732f278405ec10fb9173c282fd6",
-          "rules": {
-            "checks": {
-              "duplicates": {
-                "columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate"
-                ]
-              },
-              "missing": {
-                "columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate",
-                  "temperature",
-                  "stress",
-                  "date"
-                ]
-              },
-              "outliers": {
-                "columns": [
-                  "stress"
-                ],
-                "method": "iqr",
-                "multiplier": 1.5
-              },
-              "schema": {
-                "required_columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate",
-                  "temperature",
-                  "stress",
-                  "date"
-                ]
-              },
-              "types": {
-                "expectations": {
-                  "condition": {
-                    "allowed": [
-                      "ambient",
-                      "hot"
-                    ],
-                    "type": "category"
-                  },
-                  "date": {
-                    "format": "%Y-%m-%d",
-                    "type": "datetime"
-                  },
-                  "replicate": "integer",
-                  "sample_id": "string",
-                  "stress": "number",
-                  "temperature": "number"
-                }
-              },
-              "units": {
-                "expected_units": {
-                  "stress": "Pa",
-                  "temperature": "K"
-                },
-                "source_units": {
-                  "stress": "MPa",
-                  "temperature": "degC"
-                }
-              }
-            },
-            "group_by": [
-              "condition"
-            ],
-            "missing_tokens": [
-              "",
-              "-200"
-            ]
-          }
-        },
-        "parameters_sha256": "2c0858118be1e2966020e6cca6d02720dee162e5ced67f470c71a69a7261e676",
-        "missing_tokens": [
-          "",
-          "-200"
-        ]
-      }
-    },
-    {
-      "schema_version": "1.0",
-      "check_id": "outliers",
+      "check_id": "units",
       "execution_status": "completed",
       "passed": false,
       "dataset": {
@@ -330,207 +200,67 @@
         "fingerprint": "f30e1fe9a7dcce84d29bb4eee5f28171ab62e704d4f5c6b71710938e97a01cbf"
       },
       "parameters": {
-        "columns": [
-          "stress"
-        ],
-        "method": "iqr",
-        "bounds": null,
-        "multiplier": 1.5,
-        "mad_threshold": 3.5,
-        "group_by": [
-          "condition"
-        ],
+        "source_units": {
+          "stress": "MPa",
+          "temperature": "degC"
+        },
+        "expected_units": {
+          "stress": "Pa",
+          "temperature": "K"
+        },
+        "columns": null,
         "missing_tokens": [
           "",
           "-200"
         ]
       },
       "metrics": {
-        "thresholds": [
-          {
-            "column": "stress",
-            "group": {
-              "condition": "ambient"
-            },
-            "valid_count": 5,
-            "method": "iqr",
-            "lower": 293,
-            "upper": 317,
-            "q1": 302,
-            "q3": 308
+        "columns": {
+          "stress": {
+            "source_unit": "megapascal",
+            "expected_unit": "pascal",
+            "observed_units": [
+              "megapascal"
+            ],
+            "compatible": true,
+            "checked_count": 11,
+            "unspecified_count": 0
           },
-          {
-            "column": "stress",
-            "group": {
-              "condition": "hot"
-            },
-            "valid_count": 6,
-            "method": "iqr",
-            "lower": 195,
-            "upper": 215,
-            "q1": 202.5,
-            "q3": 207.5
-          }
-        ],
-        "modified": false
-      },
-      "total_findings": 1,
-      "returned_findings": 1,
-      "truncated": false,
-      "findings": [
-        {
-          "check_id": "outliers",
-          "code": "OUTLIER_IQR",
-          "severity": "warning",
-          "column": "stress",
-          "row_position": 5,
-          "row_index": 5,
-          "reason": "Outside the declared/estimated iqr rule for group {'condition': 'ambient'}. Suspicious observation only; retained for researcher review."
-        }
-      ],
-      "provenance": {
-        "version": "1",
-        "mode": "shared",
-        "dataset_fingerprint": "f30e1fe9a7dcce84d29bb4eee5f28171ab62e704d4f5c6b71710938e97a01cbf",
-        "source": {
-          "dataset_id": "synthetic-tensile-dirty",
-          "source_name": "dirty.csv",
-          "source_sha256": "f6309a5aa9d6733cdefa921039abf1519cbe43c26a6d3736c17bd717b6939b3e"
-        },
-        "rule_set": {
-          "id": "synthetic-tensile-review",
-          "version": "1.0",
-          "sha256": "ba68a130a67ff2ddcb556161ac83a3252e29a732f278405ec10fb9173c282fd6",
-          "rules": {
-            "checks": {
-              "duplicates": {
-                "columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate"
-                ]
-              },
-              "missing": {
-                "columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate",
-                  "temperature",
-                  "stress",
-                  "date"
-                ]
-              },
-              "outliers": {
-                "columns": [
-                  "stress"
-                ],
-                "method": "iqr",
-                "multiplier": 1.5
-              },
-              "schema": {
-                "required_columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate",
-                  "temperature",
-                  "stress",
-                  "date"
-                ]
-              },
-              "types": {
-                "expectations": {
-                  "condition": {
-                    "allowed": [
-                      "ambient",
-                      "hot"
-                    ],
-                    "type": "category"
-                  },
-                  "date": {
-                    "format": "%Y-%m-%d",
-                    "type": "datetime"
-                  },
-                  "replicate": "integer",
-                  "sample_id": "string",
-                  "stress": "number",
-                  "temperature": "number"
-                }
-              },
-              "units": {
-                "expected_units": {
-                  "stress": "Pa",
-                  "temperature": "K"
-                },
-                "source_units": {
-                  "stress": "MPa",
-                  "temperature": "degC"
-                }
-              }
-            },
-            "group_by": [
-              "condition"
+          "temperature": {
+            "source_unit": "degree_Celsius",
+            "expected_unit": "kelvin",
+            "observed_units": [
+              "degree_Celsius",
+              "megapascal"
             ],
-            "missing_tokens": [
-              "",
-              "-200"
-            ]
+            "compatible": false,
+            "checked_count": 12,
+            "unspecified_count": 0
           }
         },
-        "parameters_sha256": "86f4a0326dafd55960984c043ad063cd6715614c43ff54c4dd9bc485c79ed113",
-        "missing_tokens": [
-          "",
-          "-200"
-        ]
-      }
-    },
-    {
-      "schema_version": "1.0",
-      "check_id": "duplicates",
-      "execution_status": "completed",
-      "passed": false,
-      "dataset": {
-        "rows": 12,
-        "columns": 6,
-        "fingerprint": "f30e1fe9a7dcce84d29bb4eee5f28171ab62e704d4f5c6b71710938e97a01cbf"
-      },
-      "parameters": {
-        "columns": [
-          "sample_id",
-          "condition",
-          "replicate"
-        ]
-      },
-      "metrics": {
-        "duplicate_rows": 2,
-        "duplicate_groups": 1,
-        "key_columns": [
-          "sample_id",
-          "condition",
-          "replicate"
-        ],
-        "duplicate_ratio": 0.16666666666666666
+        "converted": false
       },
       "total_findings": 2,
       "returned_findings": 2,
       "truncated": false,
       "findings": [
         {
-          "check_id": "duplicates",
-          "code": "DUPLICATE_RECORD",
-          "severity": "warning",
-          "column": null,
-          "row_position": 10,
-          "row_index": 10,
-          "reason": "Repeated combination of ['sample_id', 'condition', 'replicate']; review whether this is a valid replicate."
+          "check_id": "units",
+          "code": "UNIT_INCOMPATIBLE",
+          "severity": "error",
+          "column": "temperature",
+          "row_position": 6,
+          "row_index": 6,
+          "reason": "Inline megapascal is incompatible with expected kelvin."
         },
         {
-          "check_id": "duplicates",
-          "code": "DUPLICATE_RECORD",
+          "check_id": "units",
+          "code": "UNIT_MIXED",
           "severity": "warning",
-          "column": null,
-          "row_position": 11,
-          "row_index": 11,
-          "reason": "Repeated combination of ['sample_id', 'condition', 'replicate']; review whether this is a valid replicate."
+          "column": "temperature",
+          "row_position": null,
+          "row_index": null,
+          "reason": "Multiple source units in one column: ['degree_Celsius', 'megapascal']; values were not converted."
         }
       ],
       "provenance": {
@@ -540,7 +270,7 @@
         "source": {
           "dataset_id": "synthetic-tensile-dirty",
           "source_name": "dirty.csv",
-          "source_sha256": "f6309a5aa9d6733cdefa921039abf1519cbe43c26a6d3736c17bd717b6939b3e"
+          "source_sha256": "b4f92f668c2945db3050e9a71a82f0d55d55a6a9b5e261a25fe72d090c87cc45"
         },
         "rule_set": {
           "id": "synthetic-tensile-review",
@@ -621,7 +351,7 @@
             ]
           }
         },
-        "parameters_sha256": "22957f5e96d6c5638173c5ffbfb6baa854f5bb0d89300f7d874fe26cd388e504",
+        "parameters_sha256": "a7dc57604bc529279733f7f8aa05457e123f01ea6fb1375de7dc36e1cf22611b",
         "missing_tokens": [
           "",
           "-200"
@@ -785,7 +515,7 @@
         "source": {
           "dataset_id": "synthetic-tensile-dirty",
           "source_name": "dirty.csv",
-          "source_sha256": "f6309a5aa9d6733cdefa921039abf1519cbe43c26a6d3736c17bd717b6939b3e"
+          "source_sha256": "b4f92f668c2945db3050e9a71a82f0d55d55a6a9b5e261a25fe72d090c87cc45"
         },
         "rule_set": {
           "id": "synthetic-tensile-review",
@@ -867,6 +597,300 @@
           }
         },
         "parameters_sha256": "52e1256e6008ed0efd7a707ba7d203fa0892f71bec1c52c47602a7596298093d",
+        "missing_tokens": [
+          "",
+          "-200"
+        ]
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "check_id": "schema",
+      "execution_status": "completed",
+      "passed": true,
+      "dataset": {
+        "rows": 12,
+        "columns": 6,
+        "fingerprint": "f30e1fe9a7dcce84d29bb4eee5f28171ab62e704d4f5c6b71710938e97a01cbf"
+      },
+      "parameters": {
+        "required_columns": [
+          "sample_id",
+          "condition",
+          "replicate",
+          "temperature",
+          "stress",
+          "date"
+        ],
+        "aliases": {}
+      },
+      "metrics": {
+        "resolved_columns": {
+          "sample_id": "sample_id",
+          "condition": "condition",
+          "replicate": "replicate",
+          "temperature": "temperature",
+          "stress": "stress",
+          "date": "date"
+        }
+      },
+      "total_findings": 0,
+      "returned_findings": 0,
+      "truncated": false,
+      "findings": [],
+      "provenance": {
+        "version": "1",
+        "mode": "shared",
+        "dataset_fingerprint": "f30e1fe9a7dcce84d29bb4eee5f28171ab62e704d4f5c6b71710938e97a01cbf",
+        "source": {
+          "dataset_id": "synthetic-tensile-dirty",
+          "source_name": "dirty.csv",
+          "source_sha256": "b4f92f668c2945db3050e9a71a82f0d55d55a6a9b5e261a25fe72d090c87cc45"
+        },
+        "rule_set": {
+          "id": "synthetic-tensile-review",
+          "version": "1.0",
+          "sha256": "ba68a130a67ff2ddcb556161ac83a3252e29a732f278405ec10fb9173c282fd6",
+          "rules": {
+            "checks": {
+              "duplicates": {
+                "columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate"
+                ]
+              },
+              "missing": {
+                "columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate",
+                  "temperature",
+                  "stress",
+                  "date"
+                ]
+              },
+              "outliers": {
+                "columns": [
+                  "stress"
+                ],
+                "method": "iqr",
+                "multiplier": 1.5
+              },
+              "schema": {
+                "required_columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate",
+                  "temperature",
+                  "stress",
+                  "date"
+                ]
+              },
+              "types": {
+                "expectations": {
+                  "condition": {
+                    "allowed": [
+                      "ambient",
+                      "hot"
+                    ],
+                    "type": "category"
+                  },
+                  "date": {
+                    "format": "%Y-%m-%d",
+                    "type": "datetime"
+                  },
+                  "replicate": "integer",
+                  "sample_id": "string",
+                  "stress": "number",
+                  "temperature": "number"
+                }
+              },
+              "units": {
+                "expected_units": {
+                  "stress": "Pa",
+                  "temperature": "K"
+                },
+                "source_units": {
+                  "stress": "MPa",
+                  "temperature": "degC"
+                }
+              }
+            },
+            "group_by": [
+              "condition"
+            ],
+            "missing_tokens": [
+              "",
+              "-200"
+            ]
+          }
+        },
+        "parameters_sha256": "2c0858118be1e2966020e6cca6d02720dee162e5ced67f470c71a69a7261e676",
+        "missing_tokens": [
+          "",
+          "-200"
+        ]
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "check_id": "outliers",
+      "execution_status": "completed",
+      "passed": false,
+      "dataset": {
+        "rows": 12,
+        "columns": 6,
+        "fingerprint": "f30e1fe9a7dcce84d29bb4eee5f28171ab62e704d4f5c6b71710938e97a01cbf"
+      },
+      "parameters": {
+        "columns": [
+          "stress"
+        ],
+        "method": "iqr",
+        "bounds": null,
+        "multiplier": 1.5,
+        "mad_threshold": 3.5,
+        "group_by": [
+          "condition"
+        ],
+        "missing_tokens": [
+          "",
+          "-200"
+        ]
+      },
+      "metrics": {
+        "thresholds": [
+          {
+            "column": "stress",
+            "group": {
+              "condition": "ambient"
+            },
+            "valid_count": 5,
+            "method": "iqr",
+            "lower": 293,
+            "upper": 317,
+            "q1": 302,
+            "q3": 308
+          },
+          {
+            "column": "stress",
+            "group": {
+              "condition": "hot"
+            },
+            "valid_count": 6,
+            "method": "iqr",
+            "lower": 195,
+            "upper": 215,
+            "q1": 202.5,
+            "q3": 207.5
+          }
+        ],
+        "modified": false
+      },
+      "total_findings": 1,
+      "returned_findings": 1,
+      "truncated": false,
+      "findings": [
+        {
+          "check_id": "outliers",
+          "code": "OUTLIER_IQR",
+          "severity": "warning",
+          "column": "stress",
+          "row_position": 5,
+          "row_index": 5,
+          "reason": "Outside the declared/estimated iqr rule for group {'condition': 'ambient'}. Suspicious observation only; retained for researcher review."
+        }
+      ],
+      "provenance": {
+        "version": "1",
+        "mode": "shared",
+        "dataset_fingerprint": "f30e1fe9a7dcce84d29bb4eee5f28171ab62e704d4f5c6b71710938e97a01cbf",
+        "source": {
+          "dataset_id": "synthetic-tensile-dirty",
+          "source_name": "dirty.csv",
+          "source_sha256": "b4f92f668c2945db3050e9a71a82f0d55d55a6a9b5e261a25fe72d090c87cc45"
+        },
+        "rule_set": {
+          "id": "synthetic-tensile-review",
+          "version": "1.0",
+          "sha256": "ba68a130a67ff2ddcb556161ac83a3252e29a732f278405ec10fb9173c282fd6",
+          "rules": {
+            "checks": {
+              "duplicates": {
+                "columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate"
+                ]
+              },
+              "missing": {
+                "columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate",
+                  "temperature",
+                  "stress",
+                  "date"
+                ]
+              },
+              "outliers": {
+                "columns": [
+                  "stress"
+                ],
+                "method": "iqr",
+                "multiplier": 1.5
+              },
+              "schema": {
+                "required_columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate",
+                  "temperature",
+                  "stress",
+                  "date"
+                ]
+              },
+              "types": {
+                "expectations": {
+                  "condition": {
+                    "allowed": [
+                      "ambient",
+                      "hot"
+                    ],
+                    "type": "category"
+                  },
+                  "date": {
+                    "format": "%Y-%m-%d",
+                    "type": "datetime"
+                  },
+                  "replicate": "integer",
+                  "sample_id": "string",
+                  "stress": "number",
+                  "temperature": "number"
+                }
+              },
+              "units": {
+                "expected_units": {
+                  "stress": "Pa",
+                  "temperature": "K"
+                },
+                "source_units": {
+                  "stress": "MPa",
+                  "temperature": "degC"
+                }
+              }
+            },
+            "group_by": [
+              "condition"
+            ],
+            "missing_tokens": [
+              "",
+              "-200"
+            ]
+          }
+        },
+        "parameters_sha256": "86f4a0326dafd55960984c043ad063cd6715614c43ff54c4dd9bc485c79ed113",
         "missing_tokens": [
           "",
           "-200"
@@ -994,7 +1018,7 @@
         "source": {
           "dataset_id": "synthetic-tensile-dirty",
           "source_name": "dirty.csv",
-          "source_sha256": "f6309a5aa9d6733cdefa921039abf1519cbe43c26a6d3736c17bd717b6939b3e"
+          "source_sha256": "b4f92f668c2945db3050e9a71a82f0d55d55a6a9b5e261a25fe72d090c87cc45"
         },
         "rule_set": {
           "id": "synthetic-tensile-review",
@@ -1084,7 +1108,7 @@
     },
     {
       "schema_version": "1.0",
-      "check_id": "units",
+      "check_id": "duplicates",
       "execution_status": "completed",
       "passed": false,
       "dataset": {
@@ -1093,67 +1117,43 @@
         "fingerprint": "f30e1fe9a7dcce84d29bb4eee5f28171ab62e704d4f5c6b71710938e97a01cbf"
       },
       "parameters": {
-        "source_units": {
-          "stress": "MPa",
-          "temperature": "degC"
-        },
-        "expected_units": {
-          "stress": "Pa",
-          "temperature": "K"
-        },
-        "columns": null,
-        "missing_tokens": [
-          "",
-          "-200"
+        "columns": [
+          "sample_id",
+          "condition",
+          "replicate"
         ]
       },
       "metrics": {
-        "columns": {
-          "stress": {
-            "source_unit": "megapascal",
-            "expected_unit": "pascal",
-            "observed_units": [
-              "megapascal"
-            ],
-            "compatible": true,
-            "checked_count": 11,
-            "unspecified_count": 0
-          },
-          "temperature": {
-            "source_unit": "degree_Celsius",
-            "expected_unit": "kelvin",
-            "observed_units": [
-              "degree_Celsius",
-              "megapascal"
-            ],
-            "compatible": false,
-            "checked_count": 12,
-            "unspecified_count": 0
-          }
-        },
-        "converted": false
+        "duplicate_rows": 2,
+        "duplicate_groups": 1,
+        "key_columns": [
+          "sample_id",
+          "condition",
+          "replicate"
+        ],
+        "duplicate_ratio": 0.16666666666666666
       },
       "total_findings": 2,
       "returned_findings": 2,
       "truncated": false,
       "findings": [
         {
-          "check_id": "units",
-          "code": "UNIT_INCOMPATIBLE",
-          "severity": "error",
-          "column": "temperature",
-          "row_position": 6,
-          "row_index": 6,
-          "reason": "Inline megapascal is incompatible with expected kelvin."
+          "check_id": "duplicates",
+          "code": "DUPLICATE_RECORD",
+          "severity": "warning",
+          "column": null,
+          "row_position": 10,
+          "row_index": 10,
+          "reason": "Repeated combination of ['sample_id', 'condition', 'replicate']; review whether this is a valid replicate."
         },
         {
-          "check_id": "units",
-          "code": "UNIT_MIXED",
+          "check_id": "duplicates",
+          "code": "DUPLICATE_RECORD",
           "severity": "warning",
-          "column": "temperature",
-          "row_position": null,
-          "row_index": null,
-          "reason": "Multiple source units in one column: ['degree_Celsius', 'megapascal']; values were not converted."
+          "column": null,
+          "row_position": 11,
+          "row_index": 11,
+          "reason": "Repeated combination of ['sample_id', 'condition', 'replicate']; review whether this is a valid replicate."
         }
       ],
       "provenance": {
@@ -1163,7 +1163,7 @@
         "source": {
           "dataset_id": "synthetic-tensile-dirty",
           "source_name": "dirty.csv",
-          "source_sha256": "f6309a5aa9d6733cdefa921039abf1519cbe43c26a6d3736c17bd717b6939b3e"
+          "source_sha256": "b4f92f668c2945db3050e9a71a82f0d55d55a6a9b5e261a25fe72d090c87cc45"
         },
         "rule_set": {
           "id": "synthetic-tensile-review",
@@ -1244,7 +1244,7 @@
             ]
           }
         },
-        "parameters_sha256": "a7dc57604bc529279733f7f8aa05457e123f01ea6fb1375de7dc36e1cf22611b",
+        "parameters_sha256": "22957f5e96d6c5638173c5ffbfb6baa854f5bb0d89300f7d874fe26cd388e504",
         "missing_tokens": [
           "",
           "-200"

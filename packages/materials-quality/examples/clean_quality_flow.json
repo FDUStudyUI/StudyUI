@@ -1752,12 +1752,58 @@
     ],
     "edges": [
       {
-        "source": "MaterialSchemaCheck-demo",
+        "source": "MaterialDemoTable-demo",
+        "target": "MaterialMissingCheck-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialDemoTable",
+            "id": "MaterialDemoTable-demo",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialMissingCheck-demo",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialDemoTable-demo",
+        "target": "MaterialTypeCheck-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialDemoTable",
+            "id": "MaterialDemoTable-demo",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "MaterialTypeCheck-demo",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialTypeCheck-demo",
         "target": "MaterialQualitySummary-demo",
         "data": {
           "sourceHandle": {
-            "dataType": "MaterialSchemaCheck",
-            "id": "MaterialSchemaCheck-demo",
+            "dataType": "MaterialTypeCheck",
+            "id": "MaterialTypeCheck-demo",
             "name": "report",
             "output_types": [
               "JSON"
@@ -1776,7 +1822,7 @@
       },
       {
         "source": "MaterialDemoTable-demo",
-        "target": "MaterialMissingCheck-demo",
+        "target": "MaterialDuplicateCheck-demo",
         "data": {
           "sourceHandle": {
             "dataType": "MaterialDemoTable",
@@ -1788,7 +1834,7 @@
           },
           "targetHandle": {
             "fieldName": "input_table",
-            "id": "MaterialMissingCheck-demo",
+            "id": "MaterialDuplicateCheck-demo",
             "inputTypes": [
               "DataFrame",
               "Table"
@@ -1821,23 +1867,69 @@
         }
       },
       {
-        "source": "MaterialDemoTable-demo",
-        "target": "MaterialUnitCheck-demo",
+        "source": "MaterialUnitCheck-demo",
+        "target": "MaterialQualitySummary-demo",
         "data": {
           "sourceHandle": {
-            "dataType": "MaterialDemoTable",
-            "id": "MaterialDemoTable-demo",
-            "name": "table",
+            "dataType": "MaterialUnitCheck",
+            "id": "MaterialUnitCheck-demo",
+            "name": "report",
             "output_types": [
-              "Table"
+              "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_table",
-            "id": "MaterialUnitCheck-demo",
+            "fieldName": "reports",
+            "id": "MaterialQualitySummary-demo",
             "inputTypes": [
-              "DataFrame",
-              "Table"
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialDuplicateCheck-demo",
+        "target": "MaterialQualitySummary-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialDuplicateCheck",
+            "id": "MaterialDuplicateCheck-demo",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "MaterialQualitySummary-demo",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "MaterialSchemaCheck-demo",
+        "target": "MaterialQualitySummary-demo",
+        "data": {
+          "sourceHandle": {
+            "dataType": "MaterialSchemaCheck",
+            "id": "MaterialSchemaCheck-demo",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "MaterialQualitySummary-demo",
+            "inputTypes": [
+              "Data",
+              "JSON"
             ],
             "type": "other"
           }
@@ -1845,7 +1937,7 @@
       },
       {
         "source": "MaterialDemoTable-demo",
-        "target": "MaterialTypeCheck-demo",
+        "target": "MaterialOutlierCheck-demo",
         "data": {
           "sourceHandle": {
             "dataType": "MaterialDemoTable",
@@ -1857,7 +1949,7 @@
           },
           "targetHandle": {
             "fieldName": "input_table",
-            "id": "MaterialTypeCheck-demo",
+            "id": "MaterialOutlierCheck-demo",
             "inputTypes": [
               "DataFrame",
               "Table"
@@ -1913,31 +2005,8 @@
         }
       },
       {
-        "source": "MaterialTypeCheck-demo",
-        "target": "MaterialQualitySummary-demo",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialTypeCheck",
-            "id": "MaterialTypeCheck-demo",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "MaterialQualitySummary-demo",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
         "source": "MaterialDemoTable-demo",
-        "target": "MaterialDuplicateCheck-demo",
+        "target": "MaterialUnitCheck-demo",
         "data": {
           "sourceHandle": {
             "dataType": "MaterialDemoTable",
@@ -1949,79 +2018,10 @@
           },
           "targetHandle": {
             "fieldName": "input_table",
-            "id": "MaterialDuplicateCheck-demo",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialDemoTable-demo",
-        "target": "MaterialOutlierCheck-demo",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialDemoTable",
-            "id": "MaterialDemoTable-demo",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "MaterialOutlierCheck-demo",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialDuplicateCheck-demo",
-        "target": "MaterialQualitySummary-demo",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialDuplicateCheck",
-            "id": "MaterialDuplicateCheck-demo",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "MaterialQualitySummary-demo",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "MaterialUnitCheck-demo",
-        "target": "MaterialQualitySummary-demo",
-        "data": {
-          "sourceHandle": {
-            "dataType": "MaterialUnitCheck",
             "id": "MaterialUnitCheck-demo",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "MaterialQualitySummary-demo",
             "inputTypes": [
-              "Data",
-              "JSON"
+              "DataFrame",
+              "Table"
             ],
             "type": "other"
           }

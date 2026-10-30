@@ -81,6 +81,7 @@ def main():
         path.write_text(
             json.dumps(create_flow_payload(case), ensure_ascii=False, indent=2, allow_nan=False),
             encoding="utf-8",
+            newline="\n",
         )
         print(path)
 

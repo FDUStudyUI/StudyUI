@@ -21,3 +21,5 @@ Current suite: 128 passed, lint clean, regular wheel verified eight components a
 
 Task 1: complete. Task 2: complete. Task 3 local acceptance: complete.
 Final verification: original environment 128 passed / 4 upstream warnings, full UI environment 128 passed / 7 upstream warnings, Ruff clean, fresh wheel eight components / five stored flows. Real Chrome UI 0/8/0, expected failure/restoration, no page errors/API HTTP failures; screenshots inspected. 17 wheel/core/component files matched source SHA-256. GitHub PR and CI verification pending.
+
+Delivery regression: Windows CRLF -> Git LF normalization changed source/evidence byte digests. Three checkout-simulation tests reproduced failures. Normalized case CSVs and generated JSON to LF, regenerated all case manifests and reran real UI. Final result: 131 passed in both environments (4/7 upstream warnings); lint and wheel five-flow verification passed. UI 0/8/0 and invalid-rule recovery passed; source/report/file digests agree.

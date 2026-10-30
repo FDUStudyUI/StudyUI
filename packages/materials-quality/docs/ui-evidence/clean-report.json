@@ -16,7 +16,7 @@
     "source": {
       "dataset_id": "synthetic-tensile-clean",
       "source_name": "clean.csv",
-      "source_sha256": "8aced84f924727806650e2399834340d97bc35a5614b4f65b332039e1c84c4fe"
+      "source_sha256": "330dd2de02ed94d3eb0093013759e10cf3bd977c16313586fe9d7163bf63648a"
     },
     "rule_set": {
       "id": "synthetic-tensile-review",
@@ -97,7 +97,7 @@
         ]
       }
     },
-    "parameters_sha256": "a7dc57604bc529279733f7f8aa05457e123f01ea6fb1375de7dc36e1cf22611b",
+    "parameters_sha256": "22957f5e96d6c5638173c5ffbfb6baa854f5bb0d89300f7d874fe26cd388e504",
     "missing_tokens": [
       "",
       "-200"
@@ -118,7 +118,7 @@
   "checks": [
     {
       "schema_version": "1.0",
-      "check_id": "units",
+      "check_id": "duplicates",
       "execution_status": "completed",
       "passed": true,
       "dataset": {
@@ -127,44 +127,21 @@
         "fingerprint": "64c05dda1e96ef002733816388b4a1c3ed287d8e6bc7e78577e4c9843a29c02c"
       },
       "parameters": {
-        "source_units": {
-          "stress": "MPa",
-          "temperature": "degC"
-        },
-        "expected_units": {
-          "stress": "Pa",
-          "temperature": "K"
-        },
-        "columns": null,
-        "missing_tokens": [
-          "",
-          "-200"
+        "columns": [
+          "sample_id",
+          "condition",
+          "replicate"
         ]
       },
       "metrics": {
-        "columns": {
-          "stress": {
-            "source_unit": "megapascal",
-            "expected_unit": "pascal",
-            "observed_units": [
-              "megapascal"
-            ],
-            "compatible": true,
-            "checked_count": 12,
-            "unspecified_count": 0
-          },
-          "temperature": {
-            "source_unit": "degree_Celsius",
-            "expected_unit": "kelvin",
-            "observed_units": [
-              "degree_Celsius"
-            ],
-            "compatible": true,
-            "checked_count": 12,
-            "unspecified_count": 0
-          }
-        },
-        "converted": false
+        "duplicate_rows": 0,
+        "duplicate_groups": 0,
+        "key_columns": [
+          "sample_id",
+          "condition",
+          "replicate"
+        ],
+        "duplicate_ratio": 0
       },
       "total_findings": 0,
       "returned_findings": 0,
@@ -177,7 +154,7 @@
         "source": {
           "dataset_id": "synthetic-tensile-clean",
           "source_name": "clean.csv",
-          "source_sha256": "8aced84f924727806650e2399834340d97bc35a5614b4f65b332039e1c84c4fe"
+          "source_sha256": "330dd2de02ed94d3eb0093013759e10cf3bd977c16313586fe9d7163bf63648a"
         },
         "rule_set": {
           "id": "synthetic-tensile-review",
@@ -258,7 +235,7 @@
             ]
           }
         },
-        "parameters_sha256": "a7dc57604bc529279733f7f8aa05457e123f01ea6fb1375de7dc36e1cf22611b",
+        "parameters_sha256": "22957f5e96d6c5638173c5ffbfb6baa854f5bb0d89300f7d874fe26cd388e504",
         "missing_tokens": [
           "",
           "-200"
@@ -307,7 +284,7 @@
         "source": {
           "dataset_id": "synthetic-tensile-clean",
           "source_name": "clean.csv",
-          "source_sha256": "8aced84f924727806650e2399834340d97bc35a5614b4f65b332039e1c84c4fe"
+          "source_sha256": "330dd2de02ed94d3eb0093013759e10cf3bd977c16313586fe9d7163bf63648a"
         },
         "rule_set": {
           "id": "synthetic-tensile-review",
@@ -530,7 +507,7 @@
         "source": {
           "dataset_id": "synthetic-tensile-clean",
           "source_name": "clean.csv",
-          "source_sha256": "8aced84f924727806650e2399834340d97bc35a5614b4f65b332039e1c84c4fe"
+          "source_sha256": "330dd2de02ed94d3eb0093013759e10cf3bd977c16313586fe9d7163bf63648a"
         },
         "rule_set": {
           "id": "synthetic-tensile-review",
@@ -612,286 +589,6 @@
           }
         },
         "parameters_sha256": "52e1256e6008ed0efd7a707ba7d203fa0892f71bec1c52c47602a7596298093d",
-        "missing_tokens": [
-          "",
-          "-200"
-        ]
-      }
-    },
-    {
-      "schema_version": "1.0",
-      "check_id": "outliers",
-      "execution_status": "completed",
-      "passed": true,
-      "dataset": {
-        "rows": 12,
-        "columns": 6,
-        "fingerprint": "64c05dda1e96ef002733816388b4a1c3ed287d8e6bc7e78577e4c9843a29c02c"
-      },
-      "parameters": {
-        "columns": [
-          "stress"
-        ],
-        "method": "iqr",
-        "bounds": null,
-        "multiplier": 1.5,
-        "mad_threshold": 3.5,
-        "group_by": [
-          "condition"
-        ],
-        "missing_tokens": [
-          "",
-          "-200"
-        ]
-      },
-      "metrics": {
-        "thresholds": [
-          {
-            "column": "stress",
-            "group": {
-              "condition": "ambient"
-            },
-            "valid_count": 6,
-            "method": "iqr",
-            "lower": 295,
-            "upper": 315,
-            "q1": 302.5,
-            "q3": 307.5
-          },
-          {
-            "column": "stress",
-            "group": {
-              "condition": "hot"
-            },
-            "valid_count": 6,
-            "method": "iqr",
-            "lower": 195,
-            "upper": 215,
-            "q1": 202.5,
-            "q3": 207.5
-          }
-        ],
-        "modified": false
-      },
-      "total_findings": 0,
-      "returned_findings": 0,
-      "truncated": false,
-      "findings": [],
-      "provenance": {
-        "version": "1",
-        "mode": "shared",
-        "dataset_fingerprint": "64c05dda1e96ef002733816388b4a1c3ed287d8e6bc7e78577e4c9843a29c02c",
-        "source": {
-          "dataset_id": "synthetic-tensile-clean",
-          "source_name": "clean.csv",
-          "source_sha256": "8aced84f924727806650e2399834340d97bc35a5614b4f65b332039e1c84c4fe"
-        },
-        "rule_set": {
-          "id": "synthetic-tensile-review",
-          "version": "1.0",
-          "sha256": "ba68a130a67ff2ddcb556161ac83a3252e29a732f278405ec10fb9173c282fd6",
-          "rules": {
-            "checks": {
-              "duplicates": {
-                "columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate"
-                ]
-              },
-              "missing": {
-                "columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate",
-                  "temperature",
-                  "stress",
-                  "date"
-                ]
-              },
-              "outliers": {
-                "columns": [
-                  "stress"
-                ],
-                "method": "iqr",
-                "multiplier": 1.5
-              },
-              "schema": {
-                "required_columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate",
-                  "temperature",
-                  "stress",
-                  "date"
-                ]
-              },
-              "types": {
-                "expectations": {
-                  "condition": {
-                    "allowed": [
-                      "ambient",
-                      "hot"
-                    ],
-                    "type": "category"
-                  },
-                  "date": {
-                    "format": "%Y-%m-%d",
-                    "type": "datetime"
-                  },
-                  "replicate": "integer",
-                  "sample_id": "string",
-                  "stress": "number",
-                  "temperature": "number"
-                }
-              },
-              "units": {
-                "expected_units": {
-                  "stress": "Pa",
-                  "temperature": "K"
-                },
-                "source_units": {
-                  "stress": "MPa",
-                  "temperature": "degC"
-                }
-              }
-            },
-            "group_by": [
-              "condition"
-            ],
-            "missing_tokens": [
-              "",
-              "-200"
-            ]
-          }
-        },
-        "parameters_sha256": "86f4a0326dafd55960984c043ad063cd6715614c43ff54c4dd9bc485c79ed113",
-        "missing_tokens": [
-          "",
-          "-200"
-        ]
-      }
-    },
-    {
-      "schema_version": "1.0",
-      "check_id": "duplicates",
-      "execution_status": "completed",
-      "passed": true,
-      "dataset": {
-        "rows": 12,
-        "columns": 6,
-        "fingerprint": "64c05dda1e96ef002733816388b4a1c3ed287d8e6bc7e78577e4c9843a29c02c"
-      },
-      "parameters": {
-        "columns": [
-          "sample_id",
-          "condition",
-          "replicate"
-        ]
-      },
-      "metrics": {
-        "duplicate_rows": 0,
-        "duplicate_groups": 0,
-        "key_columns": [
-          "sample_id",
-          "condition",
-          "replicate"
-        ],
-        "duplicate_ratio": 0
-      },
-      "total_findings": 0,
-      "returned_findings": 0,
-      "truncated": false,
-      "findings": [],
-      "provenance": {
-        "version": "1",
-        "mode": "shared",
-        "dataset_fingerprint": "64c05dda1e96ef002733816388b4a1c3ed287d8e6bc7e78577e4c9843a29c02c",
-        "source": {
-          "dataset_id": "synthetic-tensile-clean",
-          "source_name": "clean.csv",
-          "source_sha256": "8aced84f924727806650e2399834340d97bc35a5614b4f65b332039e1c84c4fe"
-        },
-        "rule_set": {
-          "id": "synthetic-tensile-review",
-          "version": "1.0",
-          "sha256": "ba68a130a67ff2ddcb556161ac83a3252e29a732f278405ec10fb9173c282fd6",
-          "rules": {
-            "checks": {
-              "duplicates": {
-                "columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate"
-                ]
-              },
-              "missing": {
-                "columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate",
-                  "temperature",
-                  "stress",
-                  "date"
-                ]
-              },
-              "outliers": {
-                "columns": [
-                  "stress"
-                ],
-                "method": "iqr",
-                "multiplier": 1.5
-              },
-              "schema": {
-                "required_columns": [
-                  "sample_id",
-                  "condition",
-                  "replicate",
-                  "temperature",
-                  "stress",
-                  "date"
-                ]
-              },
-              "types": {
-                "expectations": {
-                  "condition": {
-                    "allowed": [
-                      "ambient",
-                      "hot"
-                    ],
-                    "type": "category"
-                  },
-                  "date": {
-                    "format": "%Y-%m-%d",
-                    "type": "datetime"
-                  },
-                  "replicate": "integer",
-                  "sample_id": "string",
-                  "stress": "number",
-                  "temperature": "number"
-                }
-              },
-              "units": {
-                "expected_units": {
-                  "stress": "Pa",
-                  "temperature": "K"
-                },
-                "source_units": {
-                  "stress": "MPa",
-                  "temperature": "degC"
-                }
-              }
-            },
-            "group_by": [
-              "condition"
-            ],
-            "missing_tokens": [
-              "",
-              "-200"
-            ]
-          }
-        },
-        "parameters_sha256": "22957f5e96d6c5638173c5ffbfb6baa854f5bb0d89300f7d874fe26cd388e504",
         "missing_tokens": [
           "",
           "-200"
@@ -1000,7 +697,7 @@
         "source": {
           "dataset_id": "synthetic-tensile-clean",
           "source_name": "clean.csv",
-          "source_sha256": "8aced84f924727806650e2399834340d97bc35a5614b4f65b332039e1c84c4fe"
+          "source_sha256": "330dd2de02ed94d3eb0093013759e10cf3bd977c16313586fe9d7163bf63648a"
         },
         "rule_set": {
           "id": "synthetic-tensile-review",
@@ -1082,6 +779,309 @@
           }
         },
         "parameters_sha256": "7334b6b3bc3fe989412af36b19c1f601b3cfa983814fcb0f0c7fe851be1b52b3",
+        "missing_tokens": [
+          "",
+          "-200"
+        ]
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "check_id": "units",
+      "execution_status": "completed",
+      "passed": true,
+      "dataset": {
+        "rows": 12,
+        "columns": 6,
+        "fingerprint": "64c05dda1e96ef002733816388b4a1c3ed287d8e6bc7e78577e4c9843a29c02c"
+      },
+      "parameters": {
+        "source_units": {
+          "stress": "MPa",
+          "temperature": "degC"
+        },
+        "expected_units": {
+          "stress": "Pa",
+          "temperature": "K"
+        },
+        "columns": null,
+        "missing_tokens": [
+          "",
+          "-200"
+        ]
+      },
+      "metrics": {
+        "columns": {
+          "stress": {
+            "source_unit": "megapascal",
+            "expected_unit": "pascal",
+            "observed_units": [
+              "megapascal"
+            ],
+            "compatible": true,
+            "checked_count": 12,
+            "unspecified_count": 0
+          },
+          "temperature": {
+            "source_unit": "degree_Celsius",
+            "expected_unit": "kelvin",
+            "observed_units": [
+              "degree_Celsius"
+            ],
+            "compatible": true,
+            "checked_count": 12,
+            "unspecified_count": 0
+          }
+        },
+        "converted": false
+      },
+      "total_findings": 0,
+      "returned_findings": 0,
+      "truncated": false,
+      "findings": [],
+      "provenance": {
+        "version": "1",
+        "mode": "shared",
+        "dataset_fingerprint": "64c05dda1e96ef002733816388b4a1c3ed287d8e6bc7e78577e4c9843a29c02c",
+        "source": {
+          "dataset_id": "synthetic-tensile-clean",
+          "source_name": "clean.csv",
+          "source_sha256": "330dd2de02ed94d3eb0093013759e10cf3bd977c16313586fe9d7163bf63648a"
+        },
+        "rule_set": {
+          "id": "synthetic-tensile-review",
+          "version": "1.0",
+          "sha256": "ba68a130a67ff2ddcb556161ac83a3252e29a732f278405ec10fb9173c282fd6",
+          "rules": {
+            "checks": {
+              "duplicates": {
+                "columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate"
+                ]
+              },
+              "missing": {
+                "columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate",
+                  "temperature",
+                  "stress",
+                  "date"
+                ]
+              },
+              "outliers": {
+                "columns": [
+                  "stress"
+                ],
+                "method": "iqr",
+                "multiplier": 1.5
+              },
+              "schema": {
+                "required_columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate",
+                  "temperature",
+                  "stress",
+                  "date"
+                ]
+              },
+              "types": {
+                "expectations": {
+                  "condition": {
+                    "allowed": [
+                      "ambient",
+                      "hot"
+                    ],
+                    "type": "category"
+                  },
+                  "date": {
+                    "format": "%Y-%m-%d",
+                    "type": "datetime"
+                  },
+                  "replicate": "integer",
+                  "sample_id": "string",
+                  "stress": "number",
+                  "temperature": "number"
+                }
+              },
+              "units": {
+                "expected_units": {
+                  "stress": "Pa",
+                  "temperature": "K"
+                },
+                "source_units": {
+                  "stress": "MPa",
+                  "temperature": "degC"
+                }
+              }
+            },
+            "group_by": [
+              "condition"
+            ],
+            "missing_tokens": [
+              "",
+              "-200"
+            ]
+          }
+        },
+        "parameters_sha256": "a7dc57604bc529279733f7f8aa05457e123f01ea6fb1375de7dc36e1cf22611b",
+        "missing_tokens": [
+          "",
+          "-200"
+        ]
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "check_id": "outliers",
+      "execution_status": "completed",
+      "passed": true,
+      "dataset": {
+        "rows": 12,
+        "columns": 6,
+        "fingerprint": "64c05dda1e96ef002733816388b4a1c3ed287d8e6bc7e78577e4c9843a29c02c"
+      },
+      "parameters": {
+        "columns": [
+          "stress"
+        ],
+        "method": "iqr",
+        "bounds": null,
+        "multiplier": 1.5,
+        "mad_threshold": 3.5,
+        "group_by": [
+          "condition"
+        ],
+        "missing_tokens": [
+          "",
+          "-200"
+        ]
+      },
+      "metrics": {
+        "thresholds": [
+          {
+            "column": "stress",
+            "group": {
+              "condition": "ambient"
+            },
+            "valid_count": 6,
+            "method": "iqr",
+            "lower": 295,
+            "upper": 315,
+            "q1": 302.5,
+            "q3": 307.5
+          },
+          {
+            "column": "stress",
+            "group": {
+              "condition": "hot"
+            },
+            "valid_count": 6,
+            "method": "iqr",
+            "lower": 195,
+            "upper": 215,
+            "q1": 202.5,
+            "q3": 207.5
+          }
+        ],
+        "modified": false
+      },
+      "total_findings": 0,
+      "returned_findings": 0,
+      "truncated": false,
+      "findings": [],
+      "provenance": {
+        "version": "1",
+        "mode": "shared",
+        "dataset_fingerprint": "64c05dda1e96ef002733816388b4a1c3ed287d8e6bc7e78577e4c9843a29c02c",
+        "source": {
+          "dataset_id": "synthetic-tensile-clean",
+          "source_name": "clean.csv",
+          "source_sha256": "330dd2de02ed94d3eb0093013759e10cf3bd977c16313586fe9d7163bf63648a"
+        },
+        "rule_set": {
+          "id": "synthetic-tensile-review",
+          "version": "1.0",
+          "sha256": "ba68a130a67ff2ddcb556161ac83a3252e29a732f278405ec10fb9173c282fd6",
+          "rules": {
+            "checks": {
+              "duplicates": {
+                "columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate"
+                ]
+              },
+              "missing": {
+                "columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate",
+                  "temperature",
+                  "stress",
+                  "date"
+                ]
+              },
+              "outliers": {
+                "columns": [
+                  "stress"
+                ],
+                "method": "iqr",
+                "multiplier": 1.5
+              },
+              "schema": {
+                "required_columns": [
+                  "sample_id",
+                  "condition",
+                  "replicate",
+                  "temperature",
+                  "stress",
+                  "date"
+                ]
+              },
+              "types": {
+                "expectations": {
+                  "condition": {
+                    "allowed": [
+                      "ambient",
+                      "hot"
+                    ],
+                    "type": "category"
+                  },
+                  "date": {
+                    "format": "%Y-%m-%d",
+                    "type": "datetime"
+                  },
+                  "replicate": "integer",
+                  "sample_id": "string",
+                  "stress": "number",
+                  "temperature": "number"
+                }
+              },
+              "units": {
+                "expected_units": {
+                  "stress": "Pa",
+                  "temperature": "K"
+                },
+                "source_units": {
+                  "stress": "MPa",
+                  "temperature": "degC"
+                }
+              }
+            },
+            "group_by": [
+              "condition"
+            ],
+            "missing_tokens": [
+              "",
+              "-200"
+            ]
+          }
+        },
+        "parameters_sha256": "86f4a0326dafd55960984c043ad063cd6715614c43ff54c4dd9bc485c79ed113",
         "missing_tokens": [
           "",
           "-200"
