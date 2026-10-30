@@ -48,6 +48,7 @@ jobs:
           cache-dependency-path: packages/materials-quality/pyproject.toml
       - run: python -m pip install -e '.[langflow,dev,ui-test]'
       - run: python -m playwright install --with-deps chromium
+      - run: python -m pytest tests/test_ui_selectors.py -q
       - name: Start isolated Langflow
         run: |
           mkdir -p artifacts/ui-runtime
