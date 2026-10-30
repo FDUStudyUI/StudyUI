@@ -31,8 +31,13 @@ def rules():
 
 def table():
     return pd.DataFrame(
-        {"sample_id": ["A", "A", "A"], "temperature": [25, 25, 80],
-         "replicate": [1, 2, 1], "stress": [100, -200, 80]}, index=[7, 7, 9]
+        {
+            "sample_id": ["A", "A", "A"],
+            "temperature": [25, 25, 80],
+            "replicate": [1, 2, 1],
+            "stress": [100, -200, 80],
+        },
+        index=[7, 7, 9],
     )
 
 
@@ -41,8 +46,12 @@ def test_fingerprint_is_stable_but_sensitive_to_values_index_order_and_types():
     fingerprint = api().table_fingerprint(df)
     assert len(fingerprint) == 64
     assert api().table_fingerprint(df.copy(deep=True)) == fingerprint
-    for changed in [df.iloc[::-1], df.reset_index(drop=True), df.astype({"stress": "str"}),
-                    df.assign(stress=df.stress + 1)]:
+    for changed in [
+        df.iloc[::-1],
+        df.reset_index(drop=True),
+        df.astype({"stress": "str"}),
+        df.assign(stress=df.stress + 1),
+    ]:
         assert api().table_fingerprint(changed) != fingerprint
 
 
@@ -154,27 +163,38 @@ def test_legacy_only_reports_explicitly_lack_provenance_verification():
 
 def test_sentinel_mask_preserves_exact_large_integers_for_range_checks():
     df = pd.DataFrame({"stress": [9007199254740993, -200, 2]})
-    config = {"missing_tokens": ["-200"], "checks": {"outliers": {
-        "columns": ["stress"], "method": "range", "bounds": {"stress": {"max": 9007199254740992}}
-    }}}
+    config = {
+        "missing_tokens": ["-200"],
+        "checks": {
+            "outliers": {
+                "columns": ["stress"],
+                "method": "range",
+                "bounds": {"stress": {"max": 9007199254740992}},
+            }
+        },
+    }
     report = api().run_check(df, "outliers", context=api().make_context(df, config))
     assert [(f["code"], f["row_position"]) for f in report["findings"]] == [("OUTLIER_RANGE", 0)]
 
 
 def test_shared_outlier_all_columns_still_excludes_sentinel():
     df = pd.DataFrame({"x": [1, 2, 3, -200]})
-    config = {"missing_tokens": ["-200"], "checks": {"outliers": {
-        "columns": None, "method": "range", "bounds": {"x": {"min": 0}}
-    }}}
+    config = {
+        "missing_tokens": ["-200"],
+        "checks": {"outliers": {"columns": None, "method": "range", "bounds": {"x": {"min": 0}}}},
+    }
     report = api().run_check(df, "outliers", context=api().make_context(df, config))
     assert report["passed"]
 
 
-@pytest.mark.parametrize("check,parameters,code", [
-    ("types", {"expectations": {"x": {"type": "category", "allowed": ["valid"]}}}, "TYPE_OR_FORMAT"),
-    ("units", {"source_units": {"x": "MPa"}, "expected_units": {"x": "Pa"}}, "UNIT_VALUE_FORMAT"),
-    ("outliers", {"columns": ["x"], "method": "range", "bounds": {"x": {"min": 0}}}, "NON_NUMERIC"),
-])
+@pytest.mark.parametrize(
+    "check,parameters,code",
+    [
+        ("types", {"expectations": {"x": {"type": "category", "allowed": ["valid"]}}}, "TYPE_OR_FORMAT"),
+        ("units", {"source_units": {"x": "MPa"}, "expected_units": {"x": "Pa"}}, "UNIT_VALUE_FORMAT"),
+        ("outliers", {"columns": ["x"], "method": "range", "bounds": {"x": {"min": 0}}}, "NON_NUMERIC"),
+    ],
+)
 def test_empty_missing_token_list_makes_empty_strings_real_values(check, parameters, code):
     df = pd.DataFrame({"x": [""]})
     config = {"missing_tokens": [], "checks": {check: parameters, "missing": {}}}

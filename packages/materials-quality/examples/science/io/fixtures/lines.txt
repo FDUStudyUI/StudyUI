@@ -1,0 +1,2 @@
+SYNTHETIC experiment note
+Temperature: 25 C

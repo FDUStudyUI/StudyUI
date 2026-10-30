@@ -5,6 +5,12 @@ permissions:
 defaults:
   run:
     working-directory: packages/materials-quality
+env:
+  PYTHONUTF8: '1'
+  MPLBACKEND: Agg
+  OMP_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -14,11 +20,18 @@ jobs:
         with:
           python-version: '3.10'
       - run: python -m pip install -r requirements.lock
+      - name: Install OCR runtime libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libgl1 libglib2.0-0
       - run: python -m pip install -e .
       - run: ruff check src components tests scripts examples
       - run: python -m pytest -q
       - run: python -m scripts.build_example
       - run: python -m scripts.build_mechanics
+      - run: python -m scripts.build_science_components
+      - run: python -m scripts.build_requirements_matrix
+      - run: python -m scripts.build_science_examples --verify
       - run: python -m scripts.run_example examples/dirty_quality_flow.json --output artifacts/dirty_report.json
       - run: python -m scripts.run_example examples/mechanics/dirty_flow.json --output artifacts/mechanics_dirty.json
       - run: python -m scripts.run_example examples/mechanics/corrected_flow.json --output artifacts/mechanics_corrected.json
@@ -46,7 +59,7 @@ jobs:
           python-version: '3.10'
           cache: pip
           cache-dependency-path: packages/materials-quality/pyproject.toml
-      - run: python -m pip install -e '.[langflow,dev,ui-test]'
+      - run: python -m pip install -e '.[langflow,science,dev,ui-test]'
       - run: python -m playwright install --with-deps chromium
       - run: python -m pytest tests/test_ui_selectors.py -q
       - name: Start isolated Langflow
@@ -70,11 +83,13 @@ jobs:
               raise SystemExit('Langflow did not become healthy')
           PY
       - run: python -m scripts.ui_acceptance
+      - run: python -m scripts.ui_science_acceptance
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: materials-quality-real-ui
           path: |
             packages/materials-quality/artifacts/ui-acceptance/
+            packages/materials-quality/artifacts/ui-science-acceptance/
             packages/materials-quality/artifacts/ui-server.log
             packages/materials-quality/artifacts/ui-acceptance.log

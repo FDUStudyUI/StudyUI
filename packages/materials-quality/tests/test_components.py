@@ -43,7 +43,10 @@ def test_real_native_component_outputs_and_preserves_input(cls, config, want_pas
     assert isinstance(node.build_findings(), DataFrame)
     assert_frame_equal(table, before)
     frontend = node.to_frontend_node()["data"]["node"]
-    assert {o["name"] for o in frontend["outputs"]} == {"table_out", "findings", "report"}
+    expected_ports = {"table_out", "findings", "report"}
+    if cls is MaterialUnitCheck:
+        expected_ports.add("converted_table")
+    assert {o["name"] for o in frontend["outputs"]} == expected_ports
     assert all(o["group_outputs"] for o in frontend["outputs"])
 
 

@@ -1,0 +1,90 @@
+{
+  "io.table_import": {
+    "path": "examples/science/io/fixtures/samples.xlsx",
+    "sheet": "Experiment",
+    "header": 0,
+    "range": "A1:B4"
+  },
+  "io.text_import": {
+    "path": "examples/science/io/fixtures/fixed-width.txt",
+    "method": "fixed_width",
+    "widths": [
+      2,
+      4
+    ],
+    "names": [
+      "sample",
+      "value"
+    ]
+  },
+  "io.pdf_import": {
+    "path": "examples/science/io/fixtures/scanned.pdf",
+    "dpi": 150
+  },
+  "io.image_import": {
+    "path": "examples/science/io/fixtures/table.png"
+  },
+  "io.instrument_import": {
+    "path": "examples/science/io/fixtures/spectrum.jdx"
+  },
+  "io.database_import": {
+    "path": "examples/science/io/fixtures/samples.sqlite",
+    "method": "sqlite",
+    "query": "SELECT * FROM samples WHERE value > :v",
+    "parameters": {
+      "v": 12
+    }
+  },
+  "extract.pdf_text": {
+    "path": "examples/science/io/fixtures/native.pdf",
+    "method": "native",
+    "pages": [
+      1
+    ]
+  },
+  "extract.pdf_tables": {
+    "path": "examples/science/io/fixtures/native.pdf",
+    "method": "lines"
+  },
+  "extract.image_ocr": {
+    "path": "examples/science/io/fixtures/table.png"
+  },
+  "extract.image_tables": {
+    "path": "examples/science/io/fixtures/table.png"
+  },
+  "extract.chart_digitize": {
+    "path": "examples/science/io/fixtures/curve.png",
+    "color": [
+      255,
+      0,
+      0
+    ],
+    "color_tolerance": 5,
+    "calibration": {
+      "x": [
+        [
+          20,
+          0
+        ],
+        [
+          120,
+          10
+        ]
+      ],
+      "y": [
+        [
+          120,
+          0
+        ],
+        [
+          20,
+          100
+        ]
+      ]
+    }
+  },
+  "extract.convert_file": {
+    "path": "examples/science/io/fixtures/samples.csv",
+    "target": "csv"
+  }
+}

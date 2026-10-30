@@ -2,9 +2,9 @@
 
 基于 Langflow 的可视化科研 Agent 工作流。
 
-材料数据质量检查组件包包含六个检查节点（结构、缺失、类型格式、单位、
-重复记录、异常值）、共享规则与追溯节点、报告汇总节点，以及测试、依赖固定清单和可导入示例。
-检查不修改原数据，不需要大模型 API Key。
+材料科学组件包对应《工作流节点.md》的八类、50 项功能，包含 52 个 Langflow 原生节点，
+以及测试、依赖清单和可导入示例。覆盖文件与数据库接入、OCR、质量与预处理、专业材料分析、
+统计建模、绘图报告和文献证据。计算默认在部署 Langflow 的电脑或服务器运行，原始数据保留。
 
 [材料力学测试案例](packages/materials-quality/examples/mechanics/README.md)提供正常、问题、
 人工修订后三份模拟教学数据和工作流，展示分组检查、合理重复测量、来源与规则追溯。
@@ -17,7 +17,7 @@
 cd packages/materials-quality
 $env:PYTHONUTF8 = "1"
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[langflow,dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[langflow,science,dev]"
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
@@ -32,4 +32,6 @@ packages/materials-quality/    # 独立组件包
 .github/workflows/             # CI
 ```
 
-后续前端、Agent 编排和其他专业分析模块可在独立目录增加；本次不包含这些模块。
+[逐项功能与子方法对照](packages/materials-quality/docs/requirements-matrix.md)及
+[连接工作流示例](packages/materials-quality/examples/science_flows/README.md)见组件包。
+图像量化、谱库匹配与仪器插件需要提供相应校准或参考输入，具体条件已写入方法手册。

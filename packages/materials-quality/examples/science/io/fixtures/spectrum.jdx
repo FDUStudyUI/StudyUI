@@ -1,0 +1,6 @@
+##TITLE=Synthetic spectrum
+##XYDATA=(XY..XY)
+10,100
+20,200
+30,150
+##END=

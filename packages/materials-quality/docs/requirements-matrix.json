@@ -1,0 +1,874 @@
+[
+  {
+    "id": "1.1",
+    "category": 1,
+    "title": "表格文件导入",
+    "source_methods": "识别分隔符与编码；选择工作表、表头行和数据区域。",
+    "submethods": [
+      "识别分隔符与编码",
+      "选择工作表、表头行和数据区域"
+    ],
+    "operation": "io.table_import",
+    "implementation": "materials_quality.science.io_nodes:table_import",
+    "test_files": [
+      "tests/test_science_io.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "1.2",
+    "category": 1,
+    "title": "文本文件导入",
+    "source_methods": "识别编码；按行、分隔符或固定宽度解析。",
+    "submethods": [
+      "识别编码",
+      "按行、分隔符或固定宽度解析"
+    ],
+    "operation": "io.text_import",
+    "implementation": "materials_quality.science.io_nodes:text_import",
+    "test_files": [
+      "tests/test_science_io.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "1.3",
+    "category": 1,
+    "title": "PDF 文件导入",
+    "source_methods": "提取原生文本；扫描件转换为图像后交给 OCR。",
+    "submethods": [
+      "提取原生文本",
+      "扫描件转换为图像后交给 OCR"
+    ],
+    "operation": "io.pdf_import",
+    "implementation": "materials_quality.science.io_nodes:pdf_import",
+    "test_files": [
+      "tests/test_science_io.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "1.4",
+    "category": 1,
+    "title": "图片文件导入",
+    "source_methods": "读取图片格式、尺寸、分辨率和元数据。",
+    "submethods": [
+      "读取图片格式、尺寸、分辨率和元数据"
+    ],
+    "operation": "io.image_import",
+    "implementation": "materials_quality.science.io_nodes:image_import",
+    "test_files": [
+      "tests/test_science_io.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "1.5",
+    "category": 1,
+    "title": "仪器文件导入",
+    "source_methods": "按仪器文件格式解析；暂不支持的格式使用转换器或插件。",
+    "submethods": [
+      "按仪器文件格式解析",
+      "暂不支持的格式使用转换器或插件"
+    ],
+    "operation": "io.instrument_import",
+    "implementation": "materials_quality.science.io_nodes:instrument_import",
+    "test_files": [
+      "tests/test_science_io.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "1.6",
+    "category": 1,
+    "title": "数据库接入",
+    "source_methods": "SQL 查询；REST API 分页读取；按字段筛选。",
+    "submethods": [
+      "SQL 查询",
+      "REST API 分页读取",
+      "按字段筛选"
+    ],
+    "operation": "io.database_import",
+    "implementation": "materials_quality.science.io_nodes:database_import",
+    "test_files": [
+      "tests/test_science_io.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "2.1",
+    "category": 2,
+    "title": "PDF 文本提取",
+    "source_methods": "按页提取；尽量保留段落和版面顺序。",
+    "submethods": [
+      "按页提取",
+      "尽量保留段落和版面顺序"
+    ],
+    "operation": "extract.pdf_text",
+    "implementation": "materials_quality.science.extract_nodes:pdf_text",
+    "test_files": [
+      "tests/test_science_extract.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "2.2",
+    "category": 2,
+    "title": "PDF 表格提取",
+    "source_methods": "根据表格线提取；根据文本对齐关系提取；OCR 表格识别。",
+    "submethods": [
+      "根据表格线提取",
+      "根据文本对齐关系提取",
+      "OCR 表格识别"
+    ],
+    "operation": "extract.pdf_tables",
+    "implementation": "materials_quality.science.extract_nodes:pdf_tables",
+    "test_files": [
+      "tests/test_science_extract.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "2.3",
+    "category": 2,
+    "title": "图片文字识别",
+    "source_methods": "OCR；版面区域识别；保留文字位置与识别内容。",
+    "submethods": [
+      "OCR",
+      "版面区域识别",
+      "保留文字位置与识别内容"
+    ],
+    "operation": "extract.image_ocr",
+    "implementation": "materials_quality.science.extract_nodes:image_ocr",
+    "test_files": [
+      "tests/test_science_extract.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "2.4",
+    "category": 2,
+    "title": "图片表格提取",
+    "source_methods": "检测表格区域、切分单元格并识别单元格内容。",
+    "submethods": [
+      "检测表格区域、切分单元格并识别单元格内容"
+    ],
+    "operation": "extract.image_tables",
+    "implementation": "materials_quality.science.extract_nodes:image_tables",
+    "test_files": [
+      "tests/test_science_extract.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "2.5",
+    "category": 2,
+    "title": "图表数据提取",
+    "source_methods": "校准坐标轴；识别曲线；将曲线数字化为数据点。",
+    "submethods": [
+      "校准坐标轴",
+      "识别曲线",
+      "将曲线数字化为数据点"
+    ],
+    "operation": "extract.chart_digitize",
+    "implementation": "materials_quality.science.extract_nodes:chart_digitize",
+    "test_files": [
+      "tests/test_science_extract.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "2.6",
+    "category": 2,
+    "title": "文件格式转换",
+    "source_methods": "解析原始格式或转换为 CSV、TXT、PNG 等中间格式。",
+    "submethods": [
+      "解析原始格式或转换为 CSV、TXT、PNG 等中间格式"
+    ],
+    "operation": "extract.convert_file",
+    "implementation": "materials_quality.science.extract_nodes:convert_file",
+    "test_files": [
+      "tests/test_science_extract.py"
+    ],
+    "method_manual": "docs/science-io.md"
+  },
+  {
+    "id": "3.1",
+    "category": 3,
+    "title": "必需字段检查",
+    "source_methods": "必需列清单；字段名别名匹配；数据结构模板校验。",
+    "submethods": [
+      "必需列清单",
+      "字段名别名匹配",
+      "数据结构模板校验"
+    ],
+    "operation": "quality.schema",
+    "implementation": "materials_quality.checks:check_schema",
+    "test_files": [
+      "tests/test_checks.py",
+      "tests/test_units_outliers.py",
+      "tests/test_quality_extensions.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/../README.md"
+  },
+  {
+    "id": "3.2",
+    "category": 3,
+    "title": "缺失值检查",
+    "source_methods": "统计数量和比例；按行、列、分组检查；分析缺失模式。",
+    "submethods": [
+      "统计数量和比例",
+      "按行、列、分组检查",
+      "分析缺失模式"
+    ],
+    "operation": "quality.missing",
+    "implementation": "materials_quality.checks:check_missing",
+    "test_files": [
+      "tests/test_checks.py",
+      "tests/test_units_outliers.py",
+      "tests/test_quality_extensions.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/../README.md"
+  },
+  {
+    "id": "3.3",
+    "category": 3,
+    "title": "类型与格式检查",
+    "source_methods": "推断字段类型；校验日期、数值和分类格式。",
+    "submethods": [
+      "推断字段类型",
+      "校验日期、数值和分类格式"
+    ],
+    "operation": "quality.types",
+    "implementation": "materials_quality.checks:check_types",
+    "test_files": [
+      "tests/test_checks.py",
+      "tests/test_units_outliers.py",
+      "tests/test_quality_extensions.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/../README.md"
+  },
+  {
+    "id": "3.4",
+    "category": 3,
+    "title": "单位检查",
+    "source_methods": "识别并换算单位；检查量纲兼容；标记混合单位。",
+    "submethods": [
+      "识别并换算单位",
+      "检查量纲兼容",
+      "标记混合单位"
+    ],
+    "operation": "quality.units",
+    "implementation": "materials_quality.units:check_units",
+    "test_files": [
+      "tests/test_checks.py",
+      "tests/test_units_outliers.py",
+      "tests/test_quality_extensions.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/../README.md"
+  },
+  {
+    "id": "3.5",
+    "category": 3,
+    "title": "重复记录检查",
+    "source_methods": "完全重复检查；按样品编号检查；相似记录匹配。",
+    "submethods": [
+      "完全重复检查",
+      "按样品编号检查",
+      "相似记录匹配"
+    ],
+    "operation": "quality.duplicates",
+    "implementation": "materials_quality.checks:check_duplicates",
+    "test_files": [
+      "tests/test_checks.py",
+      "tests/test_units_outliers.py",
+      "tests/test_quality_extensions.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/../README.md"
+  },
+  {
+    "id": "3.6",
+    "category": 3,
+    "title": "异常值识别",
+    "source_methods": "按物理范围规则检查；四分位距法；MAD 稳健离群值检测。",
+    "submethods": [
+      "按物理范围规则检查",
+      "四分位距法",
+      "MAD 稳健离群值检测"
+    ],
+    "operation": "quality.outliers",
+    "implementation": "materials_quality.outliers:check_outliers",
+    "test_files": [
+      "tests/test_checks.py",
+      "tests/test_units_outliers.py",
+      "tests/test_quality_extensions.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/../README.md"
+  },
+  {
+    "id": "4.1",
+    "category": 4,
+    "title": "行列筛选",
+    "source_methods": "按条件过滤；选择、重命名字段；移除空行。",
+    "submethods": [
+      "按条件过滤",
+      "选择、重命名字段",
+      "移除空行"
+    ],
+    "operation": "preprocess.filter",
+    "implementation": "materials_quality.science.preprocessing:filter_rows",
+    "test_files": [
+      "tests/test_science_preprocessing.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/science-preprocessing.md"
+  },
+  {
+    "id": "4.2",
+    "category": 4,
+    "title": "缺失值处理",
+    "source_methods": "删除记录；均值、中位数或众数填补；前向或线性插值；保留缺失。",
+    "submethods": [
+      "删除记录",
+      "均值、中位数或众数填补",
+      "前向或线性插值",
+      "保留缺失"
+    ],
+    "operation": "preprocess.missing",
+    "implementation": "materials_quality.science.preprocessing:handle_missing",
+    "test_files": [
+      "tests/test_science_preprocessing.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/science-preprocessing.md"
+  },
+  {
+    "id": "4.3",
+    "category": 4,
+    "title": "单位换算",
+    "source_methods": "按明确的换算关系转换；保留原值和转换记录。",
+    "submethods": [
+      "按明确的换算关系转换",
+      "保留原值和转换记录"
+    ],
+    "operation": "preprocess.units",
+    "implementation": "materials_quality.science.preprocessing:convert_units",
+    "test_files": [
+      "tests/test_science_preprocessing.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/science-preprocessing.md"
+  },
+  {
+    "id": "4.4",
+    "category": 4,
+    "title": "格式转换",
+    "source_methods": "宽表与长表转换；日期、数值和分类字段转换。",
+    "submethods": [
+      "宽表与长表转换",
+      "日期、数值和分类字段转换"
+    ],
+    "operation": "preprocess.reshape",
+    "implementation": "materials_quality.science.preprocessing:reshape_table",
+    "test_files": [
+      "tests/test_science_preprocessing.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/science-preprocessing.md"
+  },
+  {
+    "id": "4.5",
+    "category": 4,
+    "title": "多表合并",
+    "source_methods": "按样品编号连接；按时间或容差匹配；纵向追加。",
+    "submethods": [
+      "按样品编号连接",
+      "按时间或容差匹配",
+      "纵向追加"
+    ],
+    "operation": "preprocess.merge",
+    "implementation": "materials_quality.science.preprocessing:merge_tables",
+    "test_files": [
+      "tests/test_science_preprocessing.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/science-preprocessing.md"
+  },
+  {
+    "id": "4.6",
+    "category": 4,
+    "title": "数据归一化",
+    "source_methods": "Min-Max；Z-score；稳健缩放。",
+    "submethods": [
+      "Min-Max",
+      "Z-score",
+      "稳健缩放"
+    ],
+    "operation": "preprocess.normalize",
+    "implementation": "materials_quality.science.preprocessing:normalize_table",
+    "test_files": [
+      "tests/test_science_preprocessing.py",
+      "tests/test_science_preprocessing_review.py"
+    ],
+    "method_manual": "docs/science-preprocessing.md"
+  },
+  {
+    "id": "5.1",
+    "category": 5,
+    "title": "XRD 数据处理",
+    "source_methods": "背景扣除；平滑；峰检测；峰位与半高宽计算；物相匹配；全谱拟合。",
+    "submethods": [
+      "背景扣除",
+      "平滑",
+      "峰检测",
+      "峰位与半高宽计算",
+      "物相匹配",
+      "全谱拟合"
+    ],
+    "operation": "materials.xrd",
+    "implementation": "materials_quality.science.materials:xrd",
+    "test_files": [
+      "tests/test_science_materials.py",
+      "tests/test_science_materials_review.py"
+    ],
+    "method_manual": "docs/science-materials.md"
+  },
+  {
+    "id": "5.2",
+    "category": 5,
+    "title": "FTIR/Raman 数据处理",
+    "source_methods": "基线校正；平滑；峰检测；峰面积计算；谱线归一化；谱库匹配。",
+    "submethods": [
+      "基线校正",
+      "平滑",
+      "峰检测",
+      "峰面积计算",
+      "谱线归一化",
+      "谱库匹配"
+    ],
+    "operation": "materials.spectra",
+    "implementation": "materials_quality.science.materials:spectra",
+    "test_files": [
+      "tests/test_science_materials.py",
+      "tests/test_science_materials_review.py"
+    ],
+    "method_manual": "docs/science-materials.md"
+  },
+  {
+    "id": "5.3",
+    "category": 5,
+    "title": "TG/DSC 热分析",
+    "source_methods": "基线校正；失重阶段识别；峰温与起始温度计算；峰面积积分。",
+    "submethods": [
+      "基线校正",
+      "失重阶段识别",
+      "峰温与起始温度计算",
+      "峰面积积分"
+    ],
+    "operation": "materials.thermal",
+    "implementation": "materials_quality.science.materials:thermal",
+    "test_files": [
+      "tests/test_science_materials.py",
+      "tests/test_science_materials_review.py"
+    ],
+    "method_manual": "docs/science-materials.md"
+  },
+  {
+    "id": "5.4",
+    "category": 5,
+    "title": "应力—应变分析",
+    "source_methods": "弹性模量拟合；屈服强度计算；最大强度识别；断裂应变与曲线积分。",
+    "submethods": [
+      "弹性模量拟合",
+      "屈服强度计算",
+      "最大强度识别",
+      "断裂应变与曲线积分"
+    ],
+    "operation": "materials.mechanics",
+    "implementation": "materials_quality.science.materials:mechanics",
+    "test_files": [
+      "tests/test_science_materials.py",
+      "tests/test_science_materials_review.py"
+    ],
+    "method_manual": "docs/science-materials.md"
+  },
+  {
+    "id": "5.5",
+    "category": 5,
+    "title": "SEM/EDS 分析",
+    "source_methods": "图像阈值分割；颗粒或孔隙识别；尺寸统计；读取元素定量结果。",
+    "submethods": [
+      "图像阈值分割",
+      "颗粒或孔隙识别",
+      "尺寸统计",
+      "读取元素定量结果"
+    ],
+    "operation": "materials.sem_eds",
+    "implementation": "materials_quality.science.materials:sem_eds",
+    "test_files": [
+      "tests/test_science_materials.py",
+      "tests/test_science_materials_review.py"
+    ],
+    "method_manual": "docs/science-materials.md"
+  },
+  {
+    "id": "5.6",
+    "category": 5,
+    "title": "显微结构图像分析",
+    "source_methods": "阈值或机器学习分割；连通区域分析；粒径、孔隙率和面积分数统计。",
+    "submethods": [
+      "阈值或机器学习分割",
+      "连通区域分析",
+      "粒径、孔隙率和面积分数统计"
+    ],
+    "operation": "materials.microstructure",
+    "implementation": "materials_quality.science.materials:microstructure",
+    "test_files": [
+      "tests/test_science_materials.py",
+      "tests/test_science_materials_review.py"
+    ],
+    "method_manual": "docs/science-materials.md"
+  },
+  {
+    "id": "6.1",
+    "category": 6,
+    "title": "分组统计",
+    "source_methods": "样本数、均值、标准差、中位数、四分位数、最小值和最大值。",
+    "submethods": [
+      "样本数、均值、标准差、中位数、四分位数、最小值和最大值"
+    ],
+    "operation": "stats.grouped",
+    "implementation": "materials_quality.science.statistics:grouped",
+    "test_files": [
+      "tests/test_science_stats.py"
+    ],
+    "method_manual": "docs/science-statistics.md"
+  },
+  {
+    "id": "6.2",
+    "category": 6,
+    "title": "分布检查",
+    "source_methods": "直方图、Q-Q 图；Shapiro-Wilk 正态性检验。",
+    "submethods": [
+      "直方图、Q-Q 图",
+      "Shapiro-Wilk 正态性检验"
+    ],
+    "operation": "stats.distribution",
+    "implementation": "materials_quality.science.statistics:distribution",
+    "test_files": [
+      "tests/test_science_stats.py"
+    ],
+    "method_manual": "docs/science-statistics.md"
+  },
+  {
+    "id": "6.3",
+    "category": 6,
+    "title": "相关性分析",
+    "source_methods": "Pearson；Spearman；Kendall。",
+    "submethods": [
+      "Pearson",
+      "Spearman",
+      "Kendall"
+    ],
+    "operation": "stats.correlation",
+    "implementation": "materials_quality.science.statistics:correlation",
+    "test_files": [
+      "tests/test_science_stats.py"
+    ],
+    "method_manual": "docs/science-statistics.md"
+  },
+  {
+    "id": "6.4",
+    "category": 6,
+    "title": "显著性检验",
+    "source_methods": "独立或配对 t 检验；Welch 检验；Mann-Whitney；ANOVA；Kruskal-Wallis。",
+    "submethods": [
+      "独立或配对 t 检验",
+      "Welch 检验",
+      "Mann-Whitney",
+      "ANOVA",
+      "Kruskal-Wallis"
+    ],
+    "operation": "stats.significance",
+    "implementation": "materials_quality.science.statistics:significance",
+    "test_files": [
+      "tests/test_science_stats.py"
+    ],
+    "method_manual": "docs/science-statistics.md"
+  },
+  {
+    "id": "6.5",
+    "category": 6,
+    "title": "多重比较",
+    "source_methods": "Tukey；Dunn；Holm 校正；FDR 校正。",
+    "submethods": [
+      "Tukey",
+      "Dunn",
+      "Holm 校正",
+      "FDR 校正"
+    ],
+    "operation": "stats.multiple",
+    "implementation": "materials_quality.science.statistics:multiple",
+    "test_files": [
+      "tests/test_science_stats.py"
+    ],
+    "method_manual": "docs/science-statistics.md"
+  },
+  {
+    "id": "6.6",
+    "category": 6,
+    "title": "回归分析",
+    "source_methods": "线性回归；多项式回归；岭回归；Lasso。",
+    "submethods": [
+      "线性回归",
+      "多项式回归",
+      "岭回归",
+      "Lasso"
+    ],
+    "operation": "stats.regression",
+    "implementation": "materials_quality.science.statistics:regression",
+    "test_files": [
+      "tests/test_science_stats.py"
+    ],
+    "method_manual": "docs/science-statistics.md"
+  },
+  {
+    "id": "6.7",
+    "category": 6,
+    "title": "预测模型",
+    "source_methods": "随机森林；梯度提升树；支持向量回归。",
+    "submethods": [
+      "随机森林",
+      "梯度提升树",
+      "支持向量回归"
+    ],
+    "operation": "stats.predict",
+    "implementation": "materials_quality.science.statistics:predict",
+    "test_files": [
+      "tests/test_science_stats.py"
+    ],
+    "method_manual": "docs/science-statistics.md"
+  },
+  {
+    "id": "6.8",
+    "category": 6,
+    "title": "模型评估",
+    "source_methods": "留出集验证；交叉验证；MAE、RMSE、R²。",
+    "submethods": [
+      "留出集验证",
+      "交叉验证",
+      "MAE、RMSE、R²"
+    ],
+    "operation": "stats.evaluate",
+    "implementation": "materials_quality.science.statistics:evaluate",
+    "test_files": [
+      "tests/test_science_stats.py"
+    ],
+    "method_manual": "docs/science-statistics.md"
+  },
+  {
+    "id": "7.1",
+    "category": 7,
+    "title": "性能对比图",
+    "source_methods": "散点图、柱状图、箱线图、小提琴图。",
+    "submethods": [
+      "散点图、柱状图、箱线图、小提琴图"
+    ],
+    "operation": "viz.performance",
+    "implementation": "materials_quality.science.visualization:performance",
+    "test_files": [
+      "tests/test_science_viz.py"
+    ],
+    "method_manual": "docs/science-visualization.md"
+  },
+  {
+    "id": "7.2",
+    "category": 7,
+    "title": "光谱或衍射图",
+    "source_methods": "折线图、叠加谱图、差谱图、峰位标注。",
+    "submethods": [
+      "折线图、叠加谱图、差谱图、峰位标注"
+    ],
+    "operation": "viz.spectra",
+    "implementation": "materials_quality.science.visualization:spectra",
+    "test_files": [
+      "tests/test_science_viz.py"
+    ],
+    "method_manual": "docs/science-visualization.md"
+  },
+  {
+    "id": "7.3",
+    "category": 7,
+    "title": "应力—应变图",
+    "source_methods": "曲线叠加；分组均值与误差带。",
+    "submethods": [
+      "曲线叠加",
+      "分组均值与误差带"
+    ],
+    "operation": "viz.mechanics",
+    "implementation": "materials_quality.science.visualization:mechanics",
+    "test_files": [
+      "tests/test_science_viz.py"
+    ],
+    "method_manual": "docs/science-visualization.md"
+  },
+  {
+    "id": "7.4",
+    "category": 7,
+    "title": "统计图表",
+    "source_methods": "直方图、相关性热图、残差图、模型预测图。",
+    "submethods": [
+      "直方图、相关性热图、残差图、模型预测图"
+    ],
+    "operation": "viz.statistics",
+    "implementation": "materials_quality.science.visualization:statistics_plot",
+    "test_files": [
+      "tests/test_science_viz.py"
+    ],
+    "method_manual": "docs/science-visualization.md"
+  },
+  {
+    "id": "7.5",
+    "category": 7,
+    "title": "结果表导出",
+    "source_methods": "CSV、Excel；保留列名、单位和样品编号。",
+    "submethods": [
+      "CSV、Excel",
+      "保留列名、单位和样品编号"
+    ],
+    "operation": "export.table",
+    "implementation": "materials_quality.science.visualization:export_table",
+    "test_files": [
+      "tests/test_science_viz.py"
+    ],
+    "method_manual": "docs/science-visualization.md"
+  },
+  {
+    "id": "7.6",
+    "category": 7,
+    "title": "分析报告生成",
+    "source_methods": "按模板汇总数据来源、节点参数、结果、图表和警告。",
+    "submethods": [
+      "按模板汇总数据来源、节点参数、结果、图表和警告"
+    ],
+    "operation": "export.report",
+    "implementation": "materials_quality.science.visualization:export_report",
+    "test_files": [
+      "tests/test_science_viz.py"
+    ],
+    "method_manual": "docs/science-visualization.md"
+  },
+  {
+    "id": "8.1",
+    "category": 8,
+    "title": "文献搜索",
+    "source_methods": "关键词、布尔检索、作者或 DOI 检索。",
+    "submethods": [
+      "关键词、布尔检索、作者或 DOI 检索"
+    ],
+    "operation": "lit.search",
+    "implementation": "materials_quality.science.literature:search",
+    "test_files": [
+      "tests/test_science_literature.py",
+      "tests/test_science_literature_http.py",
+      "tests/test_science_literature_review.py"
+    ],
+    "method_manual": "docs/science-literature.md"
+  },
+  {
+    "id": "8.2",
+    "category": 8,
+    "title": "文献元数据提取",
+    "source_methods": "DOI 解析；提取题名、作者、期刊和年份。",
+    "submethods": [
+      "DOI 解析",
+      "提取题名、作者、期刊和年份"
+    ],
+    "operation": "lit.metadata",
+    "implementation": "materials_quality.science.literature:metadata",
+    "test_files": [
+      "tests/test_science_literature.py",
+      "tests/test_science_literature_http.py",
+      "tests/test_science_literature_review.py"
+    ],
+    "method_manual": "docs/science-literature.md"
+  },
+  {
+    "id": "8.3",
+    "category": 8,
+    "title": "材料与性能信息提取",
+    "source_methods": "规则和词典提取；表格解析；大模型结构化抽取并保留原文证据。",
+    "submethods": [
+      "规则和词典提取",
+      "表格解析",
+      "大模型结构化抽取并保留原文证据"
+    ],
+    "operation": "lit.extract",
+    "implementation": "materials_quality.science.literature:extract",
+    "test_files": [
+      "tests/test_science_literature.py",
+      "tests/test_science_literature_http.py",
+      "tests/test_science_literature_review.py"
+    ],
+    "method_manual": "docs/science-literature.md"
+  },
+  {
+    "id": "8.4",
+    "category": 8,
+    "title": "多篇文献对比",
+    "source_methods": "按材料、制备方法、测试条件和性能指标对齐比较。",
+    "submethods": [
+      "按材料、制备方法、测试条件和性能指标对齐比较"
+    ],
+    "operation": "lit.compare",
+    "implementation": "materials_quality.science.literature:compare",
+    "test_files": [
+      "tests/test_science_literature.py",
+      "tests/test_science_literature_http.py",
+      "tests/test_science_literature_review.py"
+    ],
+    "method_manual": "docs/science-literature.md"
+  },
+  {
+    "id": "8.5",
+    "category": 8,
+    "title": "引文与来源记录",
+    "source_methods": "保存 DOI、页码、表图编号和原文片段。",
+    "submethods": [
+      "保存 DOI、页码、表图编号和原文片段"
+    ],
+    "operation": "lit.sources",
+    "implementation": "materials_quality.science.literature:sources",
+    "test_files": [
+      "tests/test_science_literature.py",
+      "tests/test_science_literature_http.py",
+      "tests/test_science_literature_review.py"
+    ],
+    "method_manual": "docs/science-literature.md"
+  },
+  {
+    "id": "8.6",
+    "category": 8,
+    "title": "文献综述摘要",
+    "source_methods": "检索相关片段；基于证据生成摘要；为要点链接来源。",
+    "submethods": [
+      "检索相关片段",
+      "基于证据生成摘要",
+      "为要点链接来源"
+    ],
+    "operation": "lit.summary",
+    "implementation": "materials_quality.science.literature:summary",
+    "test_files": [
+      "tests/test_science_literature.py",
+      "tests/test_science_literature_http.py",
+      "tests/test_science_literature_review.py"
+    ],
+    "method_manual": "docs/science-literature.md"
+  }
+]

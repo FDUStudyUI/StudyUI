@@ -1,0 +1,20 @@
+{
+  "checked_at_utc": "2026-10-30T15:27:54.442038+00:00",
+  "provider": "Crossref",
+  "doi": "10.1038/nphys1170",
+  "status": "success",
+  "records": [
+    {
+      "doi": "10.1038/nphys1170",
+      "title": "Measured measurement",
+      "authors": [
+        "Markus Aspelmeyer"
+      ],
+      "journal": "Nature Physics",
+      "year": 2009,
+      "url": "https://doi.org/10.1038/nphys1170",
+      "metadata_provider": "crossref",
+      "source_id": "doi-1"
+    }
+  ]
+}

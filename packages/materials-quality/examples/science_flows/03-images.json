@@ -1,0 +1,2137 @@
+{
+  "data": {
+    "nodes": [
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "bundle_base64": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "bundle_base64",
+                "value": "eyJyZWNvcmRzIjpbXSwiZGF0YSI6e30sImFzc2V0cyI6eyJ0YWJsZS5wbmciOnsiYmFzZTY0IjoiaVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQW9BQUFBRXNDQUlBQUFEY21aVjhBQUFBQ1hCSVdYTUFBQmNTQUFBWEVnRm5uOUpTQUFBZ1MwbEVRVlI0bk8zZGUxelVWZjdIOFROY1JBa3dGZ1JVSUNBZmlyZU50Vkl4V3lPc0NGT284SmFrcVhpcE52ZXhicG5abG1tMVdtcWx0WGtoUVRJTEZTK1JpcGtLcUltWE5KVkVyWVNROEM3Q0dIS2YrVDNXczc5NThHQ0dFV0hnTVBoNi91SGo2M3pQOTNnWStjeDd2dC92bVRNYXZWNHZBQUJBMDdKcDRuOFBBQUFRd0FBQXFNRVpNQUFBQ2hEQUFBQW9RQUFEQUtBQUFRd0FnQUlFTUFBQUNoREFBQUFvUUFBREFLQUFBUXdBZ0FJRU1BQUFDaERBQUFBb1FBQURBS0FBQVF3QWdBSUVNQUFBQ2hEQUFBQW9RQUFEQUtBQUFRd0FnQUoyRFRsWW85RlliaVFBQUZnZnZWN2YxR2ZBcEM4QUFKcjZub3R5Q1JvQUFHdTdCTjNBczI4QUZubmZUUTBDU2pUd1NqQm53QUFBS0VBQUF3Q2dBQUVNQUlBQ0JEQUFBQW9Rd0FBQUtFQUFBd0NnQUFFTUFJQUNCREFBQUFvUXdBQUFLRUFBQXdDZ0FBRU1BSUFDQkRBQUFBb1F3QUFBS0VBQUF3Q2dBQUVNQUlBQ0JEQUFBQW9Rd0FBQUtFQUFBd0NnQUFFTUFJQUNCREFBQUFvUXdBQUFLRUFBQXdDZ0FBRU1BTUJ0SE1DVmxaWHIxNjhmUDM1ODkrN2QzZDNkSFJ3YzJyZHZIeFFVOU9LTEwyN1pza1duMDRrV3g4bkpTYVBSZE9yVVNmVkFjSnNhT25TbzVvWkpreWJWOFpDalI0L0tRM3g4ZkJwU2xmenlBODBsZ0hmczJOR3paOCtubjM0NkxpNHVLeXZyeXBVcjVlWGw1OCtmUDNyMDZLZWZmanBvMEtENzc3OS8zNzU5cW9jSnRDamp4NCtYRzJ2WHJpMHZMNi9MSVFrSkNYSmo3Tml4TmpiTjR0VURzRjdxUzJqcjFxM2g0ZUVuVDU2VWYzVjFkZTNWcTFmLy92M3Z1ZWVlTys2NFF6NTQrUERoa0pDUVhidDJLUjBwMEtJOCt1aWpQajQrUW9pclY2K21wS1RjdEgxbFplV1hYMzRwaE5Cb05PUEdqV3VTTVFJdG1lSUFMaTR1ZnZiWlorVzc3OURRMElNSER4WVVGQnc2ZEdqMzd0MUhqaHpSYXJVcEtTbmR1M2NYUXBTV2xrWkdSaFlWRmFrZE1OQmkyTmpZUFBmY2MzSjcxYXBWTjIyL2RldldDeGN1Q0NFR0Roem81K2ZYK0FNRVdqakZBYnh5NWNyTGx5OExJUVlNR0xCMTY5Yjc3cnV2K2w0Ykc1dXdzTEM5ZS9kMjdkcFZ2ay8vOU5OUDFRMFdhR25HamgycjBXaUVFTjk4ODQxV3F6WGYrUFBQUDVjYk1URXhUVEk2b0lWVEhNQS8vdmlqM0pneVpZcWRuWjNKTmk0dUxuUG16SkhibXpkdmJzTFJBUzJjdjc5L1NFaUl2TUswZnYxNk15MExDd3VUazVPRkVHNXVicEdSa1UwNFJxREZVaHpBcGFXbGNrT3YxNXRwOXRoamo5MXh4eDBkT25Rd0dkSm56NTU5NTUxMzVBMHRKeWNuQndjSEx5K3ZCeDk4Y05hc1daY3VYVEp1NyszdHJkRm81TVczWThlT1RaZ3dJU0Fnb0hYcjFsNWVYZ01IRGx5M2JwMmhaVVpHeHNpUkkzMThmQndjSER3OVBaOTY2aW1UYzhGa2gxRlJVVUtJUTRjT2pSdzUwdHZidTFXclZwNmVuazg4OGNUR2pSdnI4Y3pzMkxGanpKZ3hkOTk5dDZPam83T3pjN2R1M2Y3MnQ3OGRQMzY4SGwwQmRabUs5Y1VYWDVocGxwaVlXRlpXSm9SNDl0bG5XN1ZxMWNBYXJNZlU2STBiTjhvSjJHKzk5WmJKQnBRTXJJKyt2aHJlZzE2dmYrKzk5MlFuano3NmFGVlZWVDE2bURObmpyMjlmVzAvbmJPejgvYnQyMnNjMHJGalJ5SEVtREZqRmkxYVpQTFlhZE9tNmZYNm1UTm5Hcy96dExPelc3MTZ0Y2tPNVN4dWt4MUdSVVdWbHBiV09FcE9NYnY3N3J0clBGNVVWRFJreUJDVFA0Nk5qYzBycjd4U3Z5Y0tMWTlGYXJDa3BPVE9PKytVdjEzNStmbTFOZXZidDYvOHQzNzY2YWVHMTZESlgvN2FLa0xhc0dHRDdIRG16SmsxZGxFeXNOSWFWQnpBRnk1Y2FOT21qZXhud0lBQm16ZHZMaTh2ci92aG4zenlpYUhJcDA2ZHVtYk5tdTNidDMvenpUZHo1c3pwMHFXTDNOV3VYYnRyMTY0WjU2V2MvOW02ZGV2bm4zOCtLU2xwelpvMW8wZVBsb2NZem8rOXZMemVmZmZkbEpTVXI3NzZTbDZwRTBLMGJkdFdxOVVhZCtqbjV5ZFAwTVBEdzFldFdyVmx5NWEzM25yTDFkVlZIalZvMEtBYWd6ZjVjbE5TVW5MdnZmZktRL3o4L1A3OTczOXYyYklsT1RuNVgvLzZsN3U3dTN4OHdvUUo5WHF5MGRKWXBBYjFldjJMTDc0bysxbXdZSUhKQmovLy9MTnMwTGR2WDR2VW9BVURtSktCUXRZZHdIcTlmdDI2ZGJhMnRvYmVYRnhjaGd3Wk1uLysvSXlNakxLeU1qTUhscGFXeW5mdURnNE8rL2Z2cjdHM3JLeXNWNjllc3M4YTU2d3lMNFVRam82T2UvZnVyYjZyK3V5U3dNREFDeGN1R0haVlZWVU5IRGhRN2twTVREVFpvUkRpbzQ4K3FyN3J6Smt6QVFFQmN0ZWFOV3R1K25MejBrc3Z5Y2FSa1pIWHIxK3Z2dXZTcFV1R24yajkrdlZtbmhuY0ppeFZnNGNPSFpMOTlPclZ5MlNEMTE5L1hUYjQ3TFBQTEZLREZneGdTZ1lLV1gwQTYvWDZQWHYyeUhuT05iUnAwMmJnd0lFTEZpekl5OHN6UHVyNDhlTWhJU0crdnI0VEowNDAyZTNpeFl0bFA3Tm16VEtabDYrLy9ucU5Rekl5TWd6LytuZmZmVmRqNzhxVkswMGVhT2h3OU9qUnhzTXc5QmtVRkdUKzVlYjgrZk1PRGc3eTNMZWtwTVM0cTU5KytrbStXYW50aFJLM0ZRdldZRkJRa096cXhJa1ROWGJwZERwZlgxOTVqN2JHaVd5OWE5QlNBVXpKd0twclVQMUNIRUtJQng1NElETXpNems1T1RvNjJuQ2hWUWhSVWxLeWZmdjJmLzd6bjM1K2Z1UEdqWk1mV0RMbzFxM2J6cDA3YzNOemx5NWRhckpiZVpGWkNISDkrbldURFVhTUdGSGpFWDkvZjduaDdPejg4TU1QMTliaDFhdFhUWFk0WThZTTR3ZjczaUNFT0hMa1NGNWVucWpkK3ZYcjVUeVhpUk1udG03ZDJyaEI5KzdkKy9YckoxY20rZjMzMzgxMEJkUnZLcGJ4QjRKVFUxUFBuRGtqNjhYSnljbXlOZGhBbEF5c211bFAvalE5VzF2YndUZkk4N3hkdTNidDNyMDdQVDM5L1BuelFvaXFxcXI0K1BqdE4zVHUzTG0yVHFxcXFuNy8vZmRmZnZrbE16TnovLzc5Mjdkdk56eHUzRmlqMFJqdVVSbTBiZHRXYnZqNStSblB3REtzekdXeXc3dnV1c3U0UTJuQWdBRnkrblJHUm9iaEpjblk5OTkvTHpkc2JHelMwdEpNdG5GemM1TWIrL2Z2OS9iMnJxMHI0SmFNR2pYcWxWZGVLUzB0WGJWcTFkdHZ2MjN5NDcrR2tEYmpsbXF3NFNnWldMWG1Fc0FHR28ybTV3MXlZc2lQUC83NDJXZWZ4Y1hGbFphVzV1WGxSVVZGeWVYZ0RlMHJLeXZYclZ1M2NlUEdIMy84TVNjbngrU1N0aVkvNCtUaTRtSm02cWFqbytPdGpyeTI5QlZDeUN0NFFvaHo1ODZaNmNGd1VqdDkrdlNiL25NWEwxNjgxUkVDdFhGMWRZMk1qRXhNVE16SnlkbTdkNis4MENMWHFwTWZ6T3ZldmJ0aEluUU45YTdCaHFOa1lOV2F4U1ZvTS83eWw3Lzg1ei8vMmJkdm56enp5OHpNL1BycnJ3MTdUNTA2RlJRVU5HTEVpTVRFeEZPblRoa3EzOS9mZi9UbzBmLzR4ei9NOUZ6YnVoLzE1dUxpY3RNNE43L1kwQzB0dFBuSEgzL2N5dWlBK2x5RlhyZHVuZnhOcTIzMXE0YlVZTU5STXJCcUtnTjQ4ZUxGWGJ0MmRYTnppNDJOTmQveW5udnVtVFp0V28yTFRnVUZCYUdob1hKdENpOHZyeGRlZUNFdUxpNGpJK1BxMWF2WjJka0pDUWwvL2V0ZmhZcEZSY3lFcFllSGg1a2VERGw5K3ZUcG05NjlmK1dWVnl6OUUrQzJGaG9hS2xkNFhyTm1UV1ZsWmZXdlAzSndjSGoyMldlTkQybktHalI1RVp1U2dWVlRlUW02cXFwS2ZnbFNXbHJhaEFrVHpEZnUwYU9IM0RoNzlxemNXTGh3WVg1K3ZoQ2lmLy8rS1NrcE5hYUhtSmtxMVVqTXpJckt6czZXR3gwNmRERFRnNWVYbDl3NGRlcVU0Y05MUU5QUWFEUmp4NDZkT1hQbTVjdVh2LzMyMjBHREJ2MysrKzl5TGtKa1pLUmg4a0YxbHExQk9ldWl0cnZGaFlXRnhnOVNNckJxS3MrQUJ3d1lJRGVTa3BMa05Fc3pNak16YTJSWWFtcXEzSmc1YzZaeDVRc2hmdmpoaDBhOS8xVEQ4ZVBIVGI1R0NDSFMwOU9GRVBiMjlnOCsrS0NaSHZyMDZTTTNObTNhMURoakJNd3hmTXR2VWxLU1BCWFc2WFJtcmo5YnRnYmxaL0JxdTAyVGxaVmwvQ0FsQTZ1bU1vQjc5dXdwNjZlOHZQeUpKNTZRMzNSbTBxKy8vanAvL255NVBXalFJTGxoS0ZTVG45ZzVlL2JzVjE5OUpiY3JLaXBFNDZ1b3FGaTJiSm54NCtucDZZY1BINVpmNGlaWExhaE5aR1NrZlBsTFNFZ3crWTZrc3JMeTNudnY5Zkh4Q1E0T1psMW9XSnlQajQ5Y2JTWTVPYm15c2xMR3NKK2ZYMmhvcU1uMmxxMUJlWU9tb0tEQStHSlNhV2xwOVVYYURTZ1pXRFhGazdBV0xWb2tTemN6TTdOTGx5NXo1c3pKeWNtcDN1RGl4WXNmZnZoaGNIQ3cvQkJ3YUdqb1F3ODlWR1BXc1hIczVlWGxSVVJFR0M1L21iazdhMWx2dmZXV1BOazFPSDM2dEx4NVptTmpNMnZXTFBPSGQrN2NlZWpRb1hMcWFVUkVoUHdJbG9GT3A1c3laWXI4QkhCQlFVRmdZR0RqL0JDNHJjbXBXQVVGQlY5KythWDg3Tnk0Y2VPcWYrNmdPc3ZXb0dHVzljeVpNNnMvWGxGUk1Ybnk1TnpjWE9OREtCbFlOK1dyOEd6WXNLSDZVcFR5SXZPOTk5N2JwMDhmZjMvLzZwWGZ2WHYzSzFldUdBNDBmTVJRbmx6R3hjVnQzYnAxNWNxVk1URXg4bXFZNGRWaDJMQmh4Z3RYdWJtNUdRK21wS1JFSHRLblR4L2p2UWNQSHBSN0owMmFaTnloWkdkbk4zSGl4QTBiTm16YXRHbkdqQm5PenM3eThlblRwOWZvemVTNlAxZXVYREhjL1hWMWRaMCtmWHB5Y3ZLbVRacysrT0NEZSs2NVJ6N3U0T0N3WjgrZStqN2ZhRGtzVllQVmxaV1Z5ZHU5OGs5YlcxdVQ2OUExc0FaTi92THYzNy9mME50amp6MzJ4UmRmYk5teVpjR0NCWEtaUE1OYVhUV1dvcVJrWUwwMXFENkFaYkRkZDk5OVp0NGxhRFNhOGVQSFg3NTh1Y2FCczJmUE50bmV4c1ptd29RSnhjWEY3ZHExazIrVG15Q0EzZHpjWG52dE5aT0RtVHQzcm5GdnRTMjhkLzc4ZVROelI3Mjh2SGJzMkhFcnp5NWFyTVlJWUwxZS8vZS8vOTNRYzNoNHVQbkc5YXZCMm43NVAvamdBK01GY0lRUXZYdjNsck85VEg0YkVpVURLNjNCWmhIQThxc08wdFBUWDMzMTFlRGdZSDkvZjJkblp3Y0hCeDhmbi83OSs3Lzk5dHRaV1ZtMUhaaVdsalowNk5DT0hUdmEyOXM3T3p2MzZORmp5cFFweDQ4ZmwzdUhEeDh1QjNuZ3dJRW1DR0M5WHI5ejU4NGhRNGE0dTd2YjI5djcrZm5GeE1RY08zYk01TWpOcjN5N2VmUG02T2pvZ0lBQVIwZEhlM3Q3THkrdlJ4NTVaTkdpUlRVVzQ4WHRySkVDK05peFk0YWU2L0sxSC9Xb1FUTy8vRWVQSG8ySmlmSDM5M2R3Y0hCM2R4OHdZTUN5WmNzcUt5c05kNUdOQTFpaVpHQjFOYWlwOXd4aHc4WGhwcGxqM0p4NWUzdm41K2U3dWJuVldLMGFhRlRVSUdEVk5kamNWOElDQUtCRklvQUJBRkNBQUFZQVFBRUNHQUFBQlFoZ0FBQVVZQlkwWUsyWUJRMm94U3hvQUFDc0Q1ZWdBUUJRZ0FBR0FFQUJBaGdBQUFVSVlBQUFGQ0NBQVFCUWdBQUdBRUFCQWhnQUFBVUlZQUFBRkNDQUFRQlFnQUFHQUVBQkFoZ0FBQVVJWUFBQUZDQ0FBUUJRZ0FBR0FFQUJBaGdBQUFVSVlBQUFGQ0NBQVFCUWdBQUdBRUFCQWhnQUFBVUlZQUFBRkNDQUFRQlFnQUFHQUVBQnU0WjNvZEZvTERFU0FOUWdjQnZoREJnQUFBVUlZQUFBclBNU3RGNnZ0OFJJQU5UejdnODFDQ2pSd0R1d25BRURBS0FBQVF3QWdBSUVNQUFBQ2hEQUFBQW9RQUFEQUtBQUFRd0FnQUlFTUFBQUNoREFBQUFvUUFBREFLQUFBUXdBZ0FJRU1BQUFDaERBQUFBb1FBQURBS0FBQVF3QWdBSUVNQUFBQ2hEQUFBQW9RQUFEQUtBQUFRd0FnQUlFTUFBQUNoREFBQUFvUUFBREFLQUFBUXdBZ0FJRU1BQUFDaERBQUFBb1FBQURBS0FBQVF3QWdBSUVNQUFBQ2hEQUFBQW8wT3dDK01NUFA5VDh2LzM3OTllamg5MjdkOXZhMnJxN3V6ZkM2SURiUWgyTHFMS3lNakV4OGNrbm4vVDE5VzNUcG8yVGsxT25UcDFHang2ZG1wcmFWQ01GckpoR3I5Zlg4MGlOUm03VXV3ZVQvdnpuUDJkbVpzcnRNV1BHckZpeDRwWU96OHJLQ2drSnVYanhvcHViMitYTGx5MDRNS0M1YWFRYXJHTVJaV2RuRHgwNjlQRGh3eWIzUmtWRnhjZkhPems1V1hCZ1FBdXJ3ZVlWd0FjUEh1emR1N2NRd3RQVDg4S0ZDMjNhdE1uUHozZDFkYTNqNGR1MmJSczVjbVJCUVlFUWdnQkdpOWNZTlZqSElycDA2Vkx2M3IxLysrMDNJVVJnWU9ERWlSTzdkdTFhWGw2ZWtaR3hkT25TcTFldkNpRWVmZlRSbEpRVUc1dG1kNWtOYUM0MXFLK3ZodmRnYlBMa3lmSkgrdWlqajJUbkgzendRVjBPTENvcW1qUnBrdUc1a0s4ZEZod1kwQXhadGdadnFZaGlZbUprbTZpb3FMS3lzdXE3OHZMeU9uWHFKUGZHeHNaYVpHeEFpNnpCWm5RR1hGcGEycjU5KzhMQ3doNDllcVNucDN0NmVsWldWbmJwMHVYa3laTm1qaW9zTFB6NDQ0OFhMbHg0NWNxVjZvOXpCb3dXejFJMWVLdEZwTlZxUFR3OHlzcktQRHc4Y25KeUhCMGRhelRZdTNmdkF3ODhJSVM0Ly83N0R4dzQwSkN4QVMyNEJwdlIxYUYxNjlZVkZoWUtJY0xEdy8vMHB6K0Zob1lLSVU2ZE9tVitRc2Y4K2ZQZmZQTk4rY0poYTJ2N3hodHZlSGw1TmVHb0FhdDNxMFdVbnA1ZVZsWW1UMytOMDFjSTBhOWZ2L2J0MndzaERoOCtYRlZWMVpoakI2eFlNd3JndUxnNHVSRVpHU21FR0RseXBQenI0c1dMNjNKNGVIajQwYU5IWjgrZWJXdHIyNWpEQkZxc09oWlJlWGw1VUZDUWg0ZEh0MjdkYW12ajR1SWloS2lxcWlvcEtXbWN3UUpXcjdsY2d2N3R0OThDQWdMMGVyMlBqMDl1YnE1R283bDI3WnFucDJkSlNZbTl2WDFlWHA2bnA2ZkpBOTk3NzcxVHAwNU5tVElsS0NoSVB1THQ3WjJmbjg4bGFMUjRscXBCaXhlUlZxdDFkM2V2cUtod2RuYldhclVOR1J2UWdtdlFUalFQOGZIeDhnZDQ1cGxuNUkvazdPdzhaTWlRMWF0WFYxUlVMRisrZk1hTUdTWVBmUFhWVjV0OHNFQ0xZdkVpaW8yTnJhaW9FRUlNSERqUXNqMERMVW16dUFTdDErc1RFaExrZG5SMHRPRnh3L2F5WmN0ME9wMmkwUUc0QmJtNXViTm56NWJiTDczMEVzOGQwS3dEZVB2MjdibTV1WElWamg0OWVoZ2VEd3NMYTlldW5TenBsSlFVcFdNRWNITmFyVFlpSWtKZWRoNHhZa1JJU0FqUEd0Q3NBemcrUHQ3NDlQZS8xOGZ0N0lZUEh5NjNseXhab21Kb0FPcEtxOVdHaFlVZFBYcFVDTkd0VzdmWTJGaWVPNkJaQjNCaFllR0dEUnYrT3hRYm0yZWVlYWJHWGtNa2I5bXk1Y3laTXlvR0NPRG1MbDY4R0JJU2twR1JJWVR3OS9mZnVuVXI2MUFDelQyQXYvenl5OUxTVWlIRVF3ODkxTEZqeHhwNysvVHAwN2x6WnlHRVRxZGJ0bXlab2pFQ01PZkVpUlBCd2NGeVhlakF3TUJkdTNiNStQandsQUhOUFlBTkgvL2R1WE9ueHBTZmYvNVpObGkrZkxtY1dnbWcrZmp1dSsrQ2c0T3pzN09GRU1IQndYdjI3UEgyOWxZOUtNQUtLQTdnek16TVE0Y08xYkh4K2ZQbk4yN2MyTWdqQW5BTGxpOWZIaDRlWGxSVUpJUVlObXpZenAwNzNkemNlQVlCSy9nYzhQTGx5K1hHZmZmZE4yalFvTnFhYmRpdzRkaXhZM0lxMXRDaFE1dHdnQUJxTlcvZXZHblRwc250R1RObXZQUE9POVcveXdGQTh3M2c4dkx5VmF0V3llMlpNMmMrOGNRVHRiWHMyYk5uVkZTVUVDSTFOZlhubjMrV2Q0VUJLTFJ3NFVLWnZuWjJka3VYTGgwM2Joei9IWURWWElKT1RrNldDOTExNk5EaDhjY2ZOOU15SWlLaVE0Y09jc2tPUG84RUtKZVdsaloxNmxUNTVRMUpTVW1rTDJCbEFXeVlmalZtekJqemk3L2IyZGxObURCQmJpY2tKTWhaMHdDVUtDNHVqbzZPbG92VHpaMDdOeUlpZ3Y4SXdKcStqT0hzMmJPK3ZyN3lxOHArK2VVWHd6ZDQxeVkvUDkvUHo2K3lzbEptOE9qUm8ydHJ5WmN4NERaaDhlL2tybU1STFZpdzRPV1hYNWFmM1gvd3dRZk5kN1YyN1ZxNW5oM1E4bWlzOU1zWVZxeFlJZE4zd0lBQk4wMWZJVVRIamgwSER4NHNsK3hZdkhpeG1RQUcwRFJMMStsMHV2VDBkUE9ONVRjSEEyaEdsNkJYckZnaE44YVBIMS9IUTU1Ly9ubTVzVy9mUHJuY0hZQW1wdGZyVDV3NHdkTU90Snp2QXdaQURRTFdwWUU1cUg0bExBQUFia01FTUFBQUNoREFBQUFvUUFBREFLQUFBUXdBZ0FJRU1BQUFDaERBQUFBb1FBQURBS0FBQVF3QWdBSUVNQUFBQ2hEQUFBQW9RQUFEQUtBQUFRd0FnQUlFTUFBQUNoREFBQUFvUUFBREFLQUFBUXdBZ0FJRU1BQUFDaERBQUFBb1FBQURBS0FBQVF3QWdBSUVNQUFBQ2hEQUFBQW9RQUFEQUtBQUFRd0FnQUlFTUFBQUNoREFBQUFvUUFBREFLQUFBUXdBZ0FJRU1BQUFDaERBQUFBb1FBQURBS0FBQVF3QWdBSUVNQUFBQ3RnMXZBdU5SbU9Ka1FDZ0JvSGJDR2ZBQUFBb1FBQURBR0NkbDZEMWVyMGxSZ0tnbm5kL3FFRkFpUWJlZ2VVTUdBQUFCUWhnQUFBVUlJQUJBRkNBQUFZQVFBRUNHQUFBQlFoZ0FBQVVJSUFCQUZDQUFBWUFRQUVDR0FBQUJRaGdBQUFVSUlBQkFGQ0FBQVlBUUFFQ0dBQUFCUWhnQUFBVUlJQUJBRkNBQUFZQVFBRUNHQUFBQlFoZ0FBQVVJSUFCQUZDQUFBWUFRQUVDR0FBQUJRaGdBQUFVSUlBQkFGQ0FBQVlBUUFFQ0dBQUFCUWhnQUFBVUlJQUJBRkNBQUFZQTRQWUw0QkVqUm1ocTBhcFZLMDlQei83OSs3LzU1cHRuejU0MTAwbGxaV1ZpWXVLVFR6N3A2K3ZicGswYkp5ZW5UcDA2alI0OU9qVTF0UWwvRk1DS1hiOSsvWk5QUGdrSkNYRjNkM2R3Y1BEMTlSMDBhRkJpWW1KbFplVXQ5VE43OW14WnZ5ZFBubXkwd1FJdGhiNitHdDZEWHE4ZlBueDRYUWJwNHVLeWN1VktrejJjUG4yNlY2OWV0UjBZRlJWMTdkcTFob3dRYUxZc1VvTjZ2ZjdJa1NNQkFRRW1LNmh2Mzc0NU9UbDE3T2Znd1lOMmRuYnl3Qk1uVGpSd1ZFQ0xyOEgvVll0eVhicDA4Zkx5TXZ5MXFxcnErdlhyNTI0UVFtaTEydWVlZTY1ZHUzYVBQZlpZOWFNdVhib1VHaHI2MjIrL0NTRUNBd01uVHB6WXRXdlg4dkx5akl5TXBVdVhYcjE2TlNrcFNhdlZwcVNrMk5od3NSMHc0Y3laTXc4Ly9IQkJRWUVRb2xldlh1UEdqUXNJQ0xoMDZkS0tGU3RTVTFQMzdkc1hGaFoyNE1BQkZ4Y1g4MDlmU1VsSmRIVDByWjR4QTdjMVZjbGY0d3c0UGo3ZVpJT1RKMCtHaElUSU5nRUJBVlZWVmRYM3hzVEV5RjFSVVZGbFpXWFZkK1hsNVhYcTFFbnVqWTJOYmNnZ2dlYkpJalg0NUpOUHlrN0dqeDlmdmI1ME90MExMN3dnZDczODhzczM3Y2ZRV09JTUdMY0QwYkFhYk80QnJOZnJyMTI3NXVucEtadDkrKzIzaHNlTGlvb2NIQnlFRUI0ZUhzWEZ4Y1lIZnYvOTkvS28rKysvdnlHREJKcW5odGRnZm42K1JxTVJRclJ2Mzc2a3BLVEczdUxpWWxkWFZ5R0VxNnRyWldXbG1YNVNVbExrU082ODgwNENHTGNQMGJBYXRJSUxzMDVPVGxGUlVYSTdNelBUOEhoNmVucFpXWms4L1hWMGREUStzRisvZnUzYnR4ZENIRDU4dUtxcXFnbUhERmlId3NMQ1ljT0dkZTNhOWVtbm4yN2R1bldOdlk2T2pyMTc5eFpDWEwxNjljeVpNN1YxY3VYS2xYSGp4Z2toQmc4ZVhPTW1FUUF6ckNDQWhSQ0cyOFBsNWVXR0I4dkx5NE9DZ2p3OFBMcDE2MWJiZ2ZMR1ZWVlZWVWxKU1pPTUZMQW0zYnAxUzB4TXpNcksrdmpqajgyM05GTkJreWRQUG5mdW5MdTdlMnhzYkNPTUVXaXhtc3NrTFBPeXM3UGxSdldzZmZvR00wZHB0VnA1b0xPenM1T1RVK01QRTJoUnlzdkxmL2poQnlHRWc0T0R2NysveVRhZmYvNTVVbEtTRUdMSmtpV0dXMFVBV3NnWmNIWjI5cG8xYStSdHF2RHc4TG9mR0JzYlcxRlJJWVFZT0hCZ1l3NFFhSmxlZnZubEsxZXVDQ0ZHalJyVnBrMGI0d2E1dWJrdnZmU1NFQ0k2T3RyOHUyRUExblFHWEZwYWV2YnMyWlNVbEhmZmZiZTR1TmpXMWpZdUxzN2UzcjZPaCtmbTVzNmVQVnR1eTljSUFEZFZWVldWbjUrL2YvLytlZlBtSFR4NFVBalJ1WFBuOTk5LzM3aWxUcWNiTTJhTVZxdjE5dmErNlJWc0FNMDNnTWZlVU50ZUR3K1AyTmpZc0xDd092YW0xV29qSWlLMFdxMWNiTXZ3UVNZQTVuWHAwdVgwNmRPR3Z3NGZQbnpSb2tWdWJtN0dMZWZQbjUrZW5xN1JhT0xqNHcyVG53RzBxRXZRUWdoM2QvZUNnb0xxTTdETTBHcTFZV0ZoUjQ4ZWxmZU1tUmdDMUpIOEFIMzFSM2J0MnJWZ3dZSS8vdmlqUnN0ang0Njk4Y1liUW9nWFgzeVJXenlBZFo4QjExZ0pTd2hSVVZGUlVGQ1FrNU5UVmxhV2xaVTFkdXpZaElTRXI3LysydnlLUEJjdlhuejg4Y2NQSHo0c2hQRDM5OSs2ZFN2VHI0QTZLaWtwbVRkdlh1Zk9uU3NxS2c0Y09MQnMyYkp6NTg2OS8vNzcyN1p0UzBsSk1WUm9XVmxaZEhSMGVYbDU1ODZkMzN2dlBaNWVvSjVVZlFDNWpndHhsSmFXZnZIRkY0YktEd2tKTWROYlZsYVdZVW5id01EQXZMeThob3dOYU9Zc1VvTm1YTDU4dVUrZlB2S2ZpSXlNTkR3K2RlcFVJWVN0cmUyK2ZmdHFxMmhXd3NMdFFEU3NCcHY3SldnSEI0ZFJvMGJ0M0xsVFRyOUtUVTNkc1dPSHlaYmZmZmRkY0hDdy9OeFJjSER3bmoxN3ZMMjltM3k4UU12aDV1YTJaczJhVnExYUNTRysvdnBydVRCN1dscmFoeDkrS0lSNDdiWFhEUEVNb0I2YWV3QkxYYnQyallpSWtOdmJ0bTB6YnJCOCtmTHc4UENpb2lJaHhMQmh3M2J1M0dseTJnaUFXK0xyNjl1dlh6LzVCdi9Ja1NOQ2lNVEVSUG5HLzUxMzNqSCtGdEhWcTFjYmFsWStrcGFXeG5NT1dIRUFDeUh1dnZ0dXVYSHAwcVVhdStiTm14Y1RFeU8vaG1YR2pCbUppWW5HaStvQnFCOTNkM2U1VWNkWmtBQ3NiQkxXVGVYbTVzcU5HcXZ0TEZ5NGNOcTBhZi85U2V6c2xpNWRLdGVrQlZBWHNiR3hjWEZ4MmRuWm4zMzIyZURCZzAyMitlV1hYK1NHajQrUEVHTHExS2tqUm95b3JjUFpzMmVucHFZS0lSSVNFbng5ZllVUVFVRkIvRjhBVmh6QU9UazV5Y25KY3Z1QkJ4NHdQSjZXbG1hWUQ1S1VsR1M0VEEyZ0xuUTYzYjU5KzRRUWl4Y3ZOaG5BdTNmdmxwL29hOSsrdll6U3pqZlUxdUdTSlV2a1J1L2V2UU1EQS9sZkFLejRFclJPcDl1K2Zmc2pqenh5L2ZwMUljUmRkOTFsV0k2anVMZzRPanBhcDlNSkllYk9uVXY2QXJkcXhJZ1JjZzJObEpRVTQ5V3NqaDA3WnBqVi9PYWJiOXJZTlBlWEM4QzZOSmN6NExsejU2NVlzYUw2SXpxZDd2cjE2Ny8rK3F1Y1dpVlBjNWN1WFdwbjk3OHhMMW15SkQ4Ly83OXZJbXhzTnQxZ3B2KzFhOWUyYTlldU1YOEN3UHEwYmRzMk5qWjIrUERoT3AxdXlwUXBxMWV2SGpWcWxMKy8vN1ZyMTdadDI3Wnk1VXI1aloralJvMmFOR21TNnNFQ0xVMXpDZUJUTjVocDRPSGhzV1RKa3VyZk5ob2ZIeTgzZERwZGVucTYrZjdsNndpQUdxS2lvdGF1WFR0aHdvU0Nnb0x2YjZpKzE5YldkdnIwNmJObXpkSm9ORHgxUU1zTVlHTjJkblozM0hGSGh3NGRldlRvRVJZV05uVG9VR2RuWjhOZXZWNS80c1FKcFFNRVdvaW5ubnJxb1ljZVdyNTgrZWJObTMvNjZhZWlvaUluSnlkL2YvL1EwTkRKa3ljYlBvQUF3TEkwMWRmeXVMVWovLzhkY2IxN0FOQVExQ0JnMVRYSXJBb0FBQlFnZ0FFQVVJQUFCZ0JBQVFJWUFBQUZDR0FBQUJRZ2dBRUFVSUFBQmdCQUFRSVlBQUFGQ0dBQUFCUWdnQUVBVUlBQUJnQkFBUUlZQUFBRkNHQUFBQlFnZ0FFQVVJQUFCZ0JBQVFJWUFBQUZDR0FBQUJRZ2dBRUFVSUFBQmdCQUFRSVlBQUFGQ0dBQUFCUWdnQUVBVUlBQUJnQkFBUUlZQUFBRkNHQUFBQlFnZ0FFQVVJQUFCZ0JBQVFJWUFBQUZDR0FBQUJRZ2dBRUFVSUFBQmdCQUFRSVlBQUFGQ0dBQUFCUWdnQUVBVU1DdTRWMW9OQnBMakFRQU5RamNSamdEQmdEQXFnSllyOWRiZENRQUFGaWZlcWVoaGh3RkFLRHBjUWthQUFBRkNHQUFBQlFnZ0FFQVVJQUFCZ0JBQVFJWUFBQUZDR0FBQUJRZ2dBRUFJSUFCQUxnOWNBWU1BSUFDQkRBQUFBb1F3QUFBS0VBQUF3Q2dBQUVNQUlBQ0JEQUFBQW9Rd0FBQUtFQUFBd0NnQUFFTUFJQm9ldjhIb3FhNyszcUNkQkFBQUFBQVNVVk9SSzVDWUlJPSIsInNoYTI1NiI6ImY5Zjk4Zjc1OTI2MmM1MjkyOGRlOGE5MjJmMDlhMWYwOTljOGU5NGI1OTQ3YTRmOWFjODAzOWRlNDRiNDVkZTAifSwiY3VydmUucG5nIjp7ImJhc2U2NCI6ImlWQk9SdzBLR2dvQUFBQU5TVWhFVWdBQUFJd0FBQUNNQ0FJQUFBQWhvdFpwQUFBQitrbEVRVlI0bk8zYlFXcERBUXpFMEQrOS81M1RJN1Nra0k0ODB0NWdlRnM3cjlmcnNlNisvbnNCK3ptUkFJa0VTQ1JBSWdFU0NaQklnRVFDSkJJZ2tRQ0pCRWdrUUNJQkVnbVFTSUJFQWlRU0lKRUFpUVJJcEUrVnZEMHEwa2RLbmo4Yy9JalVMaVFTUUVna2dKQklBQ0dSQUVJaUFZUkVBZ2lKQkJBU0NTQWtFa0JJSklDUVNBQWhrUUJDSWdHRVJBSUlpUVFRRWdrZ0pCSkFTQ1NBa0VnQUlaRUFRaUlCaEVRQ0NJa0VFQklKSUNRU1FFZ2tnSkJJQUNHUkFFSWlBWVJFQWdpSkJCQVNDU0FrMHRNdk5JOFVnTkEyVWhoQ3cwakJDSzBpaFNRMGlSU1kwQjVTZUVKalNFRUtMU0dGS2pTREZMRFFCbExZUWdOSXdRdGRSOG9Gb2ROSU9TSjBGeWwzaEk0aTVaVFFSYVJjRXpxSGxJTkN0NUJ5VStnUVVzNEtYVUhLWmFFVFNEa3V4RWZLZlNFNFVpYUV5RWhaRWNJaVpVaUlpWlF0SVNCUzVvUm9TRmtVUWlGbFZJaURsRjBoQ0ZLbWhRaElXUmVxUjFLb0hVbWhkaVNGMnBFVWFrZFNxQjFKb1hZa2hkcVJGR3BIVXFnZFNhRjJKSVhha1JScVIxS29IVW1oZGlTRjJwRVVha2RTcUIxSm9YWWtoZHFSRkdwSFVxZ2RTYUYySklYYWtSUnFSMUtvSFVtaGRpU0YycEVVYWtkU3FCMUpvWFlraGRxUkZHcEhVZ2lBTlArRHQzRjNaNzlJSkVBaUFSSUprRWlBUkFJa0VpQ1JBSWtFU0NSQUlnRVNDWkJJZ0VRQ0pCSWdrUUNKQkVpa3A3OXZTT25PRlFhN1krRUFBQUFBU1VWT1JLNUNZSUk9Iiwic2hhMjU2IjoiMmFhN2VmMmQwNDE4ZDRlMDcxMDM2NjFjZDljMTI3MWNiMzgyYjJkYzgyNzQyNjAwNGRkNjFmNzU1OGM1YWQ1YyJ9fX0=",
+                "display_name": "内嵌合成样例（Base64 JSON）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Source code is embedded in each exported flow, including its imports.\"\"\"\n\nimport base64\nimport hashlib\nimport json\nimport tempfile\nfrom pathlib import Path\n\nfrom lfx.custom import Component\nfrom lfx.io import MultilineInput, Output\nfrom lfx.schema import Data, DataFrame\n\n\nclass ScienceFixtureBundle(Component):\n    display_name = \"合成样例数据包\"\n    description = \"读取流程内嵌的人工表格、文本和文件，核对 SHA-256 后写入本次运行的临时目录。\"\n    name = \"ScienceFixtureBundle\"\n    icon = \"FlaskConical\"\n    inputs = [MultilineInput(name=\"bundle_base64\", display_name=\"内嵌合成样例（Base64 JSON）\", value=\"e30=\")]\n    outputs = [\n        Output(name=\"table\", display_name=\"样例表格\", method=\"build_table\", group_outputs=True),\n        Output(name=\"data\", display_name=\"文件与证据\", method=\"build_data\", group_outputs=True),\n    ]\n\n    def build_table(self) -> DataFrame:\n        return DataFrame(json.loads(base64.b64decode(self.bundle_base64, validate=True)).get(\"records\", []))\n\n    def build_data(self) -> Data:\n        bundle = json.loads(base64.b64decode(self.bundle_base64, validate=True))\n        root = Path(tempfile.mkdtemp(prefix=\"studyui-science-\"))\n        outputs = root / \"results\"\n        outputs.mkdir()\n        paths = {\"output\": str(outputs)}\n        for name, blob in bundle.get(\"assets\", {}).items():\n            if Path(name).name != name or name in {\"\", \".\", \"..\", \"output\", \"results\"}:\n                raise ValueError(\"Asset names must be simple unique filenames\")\n            raw = base64.b64decode(blob[\"base64\"], validate=True)\n            if hashlib.sha256(raw).hexdigest() != blob[\"sha256\"]:\n                raise ValueError(f\"Embedded asset checksum mismatch: {name}\")\n            path = root / name\n            path.write_bytes(raw)\n            paths[name] = str(path)\n        return Data(data={**bundle.get(\"data\", {}), \"asset_paths\": paths, \"synthetic\": True})\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              }
+            },
+            "description": "读取流程内嵌的人工表格、文本和文件，核对 SHA-256 后写入本次运行的临时目录。",
+            "icon": "FlaskConical",
+            "base_classes": [
+              "JSON",
+              "Table"
+            ],
+            "display_name": "合成样例数据包",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table",
+                "display_name": "样例表格",
+                "method": "build_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "data",
+                "display_name": "文件与证据",
+                "method": "build_data",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "ScienceFixtureBundle",
+          "id": "ScienceFixtureBundle-03-images"
+        },
+        "id": "ScienceFixtureBundle-03-images",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_data": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_data",
+                "value": "",
+                "display_name": "上游结果 / 文件与证据",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "input_tables": {
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_tables",
+                "value": "",
+                "display_name": "其他表格（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "HandleInput"
+              },
+              "reports": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "reports",
+                "value": "",
+                "display_name": "报告来源（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "source_file": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "file_path": "",
+                "fileTypes": [
+                  "csv",
+                  "tsv",
+                  "txt",
+                  "xlsx",
+                  "xls",
+                  "pdf",
+                  "png",
+                  "jpg",
+                  "jpeg",
+                  "tif",
+                  "tiff",
+                  "bmp",
+                  "json",
+                  "xy",
+                  "xrdml",
+                  "brml",
+                  "jdx",
+                  "sqlite"
+                ],
+                "temp_file": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "source_file",
+                "value": "",
+                "display_name": "上传源文件",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "file",
+                "_input_type": "FileInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "# Generated by scripts.build_science_components.\n# Edit the shared adapter or catalog instead.\nfrom lfx.custom import Component\nfrom lfx.schema import Data, DataFrame, Message\n\nfrom materials_quality.science.langflow_adapter import (\n    node_inputs,\n    node_outputs,\n    output_artifacts,\n    output_report,\n    output_summary,\n    output_table,\n)\n\n\nclass ScienceExportReport(Component):\n    display_name = \"材料科学·分析报告生成\"\n    description = \"可追溯的分析报告生成；具体方法与前提见随仓库提供的手册。\"\n    name = \"ScienceExportReport\"\n    icon = \"FlaskConical\"\n    inputs = node_inputs({\"format\": \"html\"})\n    outputs = node_outputs()\n\n    def build_table(self) -> DataFrame:\n        return output_table(self, \"export.report\")\n\n    def build_report(self) -> Data:\n        return output_report(self, \"export.report\")\n\n    def build_artifacts(self) -> DataFrame:\n        return output_artifacts(self, \"export.report\")\n\n    def build_summary(self) -> Message:\n        return output_summary(self, \"export.report\")\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "config_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "config_json",
+                "value": "{\"output_dir\":\"@asset:output\",\"format\":\"html\",\"title\":\"03 图像 OCR、表格与标定曲线（合成）\"}",
+                "display_name": "方法与参数 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "方法参数见随仓库提供的节点手册；示例可直接导入。原始数据不会被覆盖。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "可追溯的分析报告生成；具体方法与前提见随仓库提供的手册。",
+            "icon": "FlaskConical",
+            "base_classes": [
+              "JSON",
+              "Message",
+              "Table"
+            ],
+            "display_name": "材料科学·分析报告生成",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table",
+                "display_name": "结果表格",
+                "method": "build_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "结果与追溯",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "artifacts",
+                "display_name": "生成文件",
+                "method": "build_artifacts",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "summary",
+                "display_name": "运行摘要",
+                "method": "build_summary",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "ScienceExportReport",
+          "id": "ScienceExportReport-report"
+        },
+        "id": "ScienceExportReport-report",
+        "position": {
+          "x": 1725,
+          "y": 0
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_data": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_data",
+                "value": "",
+                "display_name": "上游结果 / 文件与证据",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "input_tables": {
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_tables",
+                "value": "",
+                "display_name": "其他表格（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "HandleInput"
+              },
+              "reports": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "reports",
+                "value": "",
+                "display_name": "报告来源（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "source_file": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "file_path": "",
+                "fileTypes": [
+                  "csv",
+                  "tsv",
+                  "txt",
+                  "xlsx",
+                  "xls",
+                  "pdf",
+                  "png",
+                  "jpg",
+                  "jpeg",
+                  "tif",
+                  "tiff",
+                  "bmp",
+                  "json",
+                  "xy",
+                  "xrdml",
+                  "brml",
+                  "jdx",
+                  "sqlite"
+                ],
+                "temp_file": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "source_file",
+                "value": "",
+                "display_name": "上传源文件",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "file",
+                "_input_type": "FileInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "# Generated by scripts.build_science_components.\n# Edit the shared adapter or catalog instead.\nfrom lfx.custom import Component\nfrom lfx.schema import Data, DataFrame, Message\n\nfrom materials_quality.science.langflow_adapter import (\n    node_inputs,\n    node_outputs,\n    output_artifacts,\n    output_report,\n    output_summary,\n    output_table,\n)\n\n\nclass ScienceIoImageImport(Component):\n    display_name = \"材料科学·图片文件导入\"\n    description = \"可追溯的图片文件导入；具体方法与前提见随仓库提供的手册。\"\n    name = \"ScienceIoImageImport\"\n    icon = \"FlaskConical\"\n    inputs = node_inputs({\"path\": \"\"})\n    outputs = node_outputs()\n\n    def build_table(self) -> DataFrame:\n        return output_table(self, \"io.image_import\")\n\n    def build_report(self) -> Data:\n        return output_report(self, \"io.image_import\")\n\n    def build_artifacts(self) -> DataFrame:\n        return output_artifacts(self, \"io.image_import\")\n\n    def build_summary(self) -> Message:\n        return output_summary(self, \"io.image_import\")\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "config_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "config_json",
+                "value": "{\"output_dir\":\"@asset:output\",\"path\":\"@asset:table.png\"}",
+                "display_name": "方法与参数 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "方法参数见随仓库提供的节点手册；示例可直接导入。原始数据不会被覆盖。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "可追溯的图片文件导入；具体方法与前提见随仓库提供的手册。",
+            "icon": "FlaskConical",
+            "base_classes": [
+              "JSON",
+              "Message",
+              "Table"
+            ],
+            "display_name": "材料科学·图片文件导入",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table",
+                "display_name": "结果表格",
+                "method": "build_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "结果与追溯",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "artifacts",
+                "display_name": "生成文件",
+                "method": "build_artifacts",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "summary",
+                "display_name": "运行摘要",
+                "method": "build_summary",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "ScienceIoImageImport",
+          "id": "ScienceIoImageImport-image"
+        },
+        "id": "ScienceIoImageImport-image",
+        "position": {
+          "x": 575,
+          "y": 0
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_data": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_data",
+                "value": "",
+                "display_name": "上游结果 / 文件与证据",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "input_tables": {
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_tables",
+                "value": "",
+                "display_name": "其他表格（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "HandleInput"
+              },
+              "reports": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "reports",
+                "value": "",
+                "display_name": "报告来源（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "source_file": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "file_path": "",
+                "fileTypes": [
+                  "csv",
+                  "tsv",
+                  "txt",
+                  "xlsx",
+                  "xls",
+                  "pdf",
+                  "png",
+                  "jpg",
+                  "jpeg",
+                  "tif",
+                  "tiff",
+                  "bmp",
+                  "json",
+                  "xy",
+                  "xrdml",
+                  "brml",
+                  "jdx",
+                  "sqlite"
+                ],
+                "temp_file": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "source_file",
+                "value": "",
+                "display_name": "上传源文件",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "file",
+                "_input_type": "FileInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "# Generated by scripts.build_science_components.\n# Edit the shared adapter or catalog instead.\nfrom lfx.custom import Component\nfrom lfx.schema import Data, DataFrame, Message\n\nfrom materials_quality.science.langflow_adapter import (\n    node_inputs,\n    node_outputs,\n    output_artifacts,\n    output_report,\n    output_summary,\n    output_table,\n)\n\n\nclass ScienceExtractImageOcr(Component):\n    display_name = \"材料科学·图片文字识别\"\n    description = \"可追溯的图片文字识别；具体方法与前提见随仓库提供的手册。\"\n    name = \"ScienceExtractImageOcr\"\n    icon = \"FlaskConical\"\n    inputs = node_inputs({\"path\": \"\", \"text_score\": 0.5})\n    outputs = node_outputs()\n\n    def build_table(self) -> DataFrame:\n        return output_table(self, \"extract.image_ocr\")\n\n    def build_report(self) -> Data:\n        return output_report(self, \"extract.image_ocr\")\n\n    def build_artifacts(self) -> DataFrame:\n        return output_artifacts(self, \"extract.image_ocr\")\n\n    def build_summary(self) -> Message:\n        return output_summary(self, \"extract.image_ocr\")\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "config_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "config_json",
+                "value": "{\"output_dir\":\"@asset:output\"}",
+                "display_name": "方法与参数 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "方法参数见随仓库提供的节点手册；示例可直接导入。原始数据不会被覆盖。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "可追溯的图片文字识别；具体方法与前提见随仓库提供的手册。",
+            "icon": "FlaskConical",
+            "base_classes": [
+              "JSON",
+              "Message",
+              "Table"
+            ],
+            "display_name": "材料科学·图片文字识别",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table",
+                "display_name": "结果表格",
+                "method": "build_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "结果与追溯",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "artifacts",
+                "display_name": "生成文件",
+                "method": "build_artifacts",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "summary",
+                "display_name": "运行摘要",
+                "method": "build_summary",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "ScienceExtractImageOcr",
+          "id": "ScienceExtractImageOcr-words"
+        },
+        "id": "ScienceExtractImageOcr-words",
+        "position": {
+          "x": 1150,
+          "y": 0
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_data": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_data",
+                "value": "",
+                "display_name": "上游结果 / 文件与证据",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "input_tables": {
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_tables",
+                "value": "",
+                "display_name": "其他表格（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "HandleInput"
+              },
+              "reports": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "reports",
+                "value": "",
+                "display_name": "报告来源（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "source_file": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "file_path": "",
+                "fileTypes": [
+                  "csv",
+                  "tsv",
+                  "txt",
+                  "xlsx",
+                  "xls",
+                  "pdf",
+                  "png",
+                  "jpg",
+                  "jpeg",
+                  "tif",
+                  "tiff",
+                  "bmp",
+                  "json",
+                  "xy",
+                  "xrdml",
+                  "brml",
+                  "jdx",
+                  "sqlite"
+                ],
+                "temp_file": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "source_file",
+                "value": "",
+                "display_name": "上传源文件",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "file",
+                "_input_type": "FileInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "# Generated by scripts.build_science_components.\n# Edit the shared adapter or catalog instead.\nfrom lfx.custom import Component\nfrom lfx.schema import Data, DataFrame, Message\n\nfrom materials_quality.science.langflow_adapter import (\n    node_inputs,\n    node_outputs,\n    output_artifacts,\n    output_report,\n    output_summary,\n    output_table,\n)\n\n\nclass ScienceExtractImageTables(Component):\n    display_name = \"材料科学·图片表格提取\"\n    description = \"可追溯的图片表格提取；具体方法与前提见随仓库提供的手册。\"\n    name = \"ScienceExtractImageTables\"\n    icon = \"FlaskConical\"\n    inputs = node_inputs({\"path\": \"\", \"header\": True})\n    outputs = node_outputs()\n\n    def build_table(self) -> DataFrame:\n        return output_table(self, \"extract.image_tables\")\n\n    def build_report(self) -> Data:\n        return output_report(self, \"extract.image_tables\")\n\n    def build_artifacts(self) -> DataFrame:\n        return output_artifacts(self, \"extract.image_tables\")\n\n    def build_summary(self) -> Message:\n        return output_summary(self, \"extract.image_tables\")\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "config_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "config_json",
+                "value": "{\"output_dir\":\"@asset:output\"}",
+                "display_name": "方法与参数 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "方法参数见随仓库提供的节点手册；示例可直接导入。原始数据不会被覆盖。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "可追溯的图片表格提取；具体方法与前提见随仓库提供的手册。",
+            "icon": "FlaskConical",
+            "base_classes": [
+              "JSON",
+              "Message",
+              "Table"
+            ],
+            "display_name": "材料科学·图片表格提取",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table",
+                "display_name": "结果表格",
+                "method": "build_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "结果与追溯",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "artifacts",
+                "display_name": "生成文件",
+                "method": "build_artifacts",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "summary",
+                "display_name": "运行摘要",
+                "method": "build_summary",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "ScienceExtractImageTables",
+          "id": "ScienceExtractImageTables-grid"
+        },
+        "id": "ScienceExtractImageTables-grid",
+        "position": {
+          "x": 1150,
+          "y": 740
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_data": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_data",
+                "value": "",
+                "display_name": "上游结果 / 文件与证据",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "input_tables": {
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_tables",
+                "value": "",
+                "display_name": "其他表格（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "HandleInput"
+              },
+              "reports": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "reports",
+                "value": "",
+                "display_name": "报告来源（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "source_file": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "file_path": "",
+                "fileTypes": [
+                  "csv",
+                  "tsv",
+                  "txt",
+                  "xlsx",
+                  "xls",
+                  "pdf",
+                  "png",
+                  "jpg",
+                  "jpeg",
+                  "tif",
+                  "tiff",
+                  "bmp",
+                  "json",
+                  "xy",
+                  "xrdml",
+                  "brml",
+                  "jdx",
+                  "sqlite"
+                ],
+                "temp_file": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "source_file",
+                "value": "",
+                "display_name": "上传源文件",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "file",
+                "_input_type": "FileInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "# Generated by scripts.build_science_components.\n# Edit the shared adapter or catalog instead.\nfrom lfx.custom import Component\nfrom lfx.schema import Data, DataFrame, Message\n\nfrom materials_quality.science.langflow_adapter import (\n    node_inputs,\n    node_outputs,\n    output_artifacts,\n    output_report,\n    output_summary,\n    output_table,\n)\n\n\nclass ScienceExtractChartDigitize(Component):\n    display_name = \"材料科学·图表数据提取\"\n    description = \"可追溯的图表数据提取；具体方法与前提见随仓库提供的手册。\"\n    name = \"ScienceExtractChartDigitize\"\n    icon = \"FlaskConical\"\n    inputs = node_inputs({\"path\": \"\", \"calibration\": {}, \"color\": [255, 0, 0]})\n    outputs = node_outputs()\n\n    def build_table(self) -> DataFrame:\n        return output_table(self, \"extract.chart_digitize\")\n\n    def build_report(self) -> Data:\n        return output_report(self, \"extract.chart_digitize\")\n\n    def build_artifacts(self) -> DataFrame:\n        return output_artifacts(self, \"extract.chart_digitize\")\n\n    def build_summary(self) -> Message:\n        return output_summary(self, \"extract.chart_digitize\")\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "config_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "config_json",
+                "value": "{\"output_dir\":\"@asset:output\",\"path\":\"@asset:curve.png\",\"color\":[255,0,0],\"color_tolerance\":5,\"calibration\":{\"x\":[[20,0],[120,10]],\"y\":[[120,0],[20,100]]}}",
+                "display_name": "方法与参数 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "方法参数见随仓库提供的节点手册；示例可直接导入。原始数据不会被覆盖。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "可追溯的图表数据提取；具体方法与前提见随仓库提供的手册。",
+            "icon": "FlaskConical",
+            "base_classes": [
+              "JSON",
+              "Message",
+              "Table"
+            ],
+            "display_name": "材料科学·图表数据提取",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table",
+                "display_name": "结果表格",
+                "method": "build_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "结果与追溯",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "artifacts",
+                "display_name": "生成文件",
+                "method": "build_artifacts",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "summary",
+                "display_name": "运行摘要",
+                "method": "build_summary",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "ScienceExtractChartDigitize",
+          "id": "ScienceExtractChartDigitize-digitize"
+        },
+        "id": "ScienceExtractChartDigitize-digitize",
+        "position": {
+          "x": 575,
+          "y": 740
+        },
+        "type": "genericNode"
+      },
+      {
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_data": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_data",
+                "value": "",
+                "display_name": "上游结果 / 文件与证据",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "input_table": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_table",
+                "value": "",
+                "display_name": "输入表格",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame",
+                  "Table"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "DataFrameInput"
+              },
+              "input_tables": {
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_tables",
+                "value": "",
+                "display_name": "其他表格（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "DataFrame"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "HandleInput"
+              },
+              "reports": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "reports",
+                "value": "",
+                "display_name": "报告来源（可多接）",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "source_file": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "file_path": "",
+                "fileTypes": [
+                  "csv",
+                  "tsv",
+                  "txt",
+                  "xlsx",
+                  "xls",
+                  "pdf",
+                  "png",
+                  "jpg",
+                  "jpeg",
+                  "tif",
+                  "tiff",
+                  "bmp",
+                  "json",
+                  "xy",
+                  "xrdml",
+                  "brml",
+                  "jdx",
+                  "sqlite"
+                ],
+                "temp_file": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "source_file",
+                "value": "",
+                "display_name": "上传源文件",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "file",
+                "_input_type": "FileInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "# Generated by scripts.build_science_components.\n# Edit the shared adapter or catalog instead.\nfrom lfx.custom import Component\nfrom lfx.schema import Data, DataFrame, Message\n\nfrom materials_quality.science.langflow_adapter import (\n    node_inputs,\n    node_outputs,\n    output_artifacts,\n    output_report,\n    output_summary,\n    output_table,\n)\n\n\nclass ScienceExportTable(Component):\n    display_name = \"材料科学·结果表导出\"\n    description = \"可追溯的结果表导出；具体方法与前提见随仓库提供的手册。\"\n    name = \"ScienceExportTable\"\n    icon = \"FlaskConical\"\n    inputs = node_inputs({\"format\": \"csv\"})\n    outputs = node_outputs()\n\n    def build_table(self) -> DataFrame:\n        return output_table(self, \"export.table\")\n\n    def build_report(self) -> Data:\n        return output_report(self, \"export.table\")\n\n    def build_artifacts(self) -> DataFrame:\n        return output_artifacts(self, \"export.table\")\n\n    def build_summary(self) -> Message:\n        return output_summary(self, \"export.table\")\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "config_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "config_json",
+                "value": "{\"output_dir\":\"@asset:output\",\"format\":\"csv\"}",
+                "display_name": "方法与参数 JSON",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "方法参数见随仓库提供的节点手册；示例可直接导入。原始数据不会被覆盖。",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "可追溯的结果表导出；具体方法与前提见随仓库提供的手册。",
+            "icon": "FlaskConical",
+            "base_classes": [
+              "JSON",
+              "Message",
+              "Table"
+            ],
+            "display_name": "材料科学·结果表导出",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "table",
+                "display_name": "结果表格",
+                "method": "build_table",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "report",
+                "display_name": "结果与追溯",
+                "method": "build_report",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Table"
+                ],
+                "selected": "Table",
+                "name": "artifacts",
+                "display_name": "生成文件",
+                "method": "build_artifacts",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "summary",
+                "display_name": "运行摘要",
+                "method": "build_summary",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "ScienceExportTable",
+          "id": "ScienceExportTable-digitized-csv"
+        },
+        "id": "ScienceExportTable-digitized-csv",
+        "position": {
+          "x": 1150,
+          "y": 1480
+        },
+        "type": "genericNode"
+      }
+    ],
+    "edges": [
+      {
+        "source": "ScienceIoImageImport-image",
+        "target": "ScienceExtractImageOcr-words",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoImageImport",
+            "id": "ScienceIoImageImport-image",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceExtractImageOcr-words",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-03-images",
+        "target": "ScienceExtractChartDigitize-digitize",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-03-images",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceExtractChartDigitize-digitize",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExtractImageOcr-words",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceExtractImageOcr",
+            "id": "ScienceExtractImageOcr-words",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExtractImageTables-grid",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceExtractImageTables",
+            "id": "ScienceExtractImageTables-grid",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoImageImport-image",
+        "target": "ScienceExtractImageTables-grid",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoImageImport",
+            "id": "ScienceIoImageImport-image",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceExtractImageTables-grid",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExtractChartDigitize-digitize",
+        "target": "ScienceExportTable-digitized-csv",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceExtractChartDigitize",
+            "id": "ScienceExtractChartDigitize-digitize",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceExportTable-digitized-csv",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-03-images",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-03-images",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceIoImageImport-image",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceIoImageImport",
+            "id": "ScienceIoImageImport-image",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExportTable-digitized-csv",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceExportTable",
+            "id": "ScienceExportTable-digitized-csv",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExtractChartDigitize-digitize",
+        "target": "ScienceExportReport-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceExtractChartDigitize",
+            "id": "ScienceExtractChartDigitize-digitize",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceExtractChartDigitize-digitize",
+        "target": "ScienceExportTable-digitized-csv",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceExtractChartDigitize",
+            "id": "ScienceExtractChartDigitize-digitize",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "ScienceExportTable-digitized-csv",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-03-images",
+        "target": "ScienceIoImageImport-image",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-03-images",
+            "name": "data",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_data",
+            "id": "ScienceIoImageImport-image",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      }
+    ]
+  },
+  "is_component": false,
+  "name": "03 图像 OCR、表格与标定曲线（合成）",
+  "description": "内嵌合成输入。运行后检查每个节点的结果与追溯，并打开最终 HTML 报告。"
+}

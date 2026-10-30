@@ -1,0 +1,778 @@
+[
+  {
+    "key": "io.table_import",
+    "title": "表格文件导入",
+    "function": "materials_quality.science.io_nodes:table_import",
+    "category": "数据接入",
+    "requirement": "表格文件导入",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "path": "",
+      "header": 0
+    },
+    "directory": "materials_sources",
+    "filename": "io_table_import",
+    "class_name": "ScienceIoTableImport"
+  },
+  {
+    "key": "io.text_import",
+    "title": "文本文件导入",
+    "function": "materials_quality.science.io_nodes:text_import",
+    "category": "数据接入",
+    "requirement": "文本文件导入",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "path": "",
+      "method": "lines"
+    },
+    "directory": "materials_sources",
+    "filename": "io_text_import",
+    "class_name": "ScienceIoTextImport"
+  },
+  {
+    "key": "io.pdf_import",
+    "title": "PDF 文件导入",
+    "function": "materials_quality.science.io_nodes:pdf_import",
+    "category": "数据接入",
+    "requirement": "PDF 文件导入",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "path": "",
+      "dpi": 150
+    },
+    "directory": "materials_sources",
+    "filename": "io_pdf_import",
+    "class_name": "ScienceIoPdfImport"
+  },
+  {
+    "key": "io.image_import",
+    "title": "图片文件导入",
+    "function": "materials_quality.science.io_nodes:image_import",
+    "category": "数据接入",
+    "requirement": "图片文件导入",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "path": ""
+    },
+    "directory": "materials_sources",
+    "filename": "io_image_import",
+    "class_name": "ScienceIoImageImport"
+  },
+  {
+    "key": "io.instrument_import",
+    "title": "仪器文件导入",
+    "function": "materials_quality.science.io_nodes:instrument_import",
+    "category": "数据接入",
+    "requirement": "仪器文件导入",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "path": ""
+    },
+    "directory": "materials_sources",
+    "filename": "io_instrument_import",
+    "class_name": "ScienceIoInstrumentImport"
+  },
+  {
+    "key": "io.database_import",
+    "title": "数据库接入",
+    "function": "materials_quality.science.io_nodes:database_import",
+    "category": "数据接入",
+    "requirement": "数据库接入",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "method": "sqlite",
+      "path": "",
+      "query": "SELECT * FROM samples"
+    },
+    "directory": "materials_sources",
+    "filename": "io_database_import",
+    "class_name": "ScienceIoDatabaseImport"
+  },
+  {
+    "key": "extract.pdf_text",
+    "title": "PDF 文本提取",
+    "function": "materials_quality.science.extract_nodes:pdf_text",
+    "category": "内容提取",
+    "requirement": "PDF 文本提取",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "path": "",
+      "method": "auto"
+    },
+    "directory": "materials_extraction",
+    "filename": "extract_pdf_text",
+    "class_name": "ScienceExtractPdfText"
+  },
+  {
+    "key": "extract.pdf_tables",
+    "title": "PDF 表格提取",
+    "function": "materials_quality.science.extract_nodes:pdf_tables",
+    "category": "内容提取",
+    "requirement": "PDF 表格提取",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "path": "",
+      "method": "auto"
+    },
+    "directory": "materials_extraction",
+    "filename": "extract_pdf_tables",
+    "class_name": "ScienceExtractPdfTables"
+  },
+  {
+    "key": "extract.image_ocr",
+    "title": "图片文字识别",
+    "function": "materials_quality.science.extract_nodes:image_ocr",
+    "category": "内容提取",
+    "requirement": "图片文字识别",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "path": "",
+      "text_score": 0.5
+    },
+    "directory": "materials_extraction",
+    "filename": "extract_image_ocr",
+    "class_name": "ScienceExtractImageOcr"
+  },
+  {
+    "key": "extract.image_tables",
+    "title": "图片表格提取",
+    "function": "materials_quality.science.extract_nodes:image_tables",
+    "category": "内容提取",
+    "requirement": "图片表格提取",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "path": "",
+      "header": true
+    },
+    "directory": "materials_extraction",
+    "filename": "extract_image_tables",
+    "class_name": "ScienceExtractImageTables"
+  },
+  {
+    "key": "extract.chart_digitize",
+    "title": "图表数据提取",
+    "function": "materials_quality.science.extract_nodes:chart_digitize",
+    "category": "内容提取",
+    "requirement": "图表数据提取",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "path": "",
+      "calibration": {},
+      "color": [
+        255,
+        0,
+        0
+      ]
+    },
+    "directory": "materials_extraction",
+    "filename": "extract_chart_digitize",
+    "class_name": "ScienceExtractChartDigitize"
+  },
+  {
+    "key": "extract.convert_file",
+    "title": "文件格式转换",
+    "function": "materials_quality.science.extract_nodes:convert_file",
+    "category": "内容提取",
+    "requirement": "文件格式转换",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "path": "",
+      "target": "csv"
+    },
+    "directory": "materials_extraction",
+    "filename": "extract_convert_file",
+    "class_name": "ScienceExtractConvertFile"
+  },
+  {
+    "key": "preprocess.filter",
+    "title": "行列筛选",
+    "function": "materials_quality.science.preprocessing:filter_rows",
+    "category": "preprocessing",
+    "requirement": "行列筛选",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {},
+    "directory": "materials_preprocessing",
+    "filename": "preprocess_filter",
+    "class_name": "SciencePreprocessFilter"
+  },
+  {
+    "key": "preprocess.missing",
+    "title": "缺失值处理",
+    "function": "materials_quality.science.preprocessing:handle_missing",
+    "category": "preprocessing",
+    "requirement": "缺失值处理",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "method": "keep"
+    },
+    "directory": "materials_preprocessing",
+    "filename": "preprocess_missing",
+    "class_name": "SciencePreprocessMissing"
+  },
+  {
+    "key": "preprocess.units",
+    "title": "单位换算",
+    "function": "materials_quality.science.preprocessing:convert_units",
+    "category": "preprocessing",
+    "requirement": "单位换算",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "source_units": {},
+      "target_units": {}
+    },
+    "directory": "materials_preprocessing",
+    "filename": "preprocess_units",
+    "class_name": "SciencePreprocessUnits"
+  },
+  {
+    "key": "preprocess.reshape",
+    "title": "格式转换",
+    "function": "materials_quality.science.preprocessing:reshape_table",
+    "category": "preprocessing",
+    "requirement": "格式转换",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "method": "types",
+      "types": {}
+    },
+    "directory": "materials_preprocessing",
+    "filename": "preprocess_reshape",
+    "class_name": "SciencePreprocessReshape"
+  },
+  {
+    "key": "preprocess.merge",
+    "title": "多表合并",
+    "function": "materials_quality.science.preprocessing:merge_tables",
+    "category": "preprocessing",
+    "requirement": "多表合并",
+    "table_input": false,
+    "data_input": false,
+    "tables_input": true,
+    "default_config": {
+      "method": "join",
+      "on": [
+        "sample_id"
+      ]
+    },
+    "directory": "materials_preprocessing",
+    "filename": "preprocess_merge",
+    "class_name": "SciencePreprocessMerge"
+  },
+  {
+    "key": "preprocess.normalize",
+    "title": "数据归一化",
+    "function": "materials_quality.science.preprocessing:normalize_table",
+    "category": "preprocessing",
+    "requirement": "数据归一化",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "method": "minmax"
+    },
+    "directory": "materials_preprocessing",
+    "filename": "preprocess_normalize",
+    "class_name": "SciencePreprocessNormalize"
+  },
+  {
+    "key": "materials.xrd",
+    "title": "XRD 数据处理",
+    "function": "materials_quality.science.materials:xrd",
+    "category": "材料专业分析",
+    "requirement": "XRD 数据处理",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "x": "x",
+      "y": "y",
+      "baseline": {
+        "method": "none"
+      }
+    },
+    "directory": "materials_analysis",
+    "filename": "materials_xrd",
+    "class_name": "ScienceMaterialsXrd"
+  },
+  {
+    "key": "materials.spectra",
+    "title": "FTIR/Raman 数据处理",
+    "function": "materials_quality.science.materials:spectra",
+    "category": "材料专业分析",
+    "requirement": "FTIR/Raman 数据处理",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "x": "x",
+      "y": "y",
+      "normalization": "none"
+    },
+    "directory": "materials_analysis",
+    "filename": "materials_spectra",
+    "class_name": "ScienceMaterialsSpectra"
+  },
+  {
+    "key": "materials.thermal",
+    "title": "TG/DSC 热分析",
+    "function": "materials_quality.science.materials:thermal",
+    "category": "材料专业分析",
+    "requirement": "TG/DSC 热分析",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "kind": "tg",
+      "x_unit": "degC",
+      "y_unit": "%"
+    },
+    "directory": "materials_analysis",
+    "filename": "materials_thermal",
+    "class_name": "ScienceMaterialsThermal"
+  },
+  {
+    "key": "materials.mechanics",
+    "title": "应力—应变分析",
+    "function": "materials_quality.science.materials:mechanics",
+    "category": "材料专业分析",
+    "requirement": "应力—应变分析",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "strain_unit": "fraction",
+      "stress_unit": "MPa"
+    },
+    "directory": "materials_analysis",
+    "filename": "materials_mechanics",
+    "class_name": "ScienceMaterialsMechanics"
+  },
+  {
+    "key": "materials.sem_eds",
+    "title": "SEM/EDS 分析",
+    "function": "materials_quality.science.materials:sem_eds",
+    "category": "材料专业分析",
+    "requirement": "SEM/EDS 分析",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "method": "image",
+      "segmentation": "threshold"
+    },
+    "directory": "materials_analysis",
+    "filename": "materials_sem_eds",
+    "class_name": "ScienceMaterialsSemEds"
+  },
+  {
+    "key": "materials.microstructure",
+    "title": "显微结构图像分析",
+    "function": "materials_quality.science.materials:microstructure",
+    "category": "材料专业分析",
+    "requirement": "显微结构图像分析",
+    "table_input": false,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "segmentation": "threshold"
+    },
+    "directory": "materials_analysis",
+    "filename": "materials_microstructure",
+    "class_name": "ScienceMaterialsMicrostructure"
+  },
+  {
+    "key": "stats.grouped",
+    "title": "分组统计",
+    "function": "materials_quality.science.statistics:grouped",
+    "category": "统计与建模",
+    "requirement": "分组统计",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "group": "group",
+      "columns": [
+        "value"
+      ]
+    },
+    "directory": "materials_statistics",
+    "filename": "stats_grouped",
+    "class_name": "ScienceStatsGrouped"
+  },
+  {
+    "key": "stats.distribution",
+    "title": "分布检查",
+    "function": "materials_quality.science.statistics:distribution",
+    "category": "统计与建模",
+    "requirement": "分布检查",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "column": "value",
+      "bins": "auto"
+    },
+    "directory": "materials_statistics",
+    "filename": "stats_distribution",
+    "class_name": "ScienceStatsDistribution"
+  },
+  {
+    "key": "stats.correlation",
+    "title": "相关性分析",
+    "function": "materials_quality.science.statistics:correlation",
+    "category": "统计与建模",
+    "requirement": "相关性分析",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "columns": [
+        "x",
+        "y"
+      ],
+      "method": "pearson"
+    },
+    "directory": "materials_statistics",
+    "filename": "stats_correlation",
+    "class_name": "ScienceStatsCorrelation"
+  },
+  {
+    "key": "stats.significance",
+    "title": "显著性检验",
+    "function": "materials_quality.science.statistics:significance",
+    "category": "统计与建模",
+    "requirement": "显著性检验",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "group": "group",
+      "column": "value",
+      "method": "welch"
+    },
+    "directory": "materials_statistics",
+    "filename": "stats_significance",
+    "class_name": "ScienceStatsSignificance"
+  },
+  {
+    "key": "stats.multiple",
+    "title": "多重比较",
+    "function": "materials_quality.science.statistics:multiple",
+    "category": "统计与建模",
+    "requirement": "多重比较",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "column": "pvalue",
+      "method": "holm"
+    },
+    "directory": "materials_statistics",
+    "filename": "stats_multiple",
+    "class_name": "ScienceStatsMultiple"
+  },
+  {
+    "key": "stats.regression",
+    "title": "回归分析",
+    "function": "materials_quality.science.statistics:regression",
+    "category": "统计与建模",
+    "requirement": "回归分析",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "features": [
+        "x"
+      ],
+      "target": "y",
+      "method": "linear",
+      "seed": 42
+    },
+    "directory": "materials_statistics",
+    "filename": "stats_regression",
+    "class_name": "ScienceStatsRegression"
+  },
+  {
+    "key": "stats.predict",
+    "title": "预测模型",
+    "function": "materials_quality.science.statistics:predict",
+    "category": "统计与建模",
+    "requirement": "预测模型",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "features": [
+        "x"
+      ],
+      "target": "y",
+      "method": "random_forest",
+      "seed": 42
+    },
+    "directory": "materials_statistics",
+    "filename": "stats_predict",
+    "class_name": "ScienceStatsPredict"
+  },
+  {
+    "key": "stats.evaluate",
+    "title": "模型评估",
+    "function": "materials_quality.science.statistics:evaluate",
+    "category": "统计与建模",
+    "requirement": "模型评估",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "features": [
+        "x"
+      ],
+      "target": "y",
+      "method": "cv",
+      "model_method": "linear",
+      "seed": 42
+    },
+    "directory": "materials_statistics",
+    "filename": "stats_evaluate",
+    "class_name": "ScienceStatsEvaluate"
+  },
+  {
+    "key": "viz.performance",
+    "title": "性能对比图",
+    "function": "materials_quality.science.visualization:performance",
+    "category": "可视化与报告",
+    "requirement": "性能对比图",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "method": "scatter",
+      "x": "x",
+      "y": "y"
+    },
+    "directory": "materials_visualization",
+    "filename": "viz_performance",
+    "class_name": "ScienceVizPerformance"
+  },
+  {
+    "key": "viz.spectra",
+    "title": "光谱或衍射图",
+    "function": "materials_quality.science.visualization:spectra",
+    "category": "可视化与报告",
+    "requirement": "光谱或衍射图",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "method": "overlay",
+      "x": "x",
+      "columns": [
+        "intensity"
+      ]
+    },
+    "directory": "materials_visualization",
+    "filename": "viz_spectra",
+    "class_name": "ScienceVizSpectra"
+  },
+  {
+    "key": "viz.mechanics",
+    "title": "应力—应变图",
+    "function": "materials_quality.science.visualization:mechanics",
+    "category": "可视化与报告",
+    "requirement": "应力—应变图",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "method": "overlay",
+      "x": "strain",
+      "y": "stress",
+      "sample": "sample_id"
+    },
+    "directory": "materials_visualization",
+    "filename": "viz_mechanics",
+    "class_name": "ScienceVizMechanics"
+  },
+  {
+    "key": "viz.statistics",
+    "title": "统计图表",
+    "function": "materials_quality.science.visualization:statistics_plot",
+    "category": "可视化与报告",
+    "requirement": "统计图表",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "method": "histogram",
+      "column": "value"
+    },
+    "directory": "materials_visualization",
+    "filename": "viz_statistics",
+    "class_name": "ScienceVizStatistics"
+  },
+  {
+    "key": "export.table",
+    "title": "结果表导出",
+    "function": "materials_quality.science.visualization:export_table",
+    "category": "可视化与报告",
+    "requirement": "结果表导出",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "format": "csv"
+    },
+    "directory": "materials_visualization",
+    "filename": "export_table",
+    "class_name": "ScienceExportTable"
+  },
+  {
+    "key": "export.report",
+    "title": "分析报告生成",
+    "function": "materials_quality.science.visualization:export_report",
+    "category": "可视化与报告",
+    "requirement": "分析报告生成",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "format": "html"
+    },
+    "directory": "materials_visualization",
+    "filename": "export_report",
+    "class_name": "ScienceExportReport"
+  },
+  {
+    "key": "lit.search",
+    "title": "文献搜索",
+    "function": "materials_quality.science.literature:search",
+    "category": "literature",
+    "requirement": "文献搜索",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "provider": "local",
+      "method": "keyword",
+      "query": "ZnO"
+    },
+    "directory": "materials_literature",
+    "filename": "lit_search",
+    "class_name": "ScienceLitSearch"
+  },
+  {
+    "key": "lit.metadata",
+    "title": "文献元数据提取",
+    "function": "materials_quality.science.literature:metadata",
+    "category": "literature",
+    "requirement": "文献元数据提取",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "provider": "local"
+    },
+    "directory": "materials_literature",
+    "filename": "lit_metadata",
+    "class_name": "ScienceLitMetadata"
+  },
+  {
+    "key": "lit.extract",
+    "title": "材料与性能信息提取",
+    "function": "materials_quality.science.literature:extract",
+    "category": "literature",
+    "requirement": "材料与性能信息提取",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "method": "regex",
+      "patterns": {
+        "strength": "(?P<value>\\d+(?:\\.\\d+)?)\\s*(?P<unit>MPa|GPa)"
+      }
+    },
+    "directory": "materials_literature",
+    "filename": "lit_extract",
+    "class_name": "ScienceLitExtract"
+  },
+  {
+    "key": "lit.compare",
+    "title": "多篇文献对比",
+    "function": "materials_quality.science.literature:compare",
+    "category": "literature",
+    "requirement": "多篇文献对比",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "target_units": {}
+    },
+    "directory": "materials_literature",
+    "filename": "lit_compare",
+    "class_name": "ScienceLitCompare"
+  },
+  {
+    "key": "lit.sources",
+    "title": "引文与来源记录",
+    "function": "materials_quality.science.literature:sources",
+    "category": "literature",
+    "requirement": "引文与来源记录",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "save": false
+    },
+    "directory": "materials_literature",
+    "filename": "lit_sources",
+    "class_name": "ScienceLitSources"
+  },
+  {
+    "key": "lit.summary",
+    "title": "文献综述摘要",
+    "function": "materials_quality.science.literature:summary",
+    "category": "literature",
+    "requirement": "文献综述摘要",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "question": "strength",
+      "top_k": 5
+    },
+    "directory": "materials_literature",
+    "filename": "lit_summary",
+    "class_name": "ScienceLitSummary"
+  }
+]

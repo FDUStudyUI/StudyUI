@@ -1,0 +1,36 @@
+{
+  "sources": [
+    {
+      "page": 2,
+      "table_id": "T1",
+      "source_id": "synthetic-a",
+      "quote": "ZnO grown by sputtering at 300 K has strength 100 MPa",
+      "span_start": 0,
+      "span_end": 53,
+      "citation": "synthetic-a; page 2; table T1"
+    },
+    {
+      "page": 3,
+      "figure_id": "F1",
+      "source_id": "synthetic-b",
+      "quote": "ZnO grown by sputtering at 300 K has strength 0.12 GPa",
+      "span_start": 0,
+      "span_end": 54,
+      "citation": "synthetic-b; page 3; figure F1"
+    }
+  ],
+  "documents": [
+    {
+      "source_id": "synthetic-a",
+      "page": 2,
+      "table_id": "T1",
+      "text": "ZnO grown by sputtering at 300 K has strength 100 MPa."
+    },
+    {
+      "source_id": "synthetic-b",
+      "page": 3,
+      "figure_id": "F1",
+      "text": "ZnO grown by sputtering at 300 K has strength 0.12 GPa."
+    }
+  ]
+}

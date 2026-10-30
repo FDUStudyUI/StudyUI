@@ -38,7 +38,10 @@ def check_inputs(extra=None):
             info="接入 Langflow Table/DataFrame；检查不修改原始数据。",
         ),
         DataInput(
-            name="quality_context", display_name="共享规则与来源", required=False, value=None,
+            name="quality_context",
+            display_name="共享规则与来源",
+            required=False,
+            value=None,
             info="可选：连接数据规则与追溯节点。连接后共享规则优先，忽略本节点独立规则。",
         ),
         *(extra or []),
@@ -65,8 +68,11 @@ def report_data(node, check, **parameters):
     if context is not None and not isinstance(context, Data):
         raise ValueError("quality_context must be a native Langflow Data object")
     result = run_check(
-        node.input_table, check.__name__.removeprefix("check_"), parameters=parameters,
-        context=context.data if context is not None else None, finding_limit=node.finding_limit,
+        node.input_table,
+        check.__name__.removeprefix("check_"),
+        parameters=parameters,
+        context=context.data if context is not None else None,
+        finding_limit=node.finding_limit,
     )
     verdict = "未发现所检查的问题" if result["passed"] else "需要复核"
     node.status = f"检查完成；{verdict}；问题数 {result['total_findings']}"

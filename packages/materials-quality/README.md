@@ -1,11 +1,24 @@
-# 材料数据质量检查：Langflow 自定义节点
+# 材料科学工作流：Langflow 自定义节点
 
-六个检查节点、一个共享规则与追溯节点和一个汇总节点，按 Langflow 原生 `Component` / `DataFrame` /
-`Data` / `Message` 接口实现。检查在本地 Python 中执行，不调用大模型、无需 API Key，
-不删除、不插值、不换算或覆盖原数据。
+对应《工作流节点.md》的八类、50 项要求，提供 **52 个原生节点**：50 项功能加共享规则与报告汇总。
+按 Langflow `Component` / `DataFrame` / `Data` / `Message` 接口实现；数据处理与科学计算在运行
+Langflow 的电脑或服务器执行。所有处理输出新结果，保留原始数据。日常分析无需云端大模型；
+选择大模型文献抽取时才配置兼容服务与环境变量密钥。
 
-本包对应 `工作流节点.md` 中的数据质量检查首批功能，不包含 XRD、SEM、物相鉴定、
-模型训练或数据修复。统计离群点是待研究者复核的发现，不等同于错误实验。
+覆盖数据接入、内容提取、质量检查、预处理、材料分析、统计建模、可视化报告、文献检索。
+[逐项要求对照](docs/requirements-matrix.md)保留全部原文方法；
+[可导入工作流](examples/science_flows/README.md)提供带合成数据的连线示例。
+XRD 匹配需要参考谱库，图像量化需要标尺，断裂判定需要实验确认，EDS 读取外部定量结果。
+统计离群点是待研究者复核的发现，不等同于错误实验。
+
+| 功能 | 使用说明 |
+|---|---|
+| 文件、数据库、OCR、图表数字化 | [接入与提取](docs/science-io.md) |
+| 质量扩展、插值、合并、单位与缩放 | [预处理](docs/science-preprocessing.md) |
+| XRD、光谱、热分析、力学、SEM/EDS、显微图 | [材料分析](docs/science-materials.md) |
+| 统计检验、回归、训练与评估 | [统计建模](docs/science-statistics.md) |
+| 绘图、CSV/Excel、含来源与图片的报告 | [可视化与导出](docs/science-visualization.md) |
+| 检索、证据抽取、比较、引文与摘要 | [文献节点](docs/science-literature.md) |
 
 ## 兼容版本
 
@@ -21,7 +34,7 @@
 ```powershell
 $env:PYTHONUTF8 = "1"
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[langflow,dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[langflow,science,dev]"
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\ruff.exe check src components tests scripts examples
 ```
@@ -40,18 +53,32 @@ $env:LANGFLOW_COMPONENTS_PATH = (Resolve-Path .\components).Path
 .\.venv\Scripts\python.exe -m langflow run
 ```
 
-进入组件菜单的 `materials_quality` 分类。应看到下表八个节点。
+进入组件菜单的 `materials_quality` 分类可看到原有八个质检/追溯节点；其余七个分类包含 44 个科学节点。
 `LANGFLOW_COMPONENTS_PATH` 指向分类文件夹的**父目录**，不是某个 `.py` 文件。
 本包必须安装在运行 Langflow 的同一个 Python 环境，仅复制组件文件不够。
 不需要修改 Langflow 仓库或重建其前端。
 
-## 节点及输入
+## 新节点怎么连接
+
+“结果表格”是可以接到下一节点的表；“结果与追溯”包含计算结果、文件位置、警告和来源链。
+建议同时连接这两条线，保留连续处理记录。“报告来源”可接多个结果供报告生成节点汇总。
+“生成文件”列出路径与 SHA-256；文件在运行 Langflow 的服务器上。示例以嵌入资源方式携带合成输入，
+导入后无需改本机路径；实际使用时可展开高级选项上传文件，或在 JSON 指定服务器可访问路径。
+
+“方法与参数 JSON”选择方法并声明单位、字段、分组或校准信息。请从示例复制配置后再换数据。
+同一输入的多个输出共享一次计算；配置、表格或源文件内容改变后重新计算。
+JSON Schema 类型推断、模糊重复和单位转换是新增显式选项；质量检查默认仍不改变输入。
+
+## 原有质量节点及输入
 
 六个检查节点都接收 `输入表格`，并同时提供三个输出端口：
 
 - **原始表格**：值、顺序、索引不变的副本，便于串联后续节点。
 - **问题明细**：每条发现所在列、零基行位置、原始索引、依据和严重程度。
 - **检查报告**：完整计数、参数、指标、有限条明细和覆盖范围。
+
+单位检查另有“换算表格”端口：显式启用并完整成功时返回新值；关闭或换算受阻时返回空表，
+原因在检查报告中说明。原始表格端口保持不变。[完整节点与界面验收](docs/full-suite-acceptance.md)。
 
 | 节点 | 关键配置 | 检查内容 |
 |---|---|---|

@@ -1,0 +1,181 @@
+{
+  "runtime": "Python 3.10 / Langflow + LFX 1.13.0",
+  "browser": "Microsoft Edge via Playwright",
+  "ui_science": {
+    "utc": "2026-10-30T15:54:01.868837+00:00",
+    "cases": {
+      "01-tables": {
+        "nodes": 11,
+        "edges": 29,
+        "operations": [
+          "export.report",
+          "export.table",
+          "io.database_import",
+          "io.table_import",
+          "preprocess.filter",
+          "preprocess.merge",
+          "preprocess.missing",
+          "preprocess.normalize",
+          "preprocess.reshape",
+          "preprocess.units"
+        ],
+        "embedded_images_decoded": 0,
+        "report_verified": true
+      },
+      "02-documents": {
+        "nodes": 7,
+        "edges": 12,
+        "operations": [
+          "export.report",
+          "extract.convert_file",
+          "extract.pdf_tables",
+          "extract.pdf_text",
+          "io.pdf_import",
+          "io.text_import"
+        ],
+        "embedded_images_decoded": 0,
+        "report_verified": true
+      },
+      "03-images": {
+        "nodes": 7,
+        "edges": 12,
+        "operations": [
+          "export.report",
+          "export.table",
+          "extract.chart_digitize",
+          "extract.image_ocr",
+          "extract.image_tables",
+          "io.image_import"
+        ],
+        "embedded_images_decoded": 0,
+        "report_verified": true
+      },
+      "04-spectra": {
+        "nodes": 7,
+        "edges": 15,
+        "operations": [
+          "export.report",
+          "io.instrument_import",
+          "io.table_import",
+          "materials.spectra",
+          "materials.xrd",
+          "viz.spectra"
+        ],
+        "embedded_images_decoded": 1,
+        "report_verified": true
+      },
+      "05-mechanics-thermal": {
+        "nodes": 6,
+        "edges": 12,
+        "operations": [
+          "export.report",
+          "io.table_import",
+          "materials.mechanics",
+          "materials.thermal",
+          "viz.mechanics"
+        ],
+        "embedded_images_decoded": 1,
+        "report_verified": true
+      },
+      "06-morphology": {
+        "nodes": 6,
+        "edges": 10,
+        "operations": [
+          "export.report",
+          "export.table",
+          "io.image_import",
+          "materials.microstructure",
+          "materials.sem_eds"
+        ],
+        "embedded_images_decoded": 1,
+        "report_verified": true
+      },
+      "07-statistics": {
+        "nodes": 8,
+        "edges": 21,
+        "operations": [
+          "export.report",
+          "stats.correlation",
+          "stats.distribution",
+          "stats.grouped",
+          "stats.multiple",
+          "stats.significance",
+          "viz.performance"
+        ],
+        "embedded_images_decoded": 3,
+        "report_verified": true
+      },
+      "08-model": {
+        "nodes": 8,
+        "edges": 21,
+        "operations": [
+          "export.report",
+          "preprocess.filter",
+          "stats.evaluate",
+          "stats.predict",
+          "stats.regression",
+          "viz.statistics"
+        ],
+        "embedded_images_decoded": 1,
+        "report_verified": true
+      },
+      "09-literature": {
+        "nodes": 8,
+        "edges": 16,
+        "operations": [
+          "export.report",
+          "lit.compare",
+          "lit.extract",
+          "lit.metadata",
+          "lit.search",
+          "lit.sources",
+          "lit.summary"
+        ],
+        "embedded_images_decoded": 0,
+        "report_verified": true
+      }
+    },
+    "page_errors": [],
+    "http_errors": [],
+    "application": "Real Langflow 1.13.0 browser UI",
+    "passed": true
+  },
+  "ui_quality": {
+    "passed": true,
+    "cases": {
+      "clean": {
+        "nodes": 9,
+        "edges": 19,
+        "findings": 0,
+        "provenance": "verified"
+      },
+      "dirty": {
+        "nodes": 9,
+        "edges": 19,
+        "findings": 8,
+        "provenance": "verified"
+      },
+      "corrected": {
+        "nodes": 9,
+        "edges": 19,
+        "findings": 0,
+        "provenance": "verified"
+      }
+    }
+  },
+  "discovered_components": 52,
+  "source_requirements": 50,
+  "new_operations": 44,
+  "tests": {
+    "passed": 415,
+    "failed": 0,
+    "third_party_deprecation_warnings": 7,
+    "seconds": 95.96
+  },
+  "wheel": {
+    "version": "0.3.0",
+    "components": 52,
+    "legacy_flows": 5,
+    "verified": true
+  }
+}

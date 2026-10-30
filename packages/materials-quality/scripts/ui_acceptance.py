@@ -90,21 +90,33 @@ def accept_ui(base_url, output, executable=None):
     inputs = ROOT / "artifacts/ui-inputs"
     inputs.mkdir(parents=True, exist_ok=True)
     expected = json.loads((ROOT / "examples/mechanics/expected_findings.json").read_text(encoding="utf-8"))
-    results = {"timestamp_utc": datetime.now(timezone.utc).isoformat(), "base_url": base_url,
-               "application": "real Langflow 1.13.0 UI", "cases": {}, "page_errors": [], "http_errors": []}
+    results = {
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "base_url": base_url,
+        "application": "real Langflow 1.13.0 UI",
+        "cases": {},
+        "page_errors": [],
+        "http_errors": [],
+    }
     with sync_playwright() as playwright:
         launch = {"headless": True}
         if executable:
             launch["executable_path"] = executable
         browser = playwright.chromium.launch(**launch)
-        context = browser.new_context(viewport={"width": 1600, "height": 1000},
-                                      permissions=["clipboard-read", "clipboard-write"])
+        context = browser.new_context(
+            viewport={"width": 1600, "height": 1000}, permissions=["clipboard-read", "clipboard-write"]
+        )
         page = context.new_page()
         page.set_default_timeout(30000)
         page.on("pageerror", lambda error: results["page_errors"].append(str(error)))
-        page.on("response", lambda response: results["http_errors"].append(
-            {"url": response.url, "status": response.status}
-        ) if response.status >= 400 and "/api/" in response.url else None)
+        page.on(
+            "response",
+            lambda response: (
+                results["http_errors"].append({"url": response.url, "status": response.status})
+                if response.status >= 400 and "/api/" in response.url
+                else None
+            ),
+        )
         results["browser_version"] = browser.version
         try:
             for case in ("clean", "dirty", "corrected"):
@@ -117,15 +129,24 @@ def accept_ui(base_url, output, executable=None):
                 _upload(page, base_url, path, name)
                 if case == "clean":
                     page.get_by_text("Materials Quality", exact=True).click()
-                    for label in ("单位检查", "共享规则与追溯", "检查报告汇总", "结构检查",
-                                  "类型格式检查", "缺失检查", "异常值标记", "重复记录检查"):
+                    for label in (
+                        "单位检查",
+                        "共享规则与追溯",
+                        "检查报告汇总",
+                        "结构检查",
+                        "类型格式检查",
+                        "缺失检查",
+                        "异常值标记",
+                        "重复记录检查",
+                    ):
                         expect(page.get_by_text(f"材料数据·{label}", exact=True)).to_have_count(2)
                     page.screenshot(animations="disabled", path=str(output / "01-component-menu.png"))
                 _run(page)
                 report = _report(page)
                 wanted = expected[case]
-                actual = sorted((f["check_id"], f["code"], f["column"], f["row_position"])
-                                for f in report["findings"])
+                actual = sorted(
+                    (f["check_id"], f["code"], f["column"], f["row_position"]) for f in report["findings"]
+                )
                 assert actual == sorted(tuple(f) for f in wanted["findings"]), (case, actual)
                 assert report["passed"] == wanted["passed"]
                 assert report["metrics"]["completed_checks"] == 6
@@ -146,16 +167,20 @@ def accept_ui(base_url, output, executable=None):
                 page.get_by_test_id("btn-close-modal").click()
                 page.get_by_test_id("output-inspection-摘要-materialqualitysummary").click()
                 summary = _output_dialog(page).locator("textarea")
-                expect(summary).to_have_value(re.compile(
-                    f"已完成 6 项.*共 {len(wanted['findings'])} 条发现", re.DOTALL
-                ))
+                expect(summary).to_have_value(
+                    re.compile(f"已完成 6 项.*共 {len(wanted['findings'])} 条发现", re.DOTALL)
+                )
                 summary_text = summary.input_value()
                 page.screenshot(animations="disabled", path=str(output / f"{case}-summary.png"))
                 page.get_by_test_id("btn-close-modal").click()
                 results["cases"][case] = {
-                    "passed": report["passed"], "total_findings": report["total_findings"],
-                    "completed_checks": 6, "nodes": 9, "edges": 19,
-                    "provenance_status": report["provenance_status"], "source": source,
+                    "passed": report["passed"],
+                    "total_findings": report["total_findings"],
+                    "completed_checks": 6,
+                    "nodes": 9,
+                    "edges": 19,
+                    "provenance_status": report["provenance_status"],
+                    "source": source,
                     "dataset_fingerprint": report["dataset"]["fingerprint"],
                     "flow_sha256": hashlib.sha256(flow_path.read_bytes()).hexdigest(),
                     "summary_text": summary_text,
@@ -165,8 +190,11 @@ def accept_ui(base_url, output, executable=None):
                     page.locator('.react-flow__node[data-id^="MaterialQualitySummary-"]').get_by_role(
                         "button", name="Run component", exact=True
                     ).click()
-                    expect(page.get_by_text("checks must configure at least one supported check", exact=True)
-                           .first).to_be_visible(timeout=60000)
+                    expect(
+                        page.get_by_text(
+                            "checks must configure at least one supported check", exact=True
+                        ).first
+                    ).to_be_visible(timeout=60000)
                     # The upstream toast animates in from outside the viewport.
                     page.wait_for_timeout(500)
                     page.screenshot(animations="disabled", path=str(output / "invalid-rules.png"))
