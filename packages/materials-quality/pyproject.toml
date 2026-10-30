@@ -11,7 +11,7 @@ requires-python = ">=3.10,<3.15"
 dependencies = ["pandas>=2.0,<3.0", "pint==0.24.4", "jsonschema>=4.23,<5"]
 
 [project.optional-dependencies]
-langflow = ["lfx==1.13.0"]
+langflow = ["lfx==1.13.0", "langchain-community>=0.4,<0.5"]
 dev = ["pytest>=8,<10", "ruff>=0.13", "build>=1.2"]
 ui-test = ["langflow-base==1.13.0", "playwright==1.64.1"]
 science = [

@@ -41,7 +41,7 @@ python -m venv .venv
 
 需要固定依赖时，先 `pip install -r requirements.lock`，再 `pip install -e .`。
 
-`langflow` extra 安装的是用于测试的 `lfx==1.13.0`，不安装网页编辑器。
+`langflow` extra 安装 `lfx==1.13.0` 及其惰性导出兼容依赖，不安装网页编辑器。
 Windows 中文路径配合 Python 3.10 的 editable 安装时，需保留 `PYTHONUTF8=1`，
 以正确读取 UTF-8 `.pth` 路径；也可以使用普通安装 `pip install ".[langflow,dev]"`。
 要使用网页编辑器，在同一虚拟环境安装团队确认的 Langflow 版本。

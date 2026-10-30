@@ -177,5 +177,11 @@
     "components": 52,
     "legacy_flows": 5,
     "verified": true
+  },
+  "locked_environment_tests": {
+    "passed": 413,
+    "failed": 0,
+    "seconds": 88.22,
+    "browser_specific_tests_excluded": 2
   }
 }

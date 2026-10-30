@@ -11,12 +11,14 @@ Ruling: implement named algorithms with explicit scientific inputs and correct l
 - All fifty source entries and named submethods mapped in requirements-matrix.json.
 - 52 formal native components: 44 new operations and existing 8 quality/context/summary nodes.
 - Full regression suite: 415 passed in 95.96 seconds; Ruff clean.
+- Locked minimal environment: 413 passed in 88.22 seconds (two browser-specific tests excluded).
+  The extra declares LangChain Community for Skops/LFX lazy-export compatibility.
 - Nine self-contained Graph.dump → Graph.from_payload workflows cover every new operation and 148 edges.
 - Nine science and three quality flows passed real Langflow browser import/run/output inspection.
 - 27 generated files reread and 11 embedded inputs hashed; synthetic scientific truth asserted.
 - Regular wheel install discovers all 52 nodes and executes the five existing flows; v0.3.0 built.
 - Independent domain and final reviews completed with RED→GREEN fixes for all Important findings.
-  Additional closure review requested after final structural path and exact-cast fixes.
+  Original reproductions independently rerun; all review findings are closed.
 - Source files remain intact; reference libraries/calibration/external quantification/model credentials
   are explicit inputs. Offline examples call no paid model.
 - Repository push/PR and remote CI readback pending.
