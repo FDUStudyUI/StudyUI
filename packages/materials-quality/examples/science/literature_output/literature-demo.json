@@ -1,0 +1,100 @@
+{
+  "synthetic": true,
+  "discovered": 2,
+  "metadata": [
+    {
+      "doi": null,
+      "title": "Synthetic ZnO",
+      "authors": [
+        "A Li",
+        "B Wu"
+      ],
+      "journal": null,
+      "year": 2024,
+      "metadata_provider": "local-labelled-text",
+      "source_id": "synthetic-meta"
+    }
+  ],
+  "comparison": [
+    {
+      "property": "strength",
+      "value": 100.0,
+      "unit": "MPa",
+      "material": "ZnO",
+      "preparation": "sputtering",
+      "test_condition": "300 K",
+      "page": 2,
+      "table_id": "T1",
+      "source_id": "synthetic-a",
+      "quote": "ZnO grown by sputtering at 300 K has strength 100 MPa",
+      "span_start": 0,
+      "span_end": 53,
+      "figure_id": NaN,
+      "normalized_value": 100.0,
+      "normalized_unit": "MPa",
+      "group_id": 1
+    },
+    {
+      "property": "strength",
+      "value": 0.12,
+      "unit": "GPa",
+      "material": "ZnO",
+      "preparation": "sputtering",
+      "test_condition": "300 K",
+      "page": 3,
+      "table_id": NaN,
+      "source_id": "synthetic-b",
+      "quote": "ZnO grown by sputtering at 300 K has strength 0.12 GPa",
+      "span_start": 0,
+      "span_end": 54,
+      "figure_id": "F1",
+      "normalized_value": 120.0,
+      "normalized_unit": "MPa",
+      "group_id": 1
+    }
+  ],
+  "conflicts": [
+    {
+      "group_id": 1,
+      "source_ids": [
+        "synthetic-a",
+        "synthetic-b"
+      ],
+      "values": [
+        100.0,
+        120.0
+      ],
+      "unit": "MPa",
+      "interpretation": "values differ; uncertainty/significance not established"
+    }
+  ],
+  "review": {
+    "summary": "- ZnO grown by sputtering at 300 K has strength 100 MPa. [synthetic-a; page 2; table T1]\n- ZnO grown by sputtering at 300 K has strength 0.12 GPa. [synthetic-b; page 3; figure F1]",
+    "points": [
+      {
+        "page": 2,
+        "table_id": "T1",
+        "source_id": "synthetic-a",
+        "quote": "ZnO grown by sputtering at 300 K has strength 100 MPa.",
+        "span_start": 0,
+        "span_end": 54,
+        "citation": "synthetic-a; page 2; table T1"
+      },
+      {
+        "page": 3,
+        "figure_id": "F1",
+        "source_id": "synthetic-b",
+        "quote": "ZnO grown by sputtering at 300 K has strength 0.12 GPa.",
+        "span_start": 0,
+        "span_end": 55,
+        "citation": "synthetic-b; page 3; figure F1"
+      }
+    ],
+    "question": "strength",
+    "method": "extractive",
+    "retrieval": "token-overlap-ranked-excerpts"
+  },
+  "registry": [
+    "D:\\学习\\智能体大赛\\StudyUI\\.worktrees\\full-node-suite\\packages\\materials-quality\\examples\\science\\literature_output\\literature-sources.json"
+  ]
+}

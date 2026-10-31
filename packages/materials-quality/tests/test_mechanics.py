@@ -35,8 +35,11 @@ def test_mechanics_stored_workflow_matches_independent_manifest(case, stored):
     from scripts.run_example import execute_payload
 
     builder = importlib.import_module("scripts.build_mechanics")
-    payload = (json.loads((ROOT / "examples/mechanics" / f"{case}_flow.json").read_text(encoding="utf-8"))
-               if stored else builder.create_mechanics_payload(case))
+    payload = (
+        json.loads((ROOT / "examples/mechanics" / f"{case}_flow.json").read_text(encoding="utf-8"))
+        if stored
+        else builder.create_mechanics_payload(case)
+    )
     report = execute_payload(json.loads(json.dumps(payload, ensure_ascii=False, allow_nan=False)))
     manifest = ROOT / "examples/mechanics/expected_findings.json"
     expected = json.loads(manifest.read_text(encoding="utf-8"))[case]

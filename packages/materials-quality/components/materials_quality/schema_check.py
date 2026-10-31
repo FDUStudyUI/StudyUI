@@ -20,6 +20,13 @@ class MaterialSchemaCheck(Component):
     name = "MaterialSchemaCheck"
     inputs = check_inputs(
         [
+            MultilineInput(
+                name="schema_template_json",
+                display_name="结构模板 JSON Schema",
+                value="{}",
+                advanced=True,
+                info="可选：逐行校验字段类型、范围、必需属性和额外字段。",
+            ),
             MultilineInput(name="required_columns_json", display_name="必需字段 JSON", value='["sample_id"]'),
             MultilineInput(
                 name="aliases_json",
@@ -39,6 +46,7 @@ class MaterialSchemaCheck(Component):
             check_schema,
             required_columns=parse_json(self.required_columns_json, "required_columns_json", list),
             aliases=parse_json(self.aliases_json, "aliases_json", dict),
+            schema_template=parse_json(self.schema_template_json, "schema_template_json", dict) or None,
         )
 
     def pass_table(self) -> DataFrame:

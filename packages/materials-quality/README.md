@@ -1,11 +1,26 @@
-# 材料数据质量检查：Langflow 自定义节点
+# 材料科学工作流：Langflow 自定义节点
 
-六个检查节点、一个共享规则与追溯节点和一个汇总节点，按 Langflow 原生 `Component` / `DataFrame` /
-`Data` / `Message` 接口实现。检查在本地 Python 中执行，不调用大模型、无需 API Key，
-不删除、不插值、不换算或覆盖原数据。
+对应《工作流节点.md》的八类、50 项要求，提供 **52 个原生节点**：50 项功能加共享规则与报告汇总。
+按 Langflow `Component` / `DataFrame` / `Data` / `Message` 接口实现；数据处理与科学计算在运行
+Langflow 的电脑或服务器执行。所有处理输出新结果，保留原始数据。日常分析无需云端大模型；
+选择大模型文献抽取时才配置兼容服务与环境变量密钥。
 
-本包对应 `工作流节点.md` 中的数据质量检查首批功能，不包含 XRD、SEM、物相鉴定、
-模型训练或数据修复。统计离群点是待研究者复核的发现，不等同于错误实验。
+覆盖数据接入、内容提取、质量检查、预处理、材料分析、统计建模、可视化报告、文献检索。
+[逐项要求对照](docs/requirements-matrix.md)保留全部原文方法；
+[可导入工作流](examples/science_flows/README.md)提供带合成数据的连线示例。
+绘图已统一采用科研图规范：[六例画廊与四格式文件](examples/paper_figures/README.md)、
+[论文模式配置](docs/publication-plots.md)。
+XRD 匹配需要参考谱库，图像量化需要标尺，断裂判定需要实验确认，EDS 读取外部定量结果。
+统计离群点是待研究者复核的发现，不等同于错误实验。
+
+| 功能 | 使用说明 |
+|---|---|
+| 文件、数据库、OCR、图表数字化 | [接入与提取](docs/science-io.md) |
+| 质量扩展、插值、合并、单位与缩放 | [预处理](docs/science-preprocessing.md) |
+| XRD、光谱、热分析、力学、SEM/EDS、显微图 | [材料分析](docs/science-materials.md) |
+| 统计检验、回归、训练与评估 | [统计建模](docs/science-statistics.md) |
+| 绘图、CSV/Excel、含来源与图片的报告 | [可视化与导出](docs/science-visualization.md) |
+| 检索、证据抽取、比较、引文与摘要 | [文献节点](docs/science-literature.md) |
 
 ## 兼容版本
 
@@ -21,14 +36,14 @@
 ```powershell
 $env:PYTHONUTF8 = "1"
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[langflow,dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[langflow,science,dev]"
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\ruff.exe check src components tests scripts examples
 ```
 
 需要固定依赖时，先 `pip install -r requirements.lock`，再 `pip install -e .`。
 
-`langflow` extra 安装的是用于测试的 `lfx==1.13.0`，不安装网页编辑器。
+`langflow` extra 安装 `lfx==1.13.0` 及其惰性导出兼容依赖，不安装网页编辑器。
 Windows 中文路径配合 Python 3.10 的 editable 安装时，需保留 `PYTHONUTF8=1`，
 以正确读取 UTF-8 `.pth` 路径；也可以使用普通安装 `pip install ".[langflow,dev]"`。
 要使用网页编辑器，在同一虚拟环境安装团队确认的 Langflow 版本。
@@ -40,18 +55,32 @@ $env:LANGFLOW_COMPONENTS_PATH = (Resolve-Path .\components).Path
 .\.venv\Scripts\python.exe -m langflow run
 ```
 
-进入组件菜单的 `materials_quality` 分类。应看到下表八个节点。
+进入组件菜单的 `materials_quality` 分类可看到原有八个质检/追溯节点；其余七个分类包含 44 个科学节点。
 `LANGFLOW_COMPONENTS_PATH` 指向分类文件夹的**父目录**，不是某个 `.py` 文件。
 本包必须安装在运行 Langflow 的同一个 Python 环境，仅复制组件文件不够。
 不需要修改 Langflow 仓库或重建其前端。
 
-## 节点及输入
+## 新节点怎么连接
+
+“结果表格”是可以接到下一节点的表；“结果与追溯”包含计算结果、文件位置、警告和来源链。
+建议同时连接这两条线，保留连续处理记录。“报告来源”可接多个结果供报告生成节点汇总。
+“生成文件”列出路径与 SHA-256；文件在运行 Langflow 的服务器上。示例以嵌入资源方式携带合成输入，
+导入后无需改本机路径；实际使用时可展开高级选项上传文件，或在 JSON 指定服务器可访问路径。
+
+“方法与参数 JSON”选择方法并声明单位、字段、分组或校准信息。请从示例复制配置后再换数据。
+同一输入的多个输出共享一次计算；配置、表格或源文件内容改变后重新计算。
+JSON Schema 类型推断、模糊重复和单位转换是新增显式选项；质量检查默认仍不改变输入。
+
+## 原有质量节点及输入
 
 六个检查节点都接收 `输入表格`，并同时提供三个输出端口：
 
 - **原始表格**：值、顺序、索引不变的副本，便于串联后续节点。
 - **问题明细**：每条发现所在列、零基行位置、原始索引、依据和严重程度。
 - **检查报告**：完整计数、参数、指标、有限条明细和覆盖范围。
+
+单位检查另有“换算表格”端口：显式启用并完整成功时返回新值；关闭或换算受阻时返回空表，
+原因在检查报告中说明。原始表格端口保持不变。[完整节点与界面验收](docs/full-suite-acceptance.md)。
 
 | 节点 | 关键配置 | 检查内容 |
 |---|---|---|
@@ -163,17 +192,18 @@ MPa 与 Pa 兼容，不代表数值已从 MPa 换算成 Pa；输出仍保留原�
 - 类型、单位、范围来自明确规则，不替代仪器校准、材料知识和研究者判断。
 - 报告包含本地字段名、索引和检查依据；不要将其自动当作适合公开或发送云端的数据。
 
-输出格式见 [docs/contract.md](docs/contract.md)。
+质检报告格式见 [docs/contract.md](docs/contract.md)，新科学节点使用 `science-result/1` 信封格式。
 `requirements.lock` 提供带平台标记的依赖固定清单。`requirements-tested-py310.txt`
 记录本次 Windows/Python 3.10 实际验证环境，包含平台专用包，不应直接用于 Linux。
 普通 wheel 安装后，可在组件包目录运行 `python -m scripts.verify_install --require-wheel`，
-检查安装包中的七个节点是否被发现，并重新导入、执行两份流程。
+检查安装包中的 52 个节点是否被发现，并重新导入、执行五份原有质检流程。
+九份新科学流程可使用 `python -m scripts.build_science_examples --verify-only` 独立复核。
 
 ## 目录
 
 ```text
-components/materials_quality/  # Langflow 分类及七个原生节点
-src/materials_quality/         # 可独立测试的检查算法和报告契约
+components/materials_*/        # 八个分类，52 个原生节点
+src/materials_quality/         # 质检、科学算法、原生适配与报告契约
 tests/                        # 核心行为、原生加载和导出图执行测试
 examples/                     # 人工CSV、演示源、可导入流程JSON
 scripts/                      # 生成、重新导入和执行示例

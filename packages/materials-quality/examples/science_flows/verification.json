@@ -1,0 +1,464 @@
+{
+  "verified_flows": 9,
+  "operation_count": 44,
+  "flows": {
+    "01-tables": {
+      "operations": {
+        "report": "export.report",
+        "csv": "io.table_import",
+        "sql": "io.database_import",
+        "types": "preprocess.reshape",
+        "fill": "preprocess.missing",
+        "units": "preprocess.units",
+        "select": "preprocess.filter",
+        "join": "preprocess.merge",
+        "scale": "preprocess.normalize",
+        "csvout": "export.table"
+      },
+      "edges": 29,
+      "artifacts_read_back": [
+        {
+          "name": "analysis-report.html",
+          "bytes": 70794,
+          "format": ".html"
+        },
+        {
+          "name": "results.csv",
+          "bytes": 68,
+          "format": ".csv"
+        },
+        {
+          "name": "results.metadata.json",
+          "bytes": 476,
+          "format": ".json"
+        }
+      ],
+      "fixture_hashes_rechecked": 2,
+      "evidence": {
+        "normalized_values": [
+          0,
+          0.5,
+          1
+        ]
+      }
+    },
+    "02-documents": {
+      "operations": {
+        "report": "export.report",
+        "pdf": "io.pdf_import",
+        "text": "extract.pdf_text",
+        "grid": "extract.pdf_tables",
+        "fixed": "io.text_import",
+        "convert": "extract.convert_file"
+      },
+      "edges": 12,
+      "artifacts_read_back": [
+        {
+          "name": "analysis-report.html",
+          "bytes": 31759,
+          "format": ".html"
+        },
+        {
+          "name": "converted.csv",
+          "bytes": 31,
+          "format": ".csv"
+        }
+      ],
+      "fixture_hashes_rechecked": 2,
+      "evidence": {
+        "native_text_and_table": true
+      }
+    },
+    "03-images": {
+      "operations": {
+        "report": "export.report",
+        "image": "io.image_import",
+        "words": "extract.image_ocr",
+        "grid": "extract.image_tables",
+        "digitize": "extract.chart_digitize",
+        "digitized-csv": "export.table"
+      },
+      "edges": 12,
+      "artifacts_read_back": [
+        {
+          "name": "analysis-report.html",
+          "bytes": 122710,
+          "format": ".html"
+        },
+        {
+          "name": "results.csv",
+          "bytes": 2509,
+          "format": ".csv"
+        },
+        {
+          "name": "results.metadata.json",
+          "bytes": 505,
+          "format": ".json"
+        }
+      ],
+      "fixture_hashes_rechecked": 2,
+      "evidence": {
+        "ocr_rows": 5,
+        "curve_points": 101
+      }
+    },
+    "04-spectra": {
+      "operations": {
+        "report": "export.report",
+        "instrument": "io.instrument_import",
+        "xrd": "materials.xrd",
+        "spectrum": "io.table_import",
+        "raman": "materials.spectra",
+        "overlay": "viz.spectra"
+      },
+      "edges": 15,
+      "artifacts_read_back": [
+        {
+          "name": "analysis-report.html",
+          "bytes": 310852,
+          "format": ".html"
+        },
+        {
+          "name": "spectra-overlay.png",
+          "bytes": 103216,
+          "format": ".png"
+        },
+        {
+          "name": "spectra-overlay.svg",
+          "bytes": 25096,
+          "format": ".svg"
+        },
+        {
+          "name": "spectra-overlay.pdf",
+          "bytes": 22466,
+          "format": ".pdf"
+        },
+        {
+          "name": "spectra-overlay.tiff",
+          "bytes": 482890,
+          "format": ".tiff"
+        },
+        {
+          "name": "spectra-overlay.json",
+          "bytes": 45400,
+          "format": ".json"
+        },
+        {
+          "name": "spectra-overlay.md",
+          "bytes": 107,
+          "format": ".md"
+        }
+      ],
+      "fixture_hashes_rechecked": 2,
+      "evidence": {
+        "reference_coefficients": {
+          "synthetic-A": 2.0000000000000004,
+          "synthetic-B": 3.0000000000000004
+        },
+        "spectrum_area": 5.013256549261591
+      }
+    },
+    "05-mechanics-thermal": {
+      "operations": {
+        "report": "export.report",
+        "mechanics": "materials.mechanics",
+        "curve": "viz.mechanics",
+        "heat": "io.table_import",
+        "dsc": "materials.thermal"
+      },
+      "edges": 12,
+      "artifacts_read_back": [
+        {
+          "name": "analysis-report.html",
+          "bytes": 214175,
+          "format": ".html"
+        },
+        {
+          "name": "mechanics-overlay.png",
+          "bytes": 78782,
+          "format": ".png"
+        },
+        {
+          "name": "mechanics-overlay.svg",
+          "bytes": 18902,
+          "format": ".svg"
+        },
+        {
+          "name": "mechanics-overlay.pdf",
+          "bytes": 19465,
+          "format": ".pdf"
+        },
+        {
+          "name": "mechanics-overlay.tiff",
+          "bytes": 450146,
+          "format": ".tiff"
+        },
+        {
+          "name": "mechanics-overlay.json",
+          "bytes": 17100,
+          "format": ".json"
+        },
+        {
+          "name": "mechanics-overlay.md",
+          "bytes": 118,
+          "format": ".md"
+        }
+      ],
+      "fixture_hashes_rechecked": 1,
+      "evidence": {
+        "modulus_MPa": 200000.0,
+        "enthalpy_J_g": 150.39769647786
+      }
+    },
+    "06-morphology": {
+      "operations": {
+        "report": "export.report",
+        "image": "io.image_import",
+        "pores": "materials.microstructure",
+        "eds": "materials.sem_eds",
+        "areas": "export.table"
+      },
+      "edges": 10,
+      "artifacts_read_back": [
+        {
+          "name": "analysis-report.html",
+          "bytes": 22105,
+          "format": ".html"
+        },
+        {
+          "name": "materials_mask.png",
+          "bytes": 97,
+          "format": ".png"
+        },
+        {
+          "name": "materials_labels.npy",
+          "bytes": 1728,
+          "format": ".npy"
+        },
+        {
+          "name": "results.xlsx",
+          "bytes": 5815,
+          "format": ".xlsx"
+        },
+        {
+          "name": "results.metadata.json",
+          "bytes": 757,
+          "format": ".json"
+        }
+      ],
+      "fixture_hashes_rechecked": 2,
+      "evidence": {
+        "foreground_pixels": 32,
+        "EDS_wt_total": 100
+      }
+    },
+    "07-statistics": {
+      "operations": {
+        "report": "export.report",
+        "grouped": "stats.grouped",
+        "distribution": "stats.distribution",
+        "correlation": "stats.correlation",
+        "anova": "stats.significance",
+        "tukey": "stats.multiple",
+        "box": "viz.performance"
+      },
+      "edges": 21,
+      "artifacts_read_back": [
+        {
+          "name": "analysis-report.html",
+          "bytes": 331879,
+          "format": ".html"
+        },
+        {
+          "name": "distribution-histogram.png",
+          "bytes": 60643,
+          "format": ".png"
+        },
+        {
+          "name": "distribution-histogram.svg",
+          "bytes": 16852,
+          "format": ".svg"
+        },
+        {
+          "name": "distribution-histogram.pdf",
+          "bytes": 18685,
+          "format": ".pdf"
+        },
+        {
+          "name": "distribution-histogram.tiff",
+          "bytes": 596888,
+          "format": ".tiff"
+        },
+        {
+          "name": "distribution-histogram.json",
+          "bytes": 2716,
+          "format": ".json"
+        },
+        {
+          "name": "distribution-histogram.md",
+          "bytes": 131,
+          "format": ".md"
+        },
+        {
+          "name": "distribution-qq.png",
+          "bytes": 94994,
+          "format": ".png"
+        },
+        {
+          "name": "distribution-qq.svg",
+          "bytes": 17353,
+          "format": ".svg"
+        },
+        {
+          "name": "distribution-qq.pdf",
+          "bytes": 19906,
+          "format": ".pdf"
+        },
+        {
+          "name": "distribution-qq.tiff",
+          "bytes": 480650,
+          "format": ".tiff"
+        },
+        {
+          "name": "distribution-qq.json",
+          "bytes": 2939,
+          "format": ".json"
+        },
+        {
+          "name": "distribution-qq.md",
+          "bytes": 128,
+          "format": ".md"
+        },
+        {
+          "name": "performance-box.png",
+          "bytes": 75278,
+          "format": ".png"
+        },
+        {
+          "name": "performance-box.svg",
+          "bytes": 17341,
+          "format": ".svg"
+        },
+        {
+          "name": "performance-box.pdf",
+          "bytes": 22028,
+          "format": ".pdf"
+        },
+        {
+          "name": "performance-box.tiff",
+          "bytes": 508100,
+          "format": ".tiff"
+        },
+        {
+          "name": "performance-box.json",
+          "bytes": 3313,
+          "format": ".json"
+        },
+        {
+          "name": "performance-box.md",
+          "bytes": 153,
+          "format": ".md"
+        }
+      ],
+      "fixture_hashes_rechecked": 0,
+      "evidence": {
+        "group_count": 3,
+        "pairwise_comparisons": 3
+      }
+    },
+    "08-model": {
+      "operations": {
+        "report": "export.report",
+        "development": "preprocess.filter",
+        "external": "preprocess.filter",
+        "train": "stats.regression",
+        "predict": "stats.predict",
+        "evaluate": "stats.evaluate",
+        "plot": "viz.statistics"
+      },
+      "edges": 21,
+      "artifacts_read_back": [
+        {
+          "name": "analysis-report.html",
+          "bytes": 144438,
+          "format": ".html"
+        },
+        {
+          "name": "model.skops",
+          "bytes": 18104,
+          "format": ".skops"
+        },
+        {
+          "name": "model-manifest.json",
+          "bytes": 4546,
+          "format": ".json"
+        },
+        {
+          "name": "statistics-prediction.png",
+          "bytes": 70424,
+          "format": ".png"
+        },
+        {
+          "name": "statistics-prediction.svg",
+          "bytes": 20763,
+          "format": ".svg"
+        },
+        {
+          "name": "statistics-prediction.pdf",
+          "bytes": 17406,
+          "format": ".pdf"
+        },
+        {
+          "name": "statistics-prediction.tiff",
+          "bytes": 413832,
+          "format": ".tiff"
+        },
+        {
+          "name": "statistics-prediction.json",
+          "bytes": 2623,
+          "format": ".json"
+        },
+        {
+          "name": "statistics-prediction.md",
+          "bytes": 92,
+          "format": ".md"
+        }
+      ],
+      "fixture_hashes_rechecked": 0,
+      "evidence": {
+        "external_rows": 10,
+        "r_squared": 1.0,
+        "mae": 1.5987211554602255e-15
+      }
+    },
+    "09-literature": {
+      "operations": {
+        "report": "export.report",
+        "search": "lit.search",
+        "metadata": "lit.metadata",
+        "extract": "lit.extract",
+        "compare": "lit.compare",
+        "sources": "lit.sources",
+        "summary": "lit.summary"
+      },
+      "edges": 16,
+      "artifacts_read_back": [
+        {
+          "name": "analysis-report.html",
+          "bytes": 35023,
+          "format": ".html"
+        },
+        {
+          "name": "literature-sources.json",
+          "bytes": 1025,
+          "format": ".json"
+        }
+      ],
+      "fixture_hashes_rechecked": 0,
+      "evidence": {
+        "evidence_points": 2,
+        "aligned_conflicts": 1
+      }
+    }
+  }
+}

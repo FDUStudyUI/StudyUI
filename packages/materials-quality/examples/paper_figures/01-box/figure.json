@@ -1,0 +1,123 @@
+{
+  "source": {
+    "table_sha256": "0a51e9155d73486f56ac9b0772dbab7da1ef27966c3ae3e0336be95f44047089",
+    "rows": 6,
+    "columns": [
+      "group",
+      "specimen",
+      "stress"
+    ]
+  },
+  "method": "box",
+  "labels": {
+    "x": "group",
+    "y": "Peak stress (MPa)"
+  },
+  "plot_data": {
+    "groups": [
+      {
+        "label": "Baseline",
+        "n": 3,
+        "y": [
+          422.4,
+          440.0,
+          457.6
+        ],
+        "mean": 440.0
+      },
+      {
+        "label": "Modified",
+        "n": 3,
+        "y": [
+          460.79999999999995,
+          480.0,
+          499.20000000000005
+        ],
+        "mean": 480.0
+      }
+    ]
+  },
+  "error_definition": null,
+  "observations_displayed": 6,
+  "statistical_definition": "Median; box: Q1–Q3; whiskers: 1.5×IQR; dots: all observations",
+  "figure_contract": {
+    "backend": "python-matplotlib",
+    "profile": "paper",
+    "data_kind": "synthetic",
+    "evidence_role": "comparison",
+    "purpose": "Specimen-level comparison",
+    "width_mm": 150.0,
+    "height_mm": 99.0,
+    "series_styles": {
+      "Baseline": {
+        "color": "#0072b2",
+        "linestyle": "-.",
+        "marker": "*"
+      },
+      "Modified": {
+        "color": "#d55e00",
+        "linestyle": "-.",
+        "marker": "P"
+      }
+    },
+    "statistical_definition": "Median; box: Q1–Q3; whiskers: 1.5×IQR; dots: all observations",
+    "observations_displayed": 6,
+    "font_families": [
+      "DejaVu Sans",
+      "Microsoft YaHei",
+      "SimHei"
+    ],
+    "minimum_text_points": 8,
+    "units": {
+      "stress": "MPa"
+    },
+    "layout_warnings": []
+  },
+  "figure_verification": [
+    {
+      "path": "figure.png",
+      "format": "png",
+      "sha256": "8da7db9f5058a0a116f1f77cde01f88236d93f70506f309f16cfd845f821aff3",
+      "size": [
+        1771,
+        1169
+      ],
+      "dpi": [
+        299.9994,
+        299.9994
+      ]
+    },
+    {
+      "path": "figure.svg",
+      "format": "svg",
+      "sha256": "cf2da68d5013eae268d800734eb2f15f6e9ec24fb33253aeea978c1ed27282f5",
+      "editable_text_elements": 18
+    },
+    {
+      "path": "figure.pdf",
+      "format": "pdf",
+      "sha256": "bb462058b5c173a9dd18d0ed808abc44c8ad34c8ccf741374c7890adef19700c",
+      "page_points": [
+        425.19683837890625,
+        280.6299133300781
+      ],
+      "text_characters": 223
+    },
+    {
+      "path": "figure.tiff",
+      "format": "tiff",
+      "sha256": "3c0f596961cd352ad0e67c59a0ce1c107d0e35ab66f5cda4386a2fb646c6f24f",
+      "size": [
+        3543,
+        2338
+      ],
+      "dpi": [
+        "600.0",
+        "600.0"
+      ]
+    }
+  ],
+  "figure_previews": [
+    "figure.png"
+  ]
+}

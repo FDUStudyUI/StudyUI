@@ -1,0 +1,7 @@
+strain,stress,sample,group
+0,0,a,material-A
+0.01,2,a,material-A
+0.02,4,a,material-A
+0,0,b,material-A
+0.01,4,b,material-A
+0.02,8,b,material-A

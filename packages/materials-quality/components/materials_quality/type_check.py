@@ -1,5 +1,5 @@
 from lfx.custom import Component
-from lfx.io import MultilineInput
+from lfx.io import BoolInput, MultilineInput
 from lfx.schema import Data, DataFrame
 
 from materials_quality.checks import check_types
@@ -20,6 +20,12 @@ class MaterialTypeCheck(Component):
     name = "MaterialTypeCheck"
     inputs = check_inputs(
         [
+            BoolInput(
+                name="infer_types",
+                display_name="推断字段类型",
+                value=False,
+                info="启用后从观察值生成类型建议，忽略本节点手工规则，不写回数据。",
+            ),
             MultilineInput(
                 name="expectations_json",
                 display_name="字段类型规则 JSON",
@@ -33,6 +39,8 @@ class MaterialTypeCheck(Component):
     def build_report(self) -> Data:
         if self.quality_context is not None:
             return report_data(self, check_types)
+        if self.infer_types:
+            return report_data(self, check_types, infer=True)
         return report_data(
             self, check_types, expectations=parse_json(self.expectations_json, "expectations_json", dict)
         )

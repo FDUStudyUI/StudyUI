@@ -22,8 +22,19 @@ def _unit(text):
         raise ValueError(f"unknown or invalid unit: {text!r}") from exc
 
 
-def check_units(table, *, source_units, expected_units, columns=None, finding_limit=500, missing_tokens=None):
+def check_units(
+    table,
+    *,
+    source_units,
+    expected_units,
+    columns=None,
+    finding_limit=500,
+    missing_tokens=None,
+    convert_values=False,
+):
     tokens = normalize_missing_tokens(missing_tokens)
+    if type(convert_values) is not bool:
+        raise ValueError("convert_values must be a boolean")
     parameters = {"source_units": source_units, "expected_units": expected_units, "columns": columns}
     if missing_tokens is not None:
         parameters["missing_tokens"] = list(tokens)
@@ -130,7 +141,7 @@ def check_units(table, *, source_units, expected_units, columns=None, finding_li
                 "UNIT_MIXED",
                 "warning",
                 column=column,
-                reason=f"Multiple source units in one column: {sorted(seen)!r}; values were not converted.",
+                reason=f"Multiple source units in one column: {sorted(seen)!r}.",
             )
         metrics[column] = {
             "source_unit": str(declared) if declared is not None else None,
@@ -140,4 +151,30 @@ def check_units(table, *, source_units, expected_units, columns=None, finding_li
             "checked_count": checked,
             "unspecified_count": unspecified,
         }
-    return report.finish({"columns": metrics, "converted": False})
+    details = {"columns": metrics, "converted": False}
+    if convert_values:
+        from materials_quality.science.preprocessing import convert_units
+
+        report.parameters["convert_values"] = True
+        if any(not m["compatible"] for m in metrics.values()):
+            details["conversion_blocked"] = "Review the reported unit or magnitude errors."
+        else:
+            try:
+                converted = convert_units(
+                    table,
+                    config={
+                        "source_units": source_units,
+                        "target_units": {c: expected_units[c] for c in selected},
+                        "missing_tokens": missing_tokens,
+                    },
+                )
+            except (ValueError, ArithmeticError, pint.errors.PintError) as exc:
+                details["conversion_blocked"] = str(exc)
+                report.add("UNIT_CONVERSION_FAILED", "error", reason=str(exc))
+            else:
+                details.update(
+                    converted=True,
+                    conversion_records=converted.data["changes"][:finding_limit],
+                    conversion_count=len(converted.data["changes"]),
+                )
+    return report.finish(details)

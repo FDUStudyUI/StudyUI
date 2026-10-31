@@ -9,7 +9,7 @@ from materials_quality.common import ReportBuilder, groups, missing, numeric, se
 from materials_quality.common import missing_tokens as normalize_missing_tokens
 
 
-def check_schema(table, *, required_columns, aliases=None, finding_limit=500):
+def check_schema(table, *, required_columns, aliases=None, finding_limit=500, schema_template=None):
     report = ReportBuilder(
         table, "schema", {"required_columns": required_columns, "aliases": aliases or {}}, finding_limit
     )
@@ -50,7 +50,13 @@ def check_schema(table, *, required_columns, aliases=None, finding_limit=500):
             )
         else:
             resolved[canonical] = found[0]
-    return report.finish({"resolved_columns": resolved})
+    if schema_template is not None:
+        from materials_quality.quality_extensions import template_errors
+
+        report.parameters["schema_template"] = schema_template
+        for position, column, reason in template_errors(table, schema_template):
+            report.add("SCHEMA_TEMPLATE", "error", column=column, position=position, reason=reason)
+    return report.finish({"resolved_columns": resolved, "template_checked": schema_template is not None})
 
 
 def check_missing(table, *, columns=None, missing_tokens=None, group_by=None, finding_limit=500):
@@ -147,6 +153,8 @@ def _matches(value, rule):
             isinstance(value, str) and value.strip().lower() in {"true", "false"}
         )
     if kind == "datetime":
+        if isinstance(value, (datetime, np.datetime64)):
+            return not missing(value)
         if not isinstance(value, str):
             return False
         try:
@@ -160,12 +168,30 @@ def _matches(value, rule):
         return False
 
 
-def check_types(table, *, expectations, finding_limit=500, missing_tokens=None):
+def check_types(
+    table, *, expectations=None, finding_limit=500, missing_tokens=None, infer=False, date_formats=None
+):
     tokens = normalize_missing_tokens(missing_tokens)
     parameters = {"expectations": expectations}
     if missing_tokens is not None:
         parameters["missing_tokens"] = list(tokens)
     report = ReportBuilder(table, "types", parameters, finding_limit)
+    inferred = {}
+    if infer:
+        from materials_quality.quality_extensions import infer_expectations
+
+        inferred, unknown = infer_expectations(table, tokens, date_formats)
+        expectations = {**inferred, **(expectations or {})}
+        parameters.update(expectations=expectations, infer=True, date_formats=date_formats)
+        for column in unknown:
+            if column not in expectations:
+                report.add(
+                    "TYPE_INFERENCE_INSUFFICIENT",
+                    column=column,
+                    reason="No coherent type can be inferred; provide an explicit field rule.",
+                )
+        if not expectations:
+            return report.finish({"columns": {}, "inferred_rules": {}, "inference_is_suggestion": True})
     if not isinstance(expectations, dict) or not expectations:
         raise ValueError("expectations must be a non-empty object")
     selected = select_columns(table, list(expectations))
@@ -195,10 +221,21 @@ def check_types(table, *, expectations, finding_limit=500, missing_tokens=None):
                 {type(v).__name__ for v in table[column] if not missing(v, tokens)}
             ),
         }
-    return report.finish({"columns": metrics})
+    metadata = {"columns": metrics}
+    if infer:
+        metadata.update(inferred_rules=inferred, inference_is_suggestion=True)
+    return report.finish(metadata)
 
 
-def check_duplicates(table, *, columns=None, finding_limit=500):
+def check_duplicates(
+    table,
+    *,
+    columns=None,
+    finding_limit=500,
+    similarity_threshold=None,
+    numeric_tolerances=None,
+    max_pairs=100000,
+):
     report = ReportBuilder(table, "duplicates", {"columns": columns}, finding_limit)
     selected = select_columns(table, columns)
     try:
@@ -212,11 +249,29 @@ def check_duplicates(table, *, columns=None, finding_limit=500):
             position=position,
             reason=f"Repeated combination of {selected!r}; review whether this is a valid replicate.",
         )
-    return report.finish(
-        {
-            "duplicate_rows": int(mask.sum()),
-            "duplicate_groups": duplicate_groups,
-            "key_columns": selected,
-            "duplicate_ratio": float(mask.mean()) if len(mask) else None,
-        }
-    )
+    metrics = {
+        "duplicate_rows": int(mask.sum()),
+        "duplicate_groups": duplicate_groups,
+        "key_columns": selected,
+        "duplicate_ratio": float(mask.mean()) if len(mask) else None,
+    }
+    if similarity_threshold is not None:
+        from materials_quality.quality_extensions import similar_pairs
+
+        report.parameters.update(
+            similarity_threshold=similarity_threshold,
+            numeric_tolerances=numeric_tolerances,
+            max_pairs=max_pairs,
+        )
+        pairs = list(similar_pairs(table, selected, similarity_threshold, numeric_tolerances, max_pairs))
+        metrics["similar_pairs"] = pairs[:finding_limit]
+        metrics["similar_pair_count"] = len(pairs)
+        for pair in pairs:
+            report.add(
+                "SIMILAR_RECORD",
+                position=pair["positions"][0],
+                reason=(
+                    f"Similar candidate records at positions {pair['positions']}; score={pair['score']:.6g}."
+                ),
+            )
+    return report.finish(metrics)

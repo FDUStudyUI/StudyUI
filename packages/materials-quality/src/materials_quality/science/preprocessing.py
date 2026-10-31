@@ -1,0 +1,535 @@
+"""Explicit, auditable table transformations; inputs are never mutated."""
+
+from copy import deepcopy
+
+import numpy as np
+import pandas as pd
+
+from materials_quality.common import groups, json_value, missing, numeric, select_columns, validate_table
+from materials_quality.common import missing_tokens as normalize_missing_tokens
+from materials_quality.science.contracts import NodeResult, numeric_matrix, require_table
+from materials_quality.units import _QUANTITY, _REGISTRY, _unit
+
+
+def _changes(before, after):
+    changes = []
+    for column in before.columns.intersection(after.columns):
+        if len(before) != len(after):
+            continue
+        for position, (old, new) in enumerate(zip(before[column], after[column], strict=True)):
+            a, b = json_value(old), json_value(new)
+            if a != b or (type(old) is not type(new) and a is not None):
+                changes.append(
+                    {
+                        "row_position": position,
+                        "row_index": json_value(before.index[position]),
+                        "column": column,
+                        "before": a,
+                        "after": b,
+                    }
+                )
+    return changes
+
+
+def _result(original, output, method, config, warnings=None, **details):
+    validate_table(output)
+    return NodeResult(
+        table=output,
+        data=json_value(
+            {
+                "method": method,
+                "parameters": deepcopy(config),
+                "input_rows": len(original),
+                "output_rows": len(output),
+                "input_columns": list(original.columns),
+                "output_columns": list(output.columns),
+                **details,
+            }
+        ),
+        warnings=warnings or [],
+    )
+
+
+def _complete_keys(frame, columns, tokens=("",)):
+    names = select_columns(frame, [columns] if isinstance(columns, str) else columns)
+    for name in names:
+        if frame[name].map(lambda value: missing(value, tokens)).any():
+            raise ValueError(f"{name}: matching, grouping and ordered filling require nonmissing keys")
+    return names
+
+
+def table_units(frame, data=None, declared=None):
+    """Combine explicit column labels without assuming that equal dimensions imply equal units."""
+    units = {}
+    upstream = data.get("units", {}) if isinstance(data, dict) else {}
+    for mapping in (frame.attrs.get("units", {}), upstream, {} if declared is None else declared):
+        if not isinstance(mapping, dict) or set(mapping) - set(frame.columns):
+            raise ValueError("unit declarations must map existing columns to nonempty unit labels")
+        for column, label in mapping.items():
+            if not isinstance(label, str) or not label.strip():
+                raise ValueError(f"{column}: unit label must be a nonempty string")
+            label = label.strip()
+            if column in units and units[column] != label:
+                try:
+                    same = _unit(units[column]) == _unit(label)
+                except ValueError:
+                    same = False
+                if not same:
+                    raise ValueError(f"conflicting units for {column}: {units[column]!r} and {label!r}")
+            units[column] = label
+    return units
+
+
+def filter_rows(table=None, *, config=None, data=None, tables=None):
+    config = config or {}
+    frame = require_table(table, min_rows=0)
+    logic = config.get("logic", "and")
+    if logic not in {"and", "or"}:
+        raise ValueError("logic must be and or or")
+    conditions = config.get("conditions", [])
+    if not isinstance(conditions, list):
+        raise ValueError("conditions must be a list")
+    mask = np.ones(len(frame), dtype=bool) if logic == "and" or not conditions else np.zeros(len(frame), bool)
+    for rule in conditions:
+        column, op, value = rule.get("column"), rule.get("op"), rule.get("value")
+        select_columns(frame, [column])
+        series = frame[column]
+        try:
+            if op == "eq":
+                selected = series.eq(value)
+            elif op == "ne":
+                selected = series.ne(value)
+            elif op in {"lt", "le", "gt", "ge"}:
+                selected = getattr(series, op)(value)
+            elif op in {"in", "not_in"}:
+                if not isinstance(value, list):
+                    raise ValueError("in/not_in requires a list value")
+                selected = series.isin(value)
+                if op == "not_in":
+                    selected = ~selected
+            elif op == "contains":
+                selected = series.astype("string").str.contains(str(value), regex=False, na=False)
+            elif op in {"isna", "notna"}:
+                selected = series.isna() if op == "isna" else series.notna()
+            else:
+                raise ValueError(f"unsupported filter operator: {op}")
+        except TypeError as exc:
+            raise ValueError(f"incompatible comparison for {column}; convert types explicitly first") from exc
+        selected = selected.fillna(False).to_numpy(dtype=bool)
+        mask = mask & selected if logic == "and" else mask | selected
+    if config.get("drop_empty", False):
+        empty = frame.apply(lambda s: s.map(missing)).all(axis=1).to_numpy()
+        mask &= ~empty
+    output = frame.iloc[np.flatnonzero(mask)].copy(deep=True)
+    if config.get("columns") is not None:
+        output = output[select_columns(output, config["columns"])].copy()
+    rename = config.get("rename", {})
+    if not isinstance(rename, dict) or rename.keys() - set(output.columns):
+        raise ValueError("rename must map existing selected columns to new names")
+    units = {
+        rename.get(col, col): unit for col, unit in table_units(frame, data).items() if col in output.columns
+    }
+    output = output.rename(columns=rename)
+    output.attrs["units"] = units
+    return _result(
+        frame,
+        output,
+        "filter",
+        config,
+        removed_positions=np.flatnonzero(~mask).tolist(),
+        retained_positions=np.flatnonzero(mask).tolist(),
+        renamed_columns=rename,
+        units=units,
+    )
+
+
+def handle_missing(table=None, *, config=None, data=None, tables=None):
+    config = config or {}
+    frame = require_table(table, min_rows=0)
+    selected = select_columns(frame, config.get("columns"))
+    method = config.get("method", "keep")
+    if method not in {"keep", "drop", "mean", "median", "mode", "ffill", "linear"}:
+        raise ValueError("unknown missing-value method")
+    tokens = normalize_missing_tokens(config.get("missing_tokens"))
+    mask = np.array([[missing(v, tokens) for v in frame[c]] for c in selected], dtype=bool).T
+    if len(frame) == 0:
+        mask = np.empty((0, len(selected)), dtype=bool)
+    if method in {"keep", "drop"}:
+        keep = ~mask.any(axis=1) if method == "drop" else np.ones(len(frame), bool)
+        return _result(
+            frame,
+            frame.iloc[np.flatnonzero(keep)].copy(),
+            method,
+            config,
+            changes=[],
+            removed_positions=np.flatnonzero(~keep).tolist(),
+        )
+    if method == "linear" and config.get("continuous") is not True:
+        raise ValueError("linear interpolation requires explicit continuous=true")
+    order_by = config.get("order_by")
+    if method in {"ffill", "linear"} and not order_by:
+        raise ValueError("ordered filling requires an explicit order_by coordinate")
+    output = frame.copy(deep=True)
+    warnings = []
+    if config.get("group_by"):
+        _complete_keys(frame, config["group_by"], tokens)
+    if method in {"ffill", "linear"}:
+        _complete_keys(frame, [order_by], tokens)
+    for group, positions in groups(frame, config.get("group_by")):
+        coordinates = None
+        if method in {"ffill", "linear"}:
+            select_columns(frame, [order_by])
+            coordinate = frame[order_by].iloc[positions]
+            if pd.api.types.is_datetime64_any_dtype(coordinate):
+                integers = coordinate.astype("int64").to_numpy()
+                coordinates = np.asarray([int(t) - int(integers[0]) for t in integers], dtype=float)
+            else:
+                coordinates = numeric_matrix(frame.iloc[positions], [order_by])[:, 0]
+            if len(np.unique(coordinates)) != len(coordinates):
+                raise ValueError("ordered interpolation coordinates must be unique within each group")
+            differences = np.diff(coordinates)
+            if len(differences) and not (np.all(differences > 0) or np.all(differences < 0)):
+                raise ValueError("order_by must be monotonic within each group; explicitly sort the source")
+        for j, column in enumerate(selected):
+            local_missing = mask[positions, j]
+            if not local_missing.any():
+                continue
+            values = frame[column].iloc[positions].astype(object).tolist()
+            observed = [v for v, absent in zip(values, local_missing, strict=True) if not absent]
+            if not observed:
+                raise ValueError(f"no observed baseline for {column} in group {group}")
+            replacements = {}
+            if method in {"mean", "median"}:
+                numbers = np.array([float(numeric(v)) for v in observed])
+                fill = float(np.mean(numbers) if method == "mean" else np.median(numbers))
+                if not np.isfinite(fill):
+                    raise ValueError("imputation baseline is not finite")
+                replacements = dict.fromkeys(np.flatnonzero(local_missing), fill)
+            elif method == "mode":
+                modes = pd.Series(observed).mode(dropna=True)
+                if len(modes) > 1:
+                    warnings.append(f"{column}, group {group}: tied modes; selected the first sorted mode")
+                replacements = dict.fromkeys(np.flatnonzero(local_missing), modes.iloc[0])
+            elif method == "ffill":
+                last, has_last = None, False
+                for i, absent in enumerate(local_missing):
+                    if absent and has_last:
+                        replacements[i] = last
+                    elif not absent:
+                        last, has_last = values[i], True
+            else:
+                known_x = coordinates[~local_missing]
+                known_y = np.array([float(numeric(v)) for v in observed])
+                if len(known_x) < 2:
+                    raise ValueError("linear interpolation needs at least two observed points per group")
+                order = np.argsort(known_x)
+                for i in np.flatnonzero(local_missing):
+                    if known_x.min() <= coordinates[i] <= known_x.max():
+                        replacements[i] = float(np.interp(coordinates[i], known_x[order], known_y[order]))
+            col = output.columns.get_loc(column)
+            # Object storage preserves original scalars and avoids float coercion
+            # in untouched cells when introducing replacements.
+            output[column] = output[column].astype(object)
+            for local, replacement in replacements.items():
+                output.iat[int(positions[local]), col] = replacement
+            if len(replacements) < int(local_missing.sum()):
+                warnings.append(f"{column}, group {group}: boundary values retained; no extrapolation")
+    return _result(frame, output, method, config, warnings, changes=_changes(frame, output))
+
+
+def convert_units(table=None, *, config=None, data=None, tables=None):
+    config = config or {}
+    frame = require_table(table, min_rows=0)
+    source = config.get("source_units", {})
+    target = config.get("target_units", config.get("expected_units", {}))
+    if not isinstance(source, dict) or not isinstance(target, dict) or not target:
+        raise ValueError("provide source_units and non-empty target_units mappings")
+    source = table_units(frame, data, source)
+    selected = select_columns(frame, list(target))
+    tokens = normalize_missing_tokens(config.get("missing_tokens"))
+    output = frame.copy(deep=True)
+    records = []
+    for column in selected:
+        destination = _unit(target[column])
+        declared = _unit(source[column]) if column in source else None
+        converted = []
+        for position, value in enumerate(frame[column]):
+            if missing(value, tokens):
+                converted.append(value)
+                continue
+            match = _QUANTITY.fullmatch(value) if isinstance(value, str) else None
+            inline = match.group(2) if match else ""
+            magnitude = match.group(1) if match else value
+            actual = _unit(inline) if inline else declared
+            if actual is None:
+                raise ValueError(f"{column}: an explicit source unit is required")
+            if actual.dimensionality != destination.dimensionality:
+                raise ValueError(f"{column}: incompatible units {actual} -> {destination}")
+            quantity = _REGISTRY.Quantity(float(numeric(magnitude)), actual).to(destination)
+            number = float(quantity.magnitude)
+            if not np.isfinite(number):
+                raise ValueError("converted values overflowed; choose a representable unit/precision")
+            converted.append(number)
+            records.append(
+                {
+                    "row_position": position,
+                    "row_index": json_value(frame.index[position]),
+                    "column": column,
+                    "before": json_value(value),
+                    "after": number,
+                    "source_unit": str(actual),
+                    "target_unit": str(destination),
+                }
+            )
+        output[column] = pd.Series(converted, index=frame.index)
+    output.attrs["units"] = {**source, **target}
+    return _result(frame, output, "unit_conversion", config, changes=records, units=output.attrs["units"])
+
+
+def reshape_table(table=None, *, config=None, data=None, tables=None):
+    config = config or {}
+    frame = require_table(table, min_rows=0)
+    method = config.get("method", "types")
+    if method == "wide_to_long":
+        output = frame.melt(
+            id_vars=config.get("id_vars"),
+            value_vars=config.get("value_vars"),
+            var_name=config.get("var_name", "variable"),
+            value_name=config.get("value_name", "value"),
+        )
+    elif method == "long_to_wide":
+        try:
+            pivot = frame.pivot(index=config["index"], columns=config["columns"], values=config["values"])
+            output = pivot.reset_index()
+        except (KeyError, ValueError) as exc:
+            raise ValueError("long_to_wide requires unique index/column pairs; aggregate duplicates") from exc
+        if isinstance(output.columns, pd.MultiIndex):
+            raise ValueError("select one values field for an unambiguous flat output schema")
+        output.columns.name = None
+        output.columns = [str(c) for c in output.columns]
+    elif method == "types":
+        rules = config.get("types", {})
+        if not isinstance(rules, dict) or not rules:
+            raise ValueError("types must explicitly map fields to target types")
+        select_columns(frame, list(rules))
+        output = frame.copy(deep=True)
+        for column, target in rules.items():
+            if target in {"number", "integer"}:
+                series = output[column]
+                parsed = []
+                for value in series:
+                    if pd.isna(value):
+                        parsed.append(None)
+                        continue
+                    try:
+                        number = numeric(value)
+                    except (ValueError, ArithmeticError) as exc:
+                        raise ValueError(f"{column}: expected finite numbers") from exc
+                    if target == "integer":
+                        if number != number.to_integral_value() or not -(2**63) <= number < 2**63:
+                            raise ValueError(f"{column}: value is not an exactly representable Int64 integer")
+                        parsed.append(int(number))
+                    else:
+                        parsed.append(value)
+                if target == "integer":
+                    output[column] = pd.array(parsed, dtype="Int64")
+                else:
+                    output[column] = pd.to_numeric(series, errors="raise")
+            elif target == "datetime":
+                pattern = config.get("date_formats", {}).get(column)
+                if not pattern:
+                    raise ValueError("date conversion requires an explicit date_formats entry")
+                parsed = pd.to_datetime(output[column], format=pattern, errors="raise")
+                observed = output[column].notna()
+                if not parsed[observed].dt.strftime(pattern).eq(output.loc[observed, column]).all():
+                    raise ValueError("date values do not exactly match the configured format")
+                output[column] = parsed
+            elif target == "category":
+                allowed = config.get("categories", {}).get(column)
+                if allowed is not None and not output[column].dropna().isin(allowed).all():
+                    raise ValueError(f"{column} contains values outside configured categories")
+                output[column] = pd.Categorical(output[column], categories=allowed)
+            elif target == "string":
+                output[column] = output[column].astype("string")
+            elif target == "boolean":
+                mapping = {True: True, False: False, "true": True, "false": False}
+                if not all(
+                    isinstance(v, (bool, np.bool_)) or isinstance(v, str) and v in mapping
+                    for v in output[column].dropna()
+                ):
+                    raise ValueError(f"{column}: boolean conversion accepts only true/false")
+                output[column] = output[column].map(mapping).astype("boolean")
+            else:
+                raise ValueError(f"unknown target type: {target}")
+    else:
+        raise ValueError("method must be wide_to_long, long_to_wide or types")
+    details = (
+        {"changes": _changes(frame, output)} if method == "types" else {"record_mapping": "see id_vars/index"}
+    )
+    return _result(frame, output, method, config, **details)
+
+
+def merge_tables(table=None, *, config=None, data=None, tables=None):
+    config = config or {}
+    if not isinstance(tables, list) or len(tables) < 2:
+        raise ValueError("connect at least two input tables")
+    frames = [require_table(t, min_rows=0) for t in tables]
+    method = config.get("method", "join")
+    details = {}
+    if method == "append":
+        output = pd.concat(frames, ignore_index=config.get("ignore_index", True), sort=False)
+    elif method == "join":
+        on = config.get("on")
+        if not on:
+            raise ValueError("join requires an explicit on key or key list")
+        for frame in frames:
+            _complete_keys(frame, on)
+        output = frames[0]
+        for right in frames[1:]:
+            output = output.merge(
+                right,
+                on=on,
+                how=config.get("how", "left"),
+                validate=config.get("validate", "one_to_one"),
+                suffixes=tuple(config.get("suffixes", ["_left", "_right"])),
+                sort=False,
+            )
+    elif method == "asof":
+        if len(frames) != 2 or config.get("tolerance") is None:
+            raise ValueError("asof requires exactly two tables and an explicit tolerance")
+        key = config.get("on")
+        if not isinstance(key, str):
+            raise ValueError("asof requires a single on coordinate")
+        by = config.get("by")
+        group_keys = [by] if isinstance(by, str) else list(by or [])
+        keys = [*group_keys, key]
+        for frame in frames:
+            _complete_keys(frame, keys)
+            if not frame[key].is_monotonic_increasing:
+                raise ValueError("asof coordinates must be nonmissing and sorted increasing")
+        left, right = frames
+        if right.duplicated(keys).any():
+            raise ValueError("duplicate right-hand asof coordinates within a group; resolve replicates first")
+        tolerance = config["tolerance"]
+        if pd.api.types.is_datetime64_any_dtype(frames[0][key]):
+            tolerance = pd.Timedelta(tolerance)
+        marker = "__matched_source_position"
+        while marker in left.columns or marker in right.columns:
+            marker += "_"
+        right[marker] = np.arange(len(right))
+        options = {"on": key, "by": by, "tolerance": tolerance}
+        direction = config.get("direction", "nearest")
+        if direction == "nearest":
+            # Pandas silently prefers the earlier record on a tie.
+            candidates = [
+                pd.merge_asof(left[keys], right[[*keys, marker]], direction=side, **options)[marker]
+                for side in ("backward", "forward")
+            ]
+            for i, (before, after) in enumerate(zip(*candidates, strict=True)):
+                if pd.notna(before) and pd.notna(after) and before != after:
+                    t = left[key].iat[i]
+                    earlier = right[key].iat[int(before)]
+                    later = right[key].iat[int(after)]
+                    if _coordinate_distance(t, earlier) == _coordinate_distance(t, later):
+                        raise ValueError(f"ambiguous nearest asof match at left row {i}; choose a direction")
+        output = pd.merge_asof(
+            left,
+            right,
+            direction=direction,
+            suffixes=tuple(config.get("suffixes", ["_left", "_right"])),
+            **options,
+        )
+        matches = []
+        for i, pos in enumerate(output.pop(marker)):
+            j = int(pos) if pd.notna(pos) else None
+            coordinate = right[key].iat[j] if j is not None else None
+            distance = _coordinate_distance(left[key].iat[i], coordinate) if j is not None else None
+            matches.append(
+                {
+                    "left_position": i,
+                    "left_coordinate": left[key].iat[i],
+                    "right_position": j,
+                    "right_coordinate": coordinate,
+                    "distance": distance,
+                }
+            )
+        details["matches"] = matches
+    else:
+        raise ValueError("merge method must be join, asof or append")
+    return _result(frames[0], output, method, config, input_table_rows=[len(t) for t in frames], **details)
+
+
+def _coordinate_distance(first, second):
+    # Python integers avoid unsigned subtraction wrapping around the coordinate origin.
+    first = first.item() if isinstance(first, np.generic) else first
+    second = second.item() if isinstance(second, np.generic) else second
+    return abs(first - second)
+
+
+def normalize_table(table=None, *, config=None, data=None, tables=None):
+    config = config or {}
+    frame = require_table(table)
+    selected = select_columns(frame, config.get("columns"))
+    method = config.get("method", "minmax")
+    if method not in {"minmax", "zscore", "robust"}:
+        raise ValueError("normalization method must be minmax, zscore or robust")
+    values = numeric_matrix(frame, selected)
+    output = frame.copy(deep=True)
+    parameters, warnings = {}, []
+    for j, column in enumerate(selected):
+        series = values[:, j]
+        if method == "minmax":
+            center, scale = float(series.min()), float(series.max() - series.min())
+        elif method == "zscore":
+            center, scale = float(np.mean(series)), float(np.std(series, ddof=0))
+        else:
+            q1, q3 = np.quantile(series, [0.25, 0.75])
+            center, scale = float(np.median(series)), float(q3 - q1)
+        if not np.isfinite([center, scale]).all():
+            raise ValueError("normalization baseline overflowed")
+        if scale == 0 and method == "robust" and series.min() != series.max():
+            raise ValueError(f"{column}: nonconstant series has zero IQR; choose a different scaling method")
+        if scale == 0:
+            warnings.append(f"{column}: constant/zero-spread baseline; mapped to zero")
+            normalized = np.zeros(len(series))
+        else:
+            normalized = (series - center) / scale
+        if not np.isfinite(normalized).all():
+            raise ValueError("normalization results are not finite")
+        output[column] = normalized
+        parameters[column] = {"center": center, "scale": scale, "ddof": 0 if method == "zscore" else None}
+    units = {**table_units(frame, data), **dict.fromkeys(selected, "dimensionless")}
+    output.attrs["units"] = units
+    return _result(
+        frame,
+        output,
+        method,
+        config,
+        warnings,
+        units=units,
+        fit_parameters=parameters,
+        changes=_changes(frame, output),
+    )
+
+
+CATALOG = [
+    {
+        "key": f"preprocess.{key}",
+        "title": title,
+        "function": f"materials_quality.science.preprocessing:{function}",
+        "category": "preprocessing",
+        "requirement": requirement,
+        "table_input": key != "merge",
+        "data_input": key in {"filter", "units", "normalize"},
+        "tables_input": key == "merge",
+        "default_config": config,
+    }
+    for key, title, function, requirement, config in [
+        ("filter", "行列筛选", "filter_rows", "行列筛选", {}),
+        ("missing", "缺失值处理", "handle_missing", "缺失值处理", {"method": "keep"}),
+        ("units", "单位换算", "convert_units", "单位换算", {"source_units": {}, "target_units": {}}),
+        ("reshape", "格式转换", "reshape_table", "格式转换", {"method": "types", "types": {}}),
+        ("merge", "多表合并", "merge_tables", "多表合并", {"method": "join", "on": ["sample_id"]}),
+        ("normalize", "数据归一化", "normalize_table", "数据归一化", {"method": "minmax"}),
+    ]
+]

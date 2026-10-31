@@ -1,0 +1,9 @@
+pair_id,group,value
+p1,before,10
+p2,before,20
+p3,before,30
+p4,before,40
+p1,after,16
+p2,after,25
+p3,after,34
+p4,after,47

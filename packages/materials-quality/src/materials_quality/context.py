@@ -20,8 +20,14 @@ from materials_quality.common import json_value, validate_table
 from materials_quality.outliers import check_outliers
 from materials_quality.units import check_units
 
-CHECKS = {"schema": check_schema, "missing": check_missing, "types": check_types,
-          "units": check_units, "duplicates": check_duplicates, "outliers": check_outliers}
+CHECKS = {
+    "schema": check_schema,
+    "missing": check_missing,
+    "types": check_types,
+    "units": check_units,
+    "duplicates": check_duplicates,
+    "outliers": check_outliers,
+}
 CONTEXT_SCHEMA = "materials-quality-context/1"
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 
@@ -73,8 +79,23 @@ def table_fingerprint(table):
     """Versioned streaming hash includes values, column order/dtypes and row index."""
     validate_table(table)
     digest = hashlib.sha256()
-    header = ["materials-table/1", list(table.columns), [str(t) for t in table.dtypes],
-              [_typed(n) for n in table.index.names]]
+
+    def dtype_identity(dtype):
+        if isinstance(dtype, pd.CategoricalDtype):
+            return {
+                "dtype": "category",
+                "ordered": dtype.ordered,
+                "categories": [_typed(x) for x in dtype.categories],
+            }
+        return str(dtype)
+
+    header = [
+        "materials-table/2",
+        list(table.columns),
+        [dtype_identity(t) for t in table.dtypes],
+        [_typed(n) for n in table.index.names],
+        _typed(table.attrs.get("units", {})),
+    ]
     digest.update((_json(header) + "\n").encode("utf-8"))
     for index, row in zip(table.index, table.itertuples(index=False, name=None), strict=True):
         digest.update((_json([_typed(index), [_typed(v) for v in row]]) + "\n").encode("utf-8"))
@@ -110,8 +131,11 @@ def _rules(rules):
     if not isinstance(tokens, list) or any(not isinstance(t, str) for t in tokens):
         raise ValueError("missing_tokens must be a list of strings")
     rules["missing_tokens"] = list(dict.fromkeys(t.strip() for t in tokens))
-    if (not isinstance(groups, list) or any(not isinstance(c, str) or not c.strip() for c in groups)
-            or len(set(groups)) != len(groups)):
+    if (
+        not isinstance(groups, list)
+        or any(not isinstance(c, str) or not c.strip() for c in groups)
+        or len(set(groups)) != len(groups)
+    ):
         raise ValueError("group_by must be a unique list of column names")
     checks = rules.get("checks")
     if not isinstance(checks, dict) or not checks or checks.keys() - CHECKS.keys():
@@ -120,6 +144,8 @@ def _rules(rules):
         reserved = {"missing_tokens", "group_by", "finding_limit"}
         if not isinstance(parameters, dict) or reserved & parameters.keys():
             raise ValueError(f"{name}: missing_tokens/group_by are shared; finding_limit is node-local")
+        if name == "types" and not parameters.get("infer", False) and not parameters.get("expectations"):
+            raise ValueError("types: expectations are required unless infer=true")
         try:
             inspect.signature(CHECKS[name]).bind(None, **parameters)
         except TypeError as exc:
@@ -131,9 +157,15 @@ def make_context(table, rules, source=None, rule_set_id="custom", rule_set_versi
     if any(not isinstance(v, str) or not v.strip() for v in (rule_set_id, rule_set_version)):
         raise ValueError("rule_set_id and rule_set_version must be non-empty strings")
     rules = _rules(rules)
-    result = {"schema_version": CONTEXT_SCHEMA, "dataset": _dataset(table), "source": _source(source),
-              "rule_set_id": rule_set_id, "rule_set_version": rule_set_version,
-              "rules_sha256": _digest(rules), "rules": rules}
+    result = {
+        "schema_version": CONTEXT_SCHEMA,
+        "dataset": _dataset(table),
+        "source": _source(source),
+        "rule_set_id": rule_set_id,
+        "rule_set_version": rule_set_version,
+        "rules_sha256": _digest(rules),
+        "rules": rules,
+    }
     result["context_sha256"] = _digest(result)
     return result
 
@@ -142,14 +174,21 @@ def _validate_context(context, table):
     if not isinstance(context, dict) or context.get("schema_version") != CONTEXT_SCHEMA:
         raise ValueError("invalid quality context")
     fields = {
-        "schema_version", "dataset", "source", "rule_set_id", "rule_set_version", "rules_sha256", "rules"
+        "schema_version",
+        "dataset",
+        "source",
+        "rule_set_id",
+        "rule_set_version",
+        "rules_sha256",
+        "rules",
     }
     if set(context) != fields | {"context_sha256"}:
         raise ValueError("incomplete quality context")
     if _digest({k: context[k] for k in fields}) != context["context_sha256"]:
         raise ValueError("context integrity mismatch; rebuild the context after editing")
-    expected = make_context(table, context["rules"], context["source"],
-                            context["rule_set_id"], context["rule_set_version"])
+    expected = make_context(
+        table, context["rules"], context["source"], context["rule_set_id"], context["rule_set_version"]
+    )
     if expected != context:
         raise ValueError("context/table fingerprint mismatch; rebuild the context for this table")
 
@@ -170,14 +209,21 @@ def run_check(table, check_id, parameters=None, context=None, finding_limit=500)
             parameters["group_by"] = rules["group_by"] or None
         if check_id in {"missing", "types", "units", "outliers"}:
             parameters["missing_tokens"] = rules["missing_tokens"]
-        rule_set = {"id": context["rule_set_id"], "version": context["rule_set_version"],
-                    "sha256": context["rules_sha256"], "rules": deepcopy(rules)}
+        rule_set = {
+            "id": context["rule_set_id"],
+            "version": context["rule_set_version"],
+            "sha256": context["rules_sha256"],
+            "rules": deepcopy(rules),
+        }
         source = deepcopy(context["source"])
     result = CHECKS[check_id](work, finding_limit=finding_limit, **(parameters or {}))
     result["dataset"] = original_dataset
     result["provenance"] = {
-        "version": "1", "mode": "shared" if context is not None else "local",
-        "dataset_fingerprint": original_dataset["fingerprint"], "source": source, "rule_set": rule_set,
+        "version": "1",
+        "mode": "shared" if context is not None else "local",
+        "dataset_fingerprint": original_dataset["fingerprint"],
+        "source": source,
+        "rule_set": rule_set,
         "parameters_sha256": _digest(result["parameters"]),
     }
     if context is not None:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from lfx.custom.directory_reader.utils import build_custom_component_list_from_path
 from lfx.graph import Graph
-from lfx.schema import Data
+from lfx.schema import Data, DataFrame
 
 import materials_quality
 
@@ -21,8 +21,11 @@ def main():
     component_path = package / "component_sources"
     if component_path.is_dir():
         discovered = build_custom_component_list_from_path(str(component_path))
-        if len(discovered.get("materials_quality", {})) != 8:
-            raise RuntimeError("Installed component discovery did not find eight nodes")
+        count = sum(len(nodes) for nodes in discovered.values())
+        if len(discovered.get("materials_quality", {})) != 8 or count != 52:
+            raise RuntimeError(
+                f"Installed discovery expected 52 nodes including 8 quality nodes; got {count}"
+            )
     elif args.require_wheel:
         raise RuntimeError("Wheel does not contain installable component sources")
     root = Path(__file__).resolve().parents[1]
@@ -47,7 +50,17 @@ def main():
         if report["provenance_status"] != "verified" or report["passed"] != (case != "dirty"):
             raise RuntimeError(f"{case} mechanics flow failed provenance/verdict verification")
         results[f"mechanics_{case}"] = {"passed": report["passed"], "findings": report["total_findings"]}
-    print(json.dumps({"wheel": "site-packages" in package.parts, "flows": results}, ensure_ascii=False))
+    from materials_quality.science.catalog import component_class
+
+    node = component_class("preprocess.filter")().set(input_table=DataFrame({"x": [1, 2]}))
+    if node.build_table()["x"].tolist() != [1, 2]:
+        raise RuntimeError("Wheel-native science component did not execute")
+    print(
+        json.dumps(
+            {"wheel": "site-packages" in package.parts, "components": 52, "flows": results},
+            ensure_ascii=False,
+        )
+    )
 
 
 if __name__ == "__main__":
