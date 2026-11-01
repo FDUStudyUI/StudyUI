@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceExportTable(Component):
+class ScienceExportTable(ScienceFormMixin, Component):
     display_name = "材料科学·结果表导出"
     description = "可追溯的结果表导出；具体方法与前提见随仓库提供的手册。"
     name = "ScienceExportTable"
-    icon = "FlaskConical"
-    inputs = node_inputs({"format": "csv"})
-    outputs = node_outputs()
+    icon = "FileSpreadsheet"
+    ui_contract_version = 2
+    ui_operation_key = "export.table"
+    inputs = node_inputs("export.table", {"format": "csv"})
+    outputs = node_outputs("export.table")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "export.table", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "export.table")

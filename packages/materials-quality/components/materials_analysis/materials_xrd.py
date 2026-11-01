@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceMaterialsXrd(Component):
+class ScienceMaterialsXrd(ScienceFormMixin, Component):
     display_name = "材料科学·XRD 数据处理"
     description = "可追溯的XRD 数据处理；具体方法与前提见随仓库提供的手册。"
     name = "ScienceMaterialsXrd"
-    icon = "FlaskConical"
-    inputs = node_inputs({"x": "x", "y": "y", "baseline": {"method": "none"}})
-    outputs = node_outputs()
+    icon = "ChartLine"
+    ui_contract_version = 2
+    ui_operation_key = "materials.xrd"
+    inputs = node_inputs("materials.xrd", {"x": "x", "y": "y", "baseline": {"method": "none"}})
+    outputs = node_outputs("materials.xrd")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "materials.xrd", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "materials.xrd")

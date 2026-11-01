@@ -11,15 +11,23 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceIoDatabaseImport(Component):
+class ScienceIoDatabaseImport(ScienceFormMixin, Component):
     display_name = "材料科学·数据库接入"
     description = "可追溯的数据库接入；具体方法与前提见随仓库提供的手册。"
     name = "ScienceIoDatabaseImport"
-    icon = "FlaskConical"
-    inputs = node_inputs({"method": "sqlite", "path": "", "query": "SELECT * FROM samples"})
-    outputs = node_outputs()
+    icon = "Database"
+    ui_contract_version = 2
+    ui_operation_key = "io.database_import"
+    inputs = node_inputs(
+        "io.database_import", {"method": "sqlite", "path": "", "query": "SELECT * FROM samples"}
+    )
+    outputs = node_outputs("io.database_import")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "io.database_import", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "io.database_import")

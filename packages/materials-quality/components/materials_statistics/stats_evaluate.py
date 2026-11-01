@@ -11,17 +11,24 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceStatsEvaluate(Component):
+class ScienceStatsEvaluate(ScienceFormMixin, Component):
     display_name = "材料科学·模型评估"
     description = "可追溯的模型评估；具体方法与前提见随仓库提供的手册。"
     name = "ScienceStatsEvaluate"
-    icon = "FlaskConical"
+    icon = "Gauge"
+    ui_contract_version = 2
+    ui_operation_key = "stats.evaluate"
     inputs = node_inputs(
-        {"features": ["x"], "target": "y", "method": "cv", "model_method": "linear", "seed": 42}
+        "stats.evaluate",
+        {"features": ["x"], "target": "y", "method": "cv", "model_method": "linear", "seed": 42},
     )
-    outputs = node_outputs()
+    outputs = node_outputs("stats.evaluate")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "stats.evaluate", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "stats.evaluate")

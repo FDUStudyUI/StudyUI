@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceIoPdfImport(Component):
+class ScienceIoPdfImport(ScienceFormMixin, Component):
     display_name = "材料科学·PDF 文件导入"
     description = "可追溯的PDF 文件导入；具体方法与前提见随仓库提供的手册。"
     name = "ScienceIoPdfImport"
-    icon = "FlaskConical"
-    inputs = node_inputs({"path": "", "dpi": 150})
-    outputs = node_outputs()
+    icon = "FileText"
+    ui_contract_version = 2
+    ui_operation_key = "io.pdf_import"
+    inputs = node_inputs("io.pdf_import", {"path": "", "dpi": 150})
+    outputs = node_outputs("io.pdf_import")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "io.pdf_import", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "io.pdf_import")

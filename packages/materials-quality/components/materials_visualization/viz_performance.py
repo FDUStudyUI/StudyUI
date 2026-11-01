@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceVizPerformance(Component):
+class ScienceVizPerformance(ScienceFormMixin, Component):
     display_name = "材料科学·性能对比图"
     description = "可追溯的性能对比图；具体方法与前提见随仓库提供的手册。"
     name = "ScienceVizPerformance"
-    icon = "FlaskConical"
-    inputs = node_inputs({"method": "scatter", "x": "x", "y": "y"})
-    outputs = node_outputs()
+    icon = "ChartScatter"
+    ui_contract_version = 2
+    ui_operation_key = "viz.performance"
+    inputs = node_inputs("viz.performance", {"method": "scatter", "x": "x", "y": "y"})
+    outputs = node_outputs("viz.performance")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "viz.performance", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "viz.performance")

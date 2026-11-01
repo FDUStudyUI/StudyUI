@@ -19,7 +19,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 70794,
+          "bytes": 66914,
           "format": ".html"
         },
         {
@@ -55,7 +55,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 31759,
+          "bytes": 33442,
           "format": ".html"
         },
         {
@@ -82,7 +82,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 122710,
+          "bytes": 122866,
           "format": ".html"
         },
         {
@@ -115,7 +115,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 310852,
+          "bytes": 313672,
           "format": ".html"
         },
         {
@@ -125,7 +125,7 @@
         },
         {
           "name": "spectra-overlay.svg",
-          "bytes": 25096,
+          "bytes": 24242,
           "format": ".svg"
         },
         {
@@ -170,7 +170,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 214175,
+          "bytes": 215276,
           "format": ".html"
         },
         {
@@ -180,7 +180,7 @@
         },
         {
           "name": "mechanics-overlay.svg",
-          "bytes": 18902,
+          "bytes": 18421,
           "format": ".svg"
         },
         {
@@ -222,7 +222,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 22105,
+          "bytes": 22478,
           "format": ".html"
         },
         {
@@ -266,7 +266,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 331879,
+          "bytes": 330681,
           "format": ".html"
         },
         {
@@ -276,7 +276,7 @@
         },
         {
           "name": "distribution-histogram.svg",
-          "bytes": 16852,
+          "bytes": 16337,
           "format": ".svg"
         },
         {
@@ -306,7 +306,7 @@
         },
         {
           "name": "distribution-qq.svg",
-          "bytes": 17353,
+          "bytes": 16854,
           "format": ".svg"
         },
         {
@@ -336,7 +336,7 @@
         },
         {
           "name": "performance-box.svg",
-          "bytes": 17341,
+          "bytes": 16724,
           "format": ".svg"
         },
         {
@@ -380,7 +380,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 144438,
+          "bytes": 143190,
           "format": ".html"
         },
         {
@@ -400,7 +400,7 @@
         },
         {
           "name": "statistics-prediction.svg",
-          "bytes": 20763,
+          "bytes": 20233,
           "format": ".svg"
         },
         {
@@ -445,7 +445,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 35023,
+          "bytes": 32779,
           "format": ".html"
         },
         {

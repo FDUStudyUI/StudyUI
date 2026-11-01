@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceVizStatistics(Component):
+class ScienceVizStatistics(ScienceFormMixin, Component):
     display_name = "材料科学·统计图表"
     description = "可追溯的统计图表；具体方法与前提见随仓库提供的手册。"
     name = "ScienceVizStatistics"
-    icon = "FlaskConical"
-    inputs = node_inputs({"method": "histogram", "column": "value"})
-    outputs = node_outputs()
+    icon = "ChartColumnIncreasing"
+    ui_contract_version = 2
+    ui_operation_key = "viz.statistics"
+    inputs = node_inputs("viz.statistics", {"method": "histogram", "column": "value"})
+    outputs = node_outputs("viz.statistics")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "viz.statistics", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "viz.statistics")

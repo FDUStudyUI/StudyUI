@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceExtractImageOcr(Component):
+class ScienceExtractImageOcr(ScienceFormMixin, Component):
     display_name = "材料科学·图片文字识别"
     description = "可追溯的图片文字识别；具体方法与前提见随仓库提供的手册。"
     name = "ScienceExtractImageOcr"
-    icon = "FlaskConical"
-    inputs = node_inputs({"path": "", "text_score": 0.5})
-    outputs = node_outputs()
+    icon = "ScanText"
+    ui_contract_version = 2
+    ui_operation_key = "extract.image_ocr"
+    inputs = node_inputs("extract.image_ocr", {"path": "", "text_score": 0.5})
+    outputs = node_outputs("extract.image_ocr")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "extract.image_ocr", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "extract.image_ocr")

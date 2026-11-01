@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceStatsDistribution(Component):
+class ScienceStatsDistribution(ScienceFormMixin, Component):
     display_name = "材料科学·分布检查"
     description = "可追溯的分布检查；具体方法与前提见随仓库提供的手册。"
     name = "ScienceStatsDistribution"
-    icon = "FlaskConical"
-    inputs = node_inputs({"column": "value", "bins": "auto"})
-    outputs = node_outputs()
+    icon = "ChartColumn"
+    ui_contract_version = 2
+    ui_operation_key = "stats.distribution"
+    inputs = node_inputs("stats.distribution", {"column": "value", "bins": "auto"})
+    outputs = node_outputs("stats.distribution")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "stats.distribution", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "stats.distribution")

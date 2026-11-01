@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class SciencePreprocessFilter(Component):
+class SciencePreprocessFilter(ScienceFormMixin, Component):
     display_name = "材料科学·行列筛选"
     description = "可追溯的行列筛选；具体方法与前提见随仓库提供的手册。"
     name = "SciencePreprocessFilter"
-    icon = "FlaskConical"
-    inputs = node_inputs({})
-    outputs = node_outputs()
+    icon = "ListFilter"
+    ui_contract_version = 2
+    ui_operation_key = "preprocess.filter"
+    inputs = node_inputs("preprocess.filter", {})
+    outputs = node_outputs("preprocess.filter")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "preprocess.filter", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "preprocess.filter")

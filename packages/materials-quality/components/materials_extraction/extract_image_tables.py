@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceExtractImageTables(Component):
+class ScienceExtractImageTables(ScienceFormMixin, Component):
     display_name = "材料科学·图片表格提取"
     description = "可追溯的图片表格提取；具体方法与前提见随仓库提供的手册。"
     name = "ScienceExtractImageTables"
-    icon = "FlaskConical"
-    inputs = node_inputs({"path": "", "header": True})
-    outputs = node_outputs()
+    icon = "Table"
+    ui_contract_version = 2
+    ui_operation_key = "extract.image_tables"
+    inputs = node_inputs("extract.image_tables", {"path": "", "header": True})
+    outputs = node_outputs("extract.image_tables")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "extract.image_tables", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "extract.image_tables")

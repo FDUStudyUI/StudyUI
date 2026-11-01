@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class SciencePreprocessReshape(Component):
+class SciencePreprocessReshape(ScienceFormMixin, Component):
     display_name = "材料科学·格式转换"
     description = "可追溯的格式转换；具体方法与前提见随仓库提供的手册。"
     name = "SciencePreprocessReshape"
-    icon = "FlaskConical"
-    inputs = node_inputs({"method": "types", "types": {}})
-    outputs = node_outputs()
+    icon = "Table"
+    ui_contract_version = 2
+    ui_operation_key = "preprocess.reshape"
+    inputs = node_inputs("preprocess.reshape", {"method": "types", "types": {}})
+    outputs = node_outputs("preprocess.reshape")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "preprocess.reshape", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "preprocess.reshape")

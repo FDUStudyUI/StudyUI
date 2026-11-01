@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceMaterialsSemEds(Component):
+class ScienceMaterialsSemEds(ScienceFormMixin, Component):
     display_name = "材料科学·SEM/EDS 分析"
     description = "可追溯的SEM/EDS 分析；具体方法与前提见随仓库提供的手册。"
     name = "ScienceMaterialsSemEds"
-    icon = "FlaskConical"
-    inputs = node_inputs({"method": "image", "segmentation": "threshold"})
-    outputs = node_outputs()
+    icon = "ScanLine"
+    ui_contract_version = 2
+    ui_operation_key = "materials.sem_eds"
+    inputs = node_inputs("materials.sem_eds", {"method": "image", "segmentation": "threshold"})
+    outputs = node_outputs("materials.sem_eds")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "materials.sem_eds", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "materials.sem_eds")

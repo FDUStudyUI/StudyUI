@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class SciencePreprocessMissing(Component):
+class SciencePreprocessMissing(ScienceFormMixin, Component):
     display_name = "材料科学·缺失值处理"
     description = "可追溯的缺失值处理；具体方法与前提见随仓库提供的手册。"
     name = "SciencePreprocessMissing"
-    icon = "FlaskConical"
-    inputs = node_inputs({"method": "keep"})
-    outputs = node_outputs()
+    icon = "Eraser"
+    ui_contract_version = 2
+    ui_operation_key = "preprocess.missing"
+    inputs = node_inputs("preprocess.missing", {"method": "keep"})
+    outputs = node_outputs("preprocess.missing")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "preprocess.missing", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "preprocess.missing")

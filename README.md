@@ -10,6 +10,8 @@
 人工修订后三份模拟教学数据和工作流，展示分组检查、合理重复测量、来源与规则追溯。
 
 完整说明：[packages/materials-quality/README.md](packages/materials-quality/README.md)。
+新手可先看[表单操作与优化清单](packages/materials-quality/docs/node-usability.md)，
+再导入[上传、力学绘图、共享规则练习](packages/materials-quality/examples/form_flows/README.md)。
 
 ## 开始使用
 

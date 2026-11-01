@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceLitCompare(Component):
+class ScienceLitCompare(ScienceFormMixin, Component):
     display_name = "材料科学·多篇文献对比"
     description = "可追溯的多篇文献对比；具体方法与前提见随仓库提供的手册。"
     name = "ScienceLitCompare"
-    icon = "FlaskConical"
-    inputs = node_inputs({"target_units": {}})
-    outputs = node_outputs()
+    icon = "Columns3"
+    ui_contract_version = 2
+    ui_operation_key = "lit.compare"
+    inputs = node_inputs("lit.compare", {"target_units": {}})
+    outputs = node_outputs("lit.compare")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "lit.compare", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "lit.compare")

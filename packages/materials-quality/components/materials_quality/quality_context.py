@@ -1,23 +1,21 @@
 from lfx.custom import Component
-from lfx.io import DataFrameInput, MultilineInput, Output, StrInput
+from lfx.io import DataFrameInput, Output, StrInput
 from lfx.schema import Data, DataFrame
 
 from materials_quality.context import make_context
-from materials_quality.langflow_support import parse_json
+from materials_quality.quality_ui import QualityFormMixin, form_inputs, legacy_inputs, shared_rules
 
 
-class MaterialQualityContext(Component):
+class MaterialQualityContext(QualityFormMixin, Component):
     display_name = "材料数据·共享规则与追溯"
     description = "绑定原始表格指纹、来源声明和共享规则；各检查连接同一规则端口。"
     name = "MaterialQualityContext"
     icon = "Fingerprint"
+    quality_check = "context"
     inputs = [
         DataFrameInput(name="input_table", display_name="原始表格", required=True),
-        MultilineInput(
-            name="rules_json",
-            display_name="共享规则 JSON",
-            value='{"missing_tokens":[""],"checks":{"missing":{}}}',
-        ),
+        *form_inputs("context"),
+        *legacy_inputs("context"),
         StrInput(name="rule_set_id", display_name="规则集名称", value="custom"),
         StrInput(name="rule_set_version", display_name="规则集版本", value="1"),
         StrInput(name="dataset_id", display_name="数据集编号", value="", advanced=True),
@@ -43,7 +41,7 @@ class MaterialQualityContext(Component):
         }
         context = make_context(
             self.input_table,
-            parse_json(self.rules_json, "rules_json", dict),
+            shared_rules(self),
             source,
             self.rule_set_id,
             self.rule_set_version,

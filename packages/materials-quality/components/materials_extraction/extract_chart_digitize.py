@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceExtractChartDigitize(Component):
+class ScienceExtractChartDigitize(ScienceFormMixin, Component):
     display_name = "材料科学·图表数据提取"
     description = "可追溯的图表数据提取；具体方法与前提见随仓库提供的手册。"
     name = "ScienceExtractChartDigitize"
-    icon = "FlaskConical"
-    inputs = node_inputs({"path": "", "calibration": {}, "color": [255, 0, 0]})
-    outputs = node_outputs()
+    icon = "ChartLine"
+    ui_contract_version = 2
+    ui_operation_key = "extract.chart_digitize"
+    inputs = node_inputs("extract.chart_digitize", {"path": "", "calibration": {}, "color": [255, 0, 0]})
+    outputs = node_outputs("extract.chart_digitize")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "extract.chart_digitize", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "extract.chart_digitize")

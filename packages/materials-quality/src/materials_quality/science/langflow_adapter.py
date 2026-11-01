@@ -21,7 +21,11 @@ from .contracts import NodeResult
 SECRET = re.compile(r"password|passwd|secret|token|api.?key|authorization|cookie|credential", re.I)
 
 
-def node_inputs(default):
+def node_inputs(default, operation_defaults=None):
+    if isinstance(default, str):
+        from .ui_schema import science_inputs
+
+        return science_inputs(default, operation_defaults or {})
     return [
         DataFrameInput(name="input_table", display_name="输入表格", required=False),
         DataInput(name="input_data", display_name="上游结果 / 文件与证据", required=False),
@@ -71,7 +75,11 @@ def node_inputs(default):
     ]
 
 
-def node_outputs():
+def node_outputs(key=None, config=None):
+    if key is not None:
+        from .ui_schema import science_outputs
+
+        return science_outputs(key, config)
     return [
         Output(name=name, display_name=label, method=method, group_outputs=True)
         for name, label, method in [
@@ -232,12 +240,52 @@ def _lineage(envelopes):
     return records
 
 
+def _form_task_data(component, key, config, data):
+    """Honor explicit native task controls without changing legacy auto-dispatch."""
+    if key not in {"stats.predict", "stats.evaluate"} or getattr(component, "ui_contract_version", 1) < 2:
+        return data, None
+    from .ui_schema import effective_mode
+
+    if effective_mode(component) != "form":
+        return data, None
+    selector = "prediction_task" if key == "stats.predict" else "evaluation_task"
+    task = getattr(component, "cfg_" + selector, "train")
+    selected = dict(data)
+    if task == "train":
+        for field in ("model_path", "manifest_path", "y_true", "y_pred"):
+            selected.pop(field, None)
+    elif task == "saved":
+        if not any(config.get(field) or selected.get(field) for field in ("model_path", "manifest_path")):
+            raise ValueError("已有模型模式需要填写模型/清单路径，或连接包含模型路径的上游结果。")
+        selected.pop("y_true", None)
+        selected.pop("y_pred", None)
+    elif task == "predictions" and key == "stats.evaluate":
+        if bool(config.get("y_true")) != bool(config.get("y_pred")):
+            raise ValueError("请同时选择已有真实值列和预测值列。")
+        if config.get("y_true") and config.get("y_pred"):
+            # Explicit table columns take precedence over unrelated upstream arrays.
+            selected.pop("y_true", None)
+            selected.pop("y_pred", None)
+        elif not all(field in selected for field in ("y_true", "y_pred")):
+            raise ValueError("已有预测值模式需要选择两列，或连接同时包含 y_true/y_pred 数组的数据。")
+        selected.pop("model_path", None)
+        selected.pop("manifest_path", None)
+    else:
+        raise ValueError("请选择支持的模型任务。")
+    return selected, task
+
+
 def execute(component, key):
-    value = component.config_json
-    raw_value = component._parameters.get("config_json")
-    if not value and isinstance(raw_value, dict):
-        value = raw_value
-    config = _strict_json(value)
+    if getattr(component, "ui_contract_version", 1) >= 2:
+        from .ui_schema import form_config
+
+        config = form_config(component, key)
+    else:
+        value = component.config_json
+        raw_value = component._parameters.get("config_json")
+        if not value and isinstance(raw_value, dict):
+            value = raw_value
+        config = _strict_json(value)
     upstream = _object(getattr(component, "input_data", None))
     data = dict(_unwrap(upstream))
     assets = data.get("asset_paths", {})
@@ -249,6 +297,7 @@ def execute(component, key):
                 raise ValueError("Upload exactly one source file")
             upload = upload[0]
         config["path"] = component.resolve_path(upload)
+    data, ui_task = _form_task_data(component, key, config, data)
     table = getattr(component, "input_table", None)
     if isinstance(table, str) and not table:
         table = None
@@ -259,7 +308,17 @@ def execute(component, key):
     envelopes = [upstream, *reports]
     files = _file_hashes(_input_paths(key, config, data, reports), paths=True)
     signature = _digest(
-        [key, config, upstream, data, _frame_value(table), [_frame_value(t) for t in tables], reports, files]
+        [
+            key,
+            config,
+            upstream,
+            data,
+            _frame_value(table),
+            [_frame_value(t) for t in tables],
+            reports,
+            files,
+            ui_task,
+        ]
     )
     # Component.ctx is graph-global and returns a fresh {} for standalone calls.
     # Keep this transient cache per component, never in the serialized graph.
@@ -304,6 +363,8 @@ def execute(component, key):
         "source_files": files,
         "utc": datetime.now(timezone.utc).isoformat(),
     }
+    if ui_task is not None:
+        current["ui_task"] = ui_task
     envelope = _redact(
         json_value(
             {
@@ -313,6 +374,7 @@ def execute(component, key):
                 "data": result_data,
                 "warnings": result.warnings,
                 "artifacts": result.artifacts,
+                "table_available": result.table is not None,
                 "table_summary": None
                 if result.table is None
                 else {"rows": len(result.table), "columns": list(result.table.columns)},
@@ -343,7 +405,12 @@ def execute(component, key):
 def output_table(component, key):
     result, _ = execute(component, key)
     if result.table is None:
-        return DataFrame()
+        if getattr(component, "ui_contract_version", 1) >= 2:
+            raise ValueError(f"{get(key)['title']} 当前方法不提供表格；请使用结果与追溯或生成文件输出。")
+        legacy = DataFrame()
+        legacy.attrs["table_available"] = False
+        legacy.attrs["absence_reason"] = "旧版兼容端口；该操作未产生表格，并非空数据集。"
+        return legacy
     table = DataFrame(result.table.copy(deep=True))
     table.attrs = deepcopy(result.table.attrs)
     return table
@@ -366,7 +433,13 @@ def output_artifacts(component, key):
 
 def output_summary(component, key):
     _, envelope = execute(component, key)
+    table = envelope["table_summary"]
+    table_text = (
+        "未产生表格（请查看结构化结果或文件）"
+        if table is None
+        else f"{table['rows']} 行，{len(table['columns'])} 列"
+    )
     return Message(
-        text=f"{get(key)['title']}已完成。结果表：{envelope['table_summary']}；"
+        text=f"{get(key)['title']}已完成。结果表：{table_text}；"
         f"生成文件 {len(envelope['artifacts'])} 个。\n" + "\n".join(envelope["warnings"])
     )

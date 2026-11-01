@@ -1,0 +1,405 @@
+{
+  "utc": "2026-11-01T03:09:16.444599+00:00",
+  "version": "0.4.0",
+  "base_commit": "0262f0d54f4e63ee6a8a4a6931e49c23a25e2723",
+  "environment": {
+    "python": "3.10.8",
+    "langflow": "1.13.0",
+    "lfx": "1.13.0",
+    "os": "Windows"
+  },
+  "pytest": {
+    "passed": 555,
+    "warnings": 7,
+    "elapsed_seconds": 162.71
+  },
+  "ruff": "passed",
+  "native_form_browser": {
+    "utc": "2026-11-01T03:05:43.834209+00:00",
+    "base_url": "http://127.0.0.1:7871",
+    "application": "Real Langflow native forms, fresh headless browser context",
+    "cases": {
+      "mechanics": {
+        "source_rows": 401,
+        "source_sha256": "c8952abd2b690547707c21ea7ad9868db56f50c6dc8a8606a23cff3b1f716054",
+        "elastic_modulus_MPa": 200000,
+        "yield_stress_MPa": 202.01005025125627,
+        "embedded_images_decoded": 1,
+        "ui_mode": "form",
+        "config_json": "{}",
+        "edges_retained": 7,
+        "controls": [
+          "source_file upload",
+          "cfg_x",
+          "cfg_y",
+          "cfg_strain_unit",
+          "cfg_stress_unit",
+          "cfg_fit_range_min",
+          "cfg_fit_range_max"
+        ]
+      },
+      "image": {
+        "width": 13,
+        "height": 7,
+        "table_socket_absent": true,
+        "false_empty_table_absent": true,
+        "controls": [
+          "source_file upload"
+        ]
+      },
+      "quality": {
+        "total_findings": 401,
+        "missing_column_findings": 1,
+        "constraint_findings": 400,
+        "zero_bound_retained": true,
+        "edges_retained": 3,
+        "controls": [
+          "source_file upload",
+          "required_columns list",
+          "constraint_rules table column/max"
+        ]
+      },
+      "dynamic": {
+        "method": "linear",
+        "order_by_revealed": true,
+        "continuous_revealed": true,
+        "runtime_covered": false,
+        "controls": [
+          "cfg_method"
+        ]
+      }
+    },
+    "page_errors": [],
+    "http_errors": [],
+    "json_typed": false,
+    "browser_version": "156.0.4314.50",
+    "passed": true
+  },
+  "science_browser": {
+    "utc": "2026-11-01T03:06:25.786985+00:00",
+    "cases": {
+      "01-tables": {
+        "nodes": 11,
+        "edges": 29,
+        "operations": [
+          "export.report",
+          "export.table",
+          "io.database_import",
+          "io.table_import",
+          "preprocess.filter",
+          "preprocess.merge",
+          "preprocess.missing",
+          "preprocess.normalize",
+          "preprocess.reshape",
+          "preprocess.units"
+        ],
+        "embedded_images_decoded": 0,
+        "report_verified": true
+      },
+      "02-documents": {
+        "nodes": 7,
+        "edges": 12,
+        "operations": [
+          "export.report",
+          "extract.convert_file",
+          "extract.pdf_tables",
+          "extract.pdf_text",
+          "io.pdf_import",
+          "io.text_import"
+        ],
+        "embedded_images_decoded": 0,
+        "report_verified": true
+      },
+      "03-images": {
+        "nodes": 7,
+        "edges": 12,
+        "operations": [
+          "export.report",
+          "export.table",
+          "extract.chart_digitize",
+          "extract.image_ocr",
+          "extract.image_tables",
+          "io.image_import"
+        ],
+        "embedded_images_decoded": 0,
+        "report_verified": true
+      },
+      "04-spectra": {
+        "nodes": 7,
+        "edges": 15,
+        "operations": [
+          "export.report",
+          "io.instrument_import",
+          "io.table_import",
+          "materials.spectra",
+          "materials.xrd",
+          "viz.spectra"
+        ],
+        "embedded_images_decoded": 1,
+        "report_verified": true
+      },
+      "05-mechanics-thermal": {
+        "nodes": 6,
+        "edges": 12,
+        "operations": [
+          "export.report",
+          "io.table_import",
+          "materials.mechanics",
+          "materials.thermal",
+          "viz.mechanics"
+        ],
+        "embedded_images_decoded": 1,
+        "report_verified": true
+      },
+      "06-morphology": {
+        "nodes": 6,
+        "edges": 10,
+        "operations": [
+          "export.report",
+          "export.table",
+          "io.image_import",
+          "materials.microstructure",
+          "materials.sem_eds"
+        ],
+        "embedded_images_decoded": 1,
+        "report_verified": true
+      },
+      "07-statistics": {
+        "nodes": 8,
+        "edges": 21,
+        "operations": [
+          "export.report",
+          "stats.correlation",
+          "stats.distribution",
+          "stats.grouped",
+          "stats.multiple",
+          "stats.significance",
+          "viz.performance"
+        ],
+        "embedded_images_decoded": 3,
+        "report_verified": true
+      },
+      "08-model": {
+        "nodes": 8,
+        "edges": 21,
+        "operations": [
+          "export.report",
+          "preprocess.filter",
+          "stats.evaluate",
+          "stats.predict",
+          "stats.regression",
+          "viz.statistics"
+        ],
+        "embedded_images_decoded": 1,
+        "report_verified": true
+      },
+      "09-literature": {
+        "nodes": 8,
+        "edges": 16,
+        "operations": [
+          "export.report",
+          "lit.compare",
+          "lit.extract",
+          "lit.metadata",
+          "lit.search",
+          "lit.sources",
+          "lit.summary"
+        ],
+        "embedded_images_decoded": 0,
+        "report_verified": true
+      }
+    },
+    "page_errors": [],
+    "http_errors": [],
+    "application": "Real Langflow 1.13.0 browser UI",
+    "passed": true
+  },
+  "quality_browser": {
+    "timestamp_utc": "2026-11-01T03:08:32.311865+00:00",
+    "base_url": "http://127.0.0.1:7871",
+    "application": "real Langflow 1.13.0 UI",
+    "cases": {
+      "clean": {
+        "passed": true,
+        "total_findings": 0,
+        "completed_checks": 6,
+        "nodes": 9,
+        "edges": 19,
+        "provenance_status": "verified",
+        "source": {
+          "dataset_id": "synthetic-tensile-clean",
+          "source_name": "clean.csv",
+          "source_sha256": "330dd2de02ed94d3eb0093013759e10cf3bd977c16313586fe9d7163bf63648a"
+        },
+        "dataset_fingerprint": "aa76a05a02e649d20dc6fa47ad0b01217fd320b34d08fc950877fd4cde4fd0d3",
+        "flow_sha256": "a6aa2e4da2aa6f9113242450547a4f7149d61e81bc3e584fa71c25f7a630905f",
+        "summary_text": "数据质量检查：接入的检查均未发现所检查的问题。已完成 6 项，其中 0 项有问题，共 0 条发现。原始数据未修改；未接入的检查不在本报告覆盖范围内。"
+      },
+      "dirty": {
+        "passed": false,
+        "total_findings": 8,
+        "completed_checks": 6,
+        "nodes": 9,
+        "edges": 19,
+        "provenance_status": "verified",
+        "source": {
+          "dataset_id": "synthetic-tensile-dirty",
+          "source_name": "dirty.csv",
+          "source_sha256": "b4f92f668c2945db3050e9a71a82f0d55d55a6a9b5e261a25fe72d090c87cc45"
+        },
+        "dataset_fingerprint": "ed27318f79f0478fa8e00cc41677ce8c3abfe80590a6412726db40f2a21821c9",
+        "flow_sha256": "0bddb022a1acfd48eb552ea146602a725b0ff5ac8593261eb02a2eda17ae37fc",
+        "summary_text": "数据质量检查：需要复核（或未接入检查）。已完成 6 项，其中 5 项有问题，共 8 条发现。原始数据未修改；未接入的检查不在本报告覆盖范围内。"
+      },
+      "corrected": {
+        "passed": true,
+        "total_findings": 0,
+        "completed_checks": 6,
+        "nodes": 9,
+        "edges": 19,
+        "provenance_status": "verified",
+        "source": {
+          "dataset_id": "synthetic-tensile-corrected",
+          "source_name": "corrected.csv",
+          "source_sha256": "330dd2de02ed94d3eb0093013759e10cf3bd977c16313586fe9d7163bf63648a"
+        },
+        "dataset_fingerprint": "aa76a05a02e649d20dc6fa47ad0b01217fd320b34d08fc950877fd4cde4fd0d3",
+        "flow_sha256": "4df0ee8ddce9e0384156a3c27760cfe708ff6bca164085cba430d21e0a0aaeea",
+        "summary_text": "数据质量检查：接入的检查均未发现所检查的问题。已完成 6 项，其中 0 项有问题，共 0 条发现。原始数据未修改；未接入的检查不在本报告覆盖范围内。"
+      }
+    },
+    "page_errors": [],
+    "http_errors": [],
+    "browser_version": "156.0.4314.50",
+    "invalid_rules_rejected_and_restored": true,
+    "passed": true
+  },
+  "science_flows": {
+    "count": 9,
+    "operations": 44,
+    "edges": 148,
+    "artifacts_read_back": 57,
+    "fixture_hashes_rechecked": 11
+  },
+  "wheel_install": {
+    "wheel": true,
+    "components": 52,
+    "flows": {
+      "clean": {
+        "passed": true,
+        "findings": 0
+      },
+      "dirty": {
+        "passed": false,
+        "findings": 8
+      },
+      "mechanics_clean": {
+        "passed": true,
+        "findings": 0
+      },
+      "mechanics_dirty": {
+        "passed": false,
+        "findings": 8
+      },
+      "mechanics_corrected": {
+        "passed": true,
+        "findings": 0
+      }
+    }
+  },
+  "wheel_science_flows": 9,
+  "wheel_sha256": "0d5768153158a11a7829960c5a6385ffd216922b85bd05e2832b5ea5e1daddb3",
+  "independent_review": "No actionable findings after fixes; scoped routing/ports/compatibility closure.",
+  "source_sha256_lf": {
+    "src/materials_quality/__init__.py": "e03804adf0ef20f111f108e01451334bb4d06151b302ab483d40713e4f522cc5",
+    "src/materials_quality/aggregate.py": "38a21b0480a758a1445b6e79bb3a50dee0f0d22a8ccc4128e072259040cfaec1",
+    "src/materials_quality/checks.py": "809d59cbea673ae530de7e3705ffd9dc8d4408af54f4fe45bf71cfd02d3f2d30",
+    "src/materials_quality/common.py": "a2ff737373cbbf3899ec88de5a6eb9b6327fa0ec9cc8692c363eb6b5605a3a19",
+    "src/materials_quality/context.py": "9f013768e0519d5fd4dc48ca04b562de51a076b7fbfddd90636fccb138d0f8ab",
+    "src/materials_quality/langflow_support.py": "b3815eca7fa09a05b5f985727a29971773df614389bb69c671b1cdc6a276b5ac",
+    "src/materials_quality/outliers.py": "fc659d54448d6fce0ac3759f841abffb6272dcf0eaee2839d78ddf350a8b5ae9",
+    "src/materials_quality/quality_extensions.py": "26b07e27492a11d9e52c27899065b0198699fbc4a85c88e1e97088b53483d3b2",
+    "src/materials_quality/quality_ui.py": "89fd962179d7b3c59057e5193536c1f2fdfcd361263862270815ee4a6497b0b2",
+    "src/materials_quality/science/__init__.py": "ee1051bccb56191233a0e635fddf3127a1315fc55652ca2d08b27a3360849fc8",
+    "src/materials_quality/science/catalog.py": "bcc132a437a032db55f7490daaa6902303df883ea9f47e891350c384ad9c1767",
+    "src/materials_quality/science/contracts.py": "07137bbdc8ee82c3f8f2d8d86cb3bb3a7987980a2b795724a9cd1bef80da65cf",
+    "src/materials_quality/science/extract_nodes.py": "4ebdf49c11a56c51cffc64110908f951fa28875bce9de50457fe5c8c51c84c68",
+    "src/materials_quality/science/flow_migration.py": "21339c83d62858b7c2b88c83e4baa3bfcaf0857b71a77bd8bb0b830217b29281",
+    "src/materials_quality/science/io_nodes.py": "39078de69ded561af1e15271c8f511162253b45a432f124a2338ceb40d2da4b7",
+    "src/materials_quality/science/langflow_adapter.py": "fd2ee1e6d31ac4fdb001a229ee80fca628938bb27e16bc866e306d6994a27846",
+    "src/materials_quality/science/lit_evidence.py": "aab5d77f2054d522bf62c6197320905b936459a41ee0a6da564118499e1add75",
+    "src/materials_quality/science/literature.py": "ce8b6ad393f02d663aa61938c381ec8e31c6a4a879d05f15840879391375956f",
+    "src/materials_quality/science/materials.py": "99578167f00ff8ff3657290eb256500502f6320db68de1a1d5109c4bc218ace8",
+    "src/materials_quality/science/materials_curves.py": "6e6fd92afef2e463712824996fe68ce0ab64196d8a70c8ba5c01910475a67b5d",
+    "src/materials_quality/science/materials_images.py": "45c2679d7b27ccce55d3b0634e1b1c6ddaf16fc885150c48391dc8225df29c9f",
+    "src/materials_quality/science/plot_style.py": "86f3a6e4087b7259ea8ae0e8ccb68c1e8b331db820ed35c33d87fc667cd3b116",
+    "src/materials_quality/science/preprocessing.py": "e344c79cba2243c6a6a711b3fbf28036727d3142cc48070ddc920829bf7e6c14",
+    "src/materials_quality/science/statistics.py": "43c172d06fddd17d25e86f4d9c1c581e6a47d4ef95c71e7a0393d7d7a2a750bf",
+    "src/materials_quality/science/stats_models.py": "a295401028657d84fd5d8ad78390761d3e92f9a356d8a22439d0dd03ef7bb15d",
+    "src/materials_quality/science/ui_config_import.py": "a65346cf6e29f1dd58ad1a2b5e518ac62cad0588903a2ed162bf3d11e2085830",
+    "src/materials_quality/science/ui_schema.py": "d294c9a25a95dcf4a76c350da56b9fd70b331fa641897550c79f32450dc91627",
+    "src/materials_quality/science/ui_specs_io.py": "2452a78893384fe20d04eb8a03f01b680895dea67d1e8c90bbd45c944ceb7191",
+    "src/materials_quality/science/ui_specs_literature.py": "562210e84e299207a545b3ab553acf5643a451644dd31c19c05545ba2b2e2f0c",
+    "src/materials_quality/science/ui_specs_materials.py": "42b203c7ff3f349cb6544555e8319b5981fd26a9240afe6aaf2c47e41a558842",
+    "src/materials_quality/science/ui_specs_preprocessing.py": "444933bc820a5ffe0123b2031206aeaca17fa6e1b3eabed191d1fd110a2a942a",
+    "src/materials_quality/science/ui_specs_statistics.py": "76ed9f5fc380bce6226f63138fdd4607bbc3cce17c1fe1734dd91fe103e320fe",
+    "src/materials_quality/science/ui_specs_visualization.py": "621180c6e9f09232ffd866f788f022b9a96882dfa2ebea42b4edf142b0f2312c",
+    "src/materials_quality/science/ui_types.py": "a888cfc0b0cbebbccd3676c4237f087f4db8c3d4033fe21200369d74ad6e5e16",
+    "src/materials_quality/science/visualization.py": "8eb6b30d2c3d1f7b4ddb15fda3d13d6cf8228900acc1499f0aa4f6f9cbc290f6",
+    "src/materials_quality/science/viz_report.py": "0a883fe4bdaaec5c3efbbfd4d7c0e182798dee73acfe9a970bc0a7724f5f1968",
+    "src/materials_quality/units.py": "c4c918296a98bdfb5fd8d4ab01bcca1d671e3e6506e9fd4d7073b6abed7c5ab5",
+    "components/materials_analysis/materials_mechanics.py": "8b270182f47a05531627afedd1256aded6243a30ca40c9876c438b2c471938b9",
+    "components/materials_analysis/materials_microstructure.py": "1765f285ad610d95070ed1f3cd3e3524f7dca53f0fcbfa6751b9f69114165030",
+    "components/materials_analysis/materials_sem_eds.py": "71c189d06f8b70cbed7003d13b5c968fcc08e82b4e4639ca9db20724fa9e9c81",
+    "components/materials_analysis/materials_spectra.py": "98e25532c13dfdad03a645afecc9dd4f6ddd7725aeb5a24c320032ae1b55f4ba",
+    "components/materials_analysis/materials_thermal.py": "4ef59a68101607bc0c98a1a72a2772769bf99a35530ab5f1164216d1fa22db22",
+    "components/materials_analysis/materials_xrd.py": "143f979c46fe3c519105355d97950396f4891350a15c84330bb1470445430ff6",
+    "components/materials_extraction/extract_chart_digitize.py": "e5eafaacd99814591e78de041b6603e688e1c253564f2b3637128cdb6b4600b6",
+    "components/materials_extraction/extract_convert_file.py": "09d18d1de7bff6235e0c965349c165826e1c3aca5cb7420631d727f23f6dfbad",
+    "components/materials_extraction/extract_image_ocr.py": "c958ebdc5761648043a4a940c737cfe81e0cd097a92debfb96f6dc9b8e8900e3",
+    "components/materials_extraction/extract_image_tables.py": "71da0f632932bd62f0b56256fff23f91ef9eaaa9912882dbd93dd27df17a4a3b",
+    "components/materials_extraction/extract_pdf_tables.py": "8a5f7955af31cf535dd291fb145e34d634b73b2640d5ac7c4b14d0f2e52263f8",
+    "components/materials_extraction/extract_pdf_text.py": "3aa87a002ef80e101ac6a0612ba15a6cfc722b025f2cf7e5d68885351c728feb",
+    "components/materials_literature/lit_compare.py": "2b87239f45313b9c87f8b6450001dec6d19c4592fc397bc4c574e556be53c550",
+    "components/materials_literature/lit_extract.py": "c6703b6ed6372a31b2c8e51ff3da1f42a8845ad914fbec17795abfe8376ef313",
+    "components/materials_literature/lit_metadata.py": "5e9ad02f12364447cf499c3572b45dacea227982744f2c87f01e31c76fb18697",
+    "components/materials_literature/lit_search.py": "3d60989bb40ab7664b403a62a604f2fed0b9fecff86bef97758ea7c91339f18d",
+    "components/materials_literature/lit_sources.py": "faf357ccd2b4107fdbead2761af7ca190ad9e1bce270060edcb5ac82ecb9772f",
+    "components/materials_literature/lit_summary.py": "1c92e0c2b37110272af15cfd9cb78edd6b428f8cf519587a8fe38b7486add1fa",
+    "components/materials_preprocessing/preprocess_filter.py": "43a3af63f54a4efc3fb0d282eafece80d638af1865b613ae4c714f194c9d8793",
+    "components/materials_preprocessing/preprocess_merge.py": "dd8a4a25e4a96500b5de4a5aae9d4f131285b22ed9d2c1313432dfb1500102c8",
+    "components/materials_preprocessing/preprocess_missing.py": "827e6ac588273297d4b9ddf7c18b4f6037741dd19d8bedc348220dab511b52ef",
+    "components/materials_preprocessing/preprocess_normalize.py": "cf030c0d7650b56ec573f93cf0fd4a520ef8846fde4984a6e0d5903dd89a72b5",
+    "components/materials_preprocessing/preprocess_reshape.py": "e50067be37ea2d15278ff35908abb7aa7105b21a664b0a40eae33049aff95077",
+    "components/materials_preprocessing/preprocess_units.py": "76de5a5de7a2d589a37bf3c011dfc18c2e7fb205ca21f05f023822cb15b866d4",
+    "components/materials_quality/__init__.py": "cb131d6d96c0b43c46adb7cbc9e70d6e4649c02f4206b70c710a3d996ce53bbf",
+    "components/materials_quality/duplicate_check.py": "7b293c503428a3f95df98e678249daccef6bfc9b37d7ef9638d06fd07c4fa3a9",
+    "components/materials_quality/missing_check.py": "1e622400f2117dca38b4cfb692b6749d5fc7879c3b241fbbf558254cc210cf76",
+    "components/materials_quality/outlier_check.py": "c15fa92dfb8c339d8421db44a1f19332351df03c748be6a00a54bcfa4ad0334c",
+    "components/materials_quality/quality_context.py": "4e635ec7f56dc8690166119f4260e1ce7adaf0192f1600b9042863c75dc3450a",
+    "components/materials_quality/quality_summary.py": "338616c64538e49ce7d56d76110a0eac2f4cb8dbb90732cf4b4ad20eb95fb975",
+    "components/materials_quality/schema_check.py": "7dc6c9f0622cbd214c984ef2bdf9a04ab6fde3f36ddcc750a25a36aa429f31a4",
+    "components/materials_quality/type_check.py": "4c1c83e0c46c156fcfe908c98c88749ce277c8eb0fd35831182ab45c36544132",
+    "components/materials_quality/unit_check.py": "354463ed9999a50804224dc960fd1c74c71d5f9d93b3b72c09681ba1c20fc8fe",
+    "components/materials_sources/io_database_import.py": "a2c819edf5e06ac48321fd8d5d254e3d9f9039470b07eade39adccb6c5fd3daa",
+    "components/materials_sources/io_image_import.py": "d90c301c5fdb65a9add324ff263275fa8953d288542e317d1232d4cb7dbcac84",
+    "components/materials_sources/io_instrument_import.py": "5be6e94bc7f2e4e81cade3869c9433dc75eda878af9aa0194e98dee2d5b90dc7",
+    "components/materials_sources/io_pdf_import.py": "f1fac394ecc9caeb1fdce75d3d0c256a46532f6b354ac2b92b31d66606b7c62e",
+    "components/materials_sources/io_table_import.py": "3f14966397066cc989817897ea2089b20fdfabda00c9c50ca6c97da571a70854",
+    "components/materials_sources/io_text_import.py": "c63c6c2e7b76d38d596ffe300a50f36c5e3dc9d921ba2352ca74cf23000da068",
+    "components/materials_statistics/stats_correlation.py": "c90a39bef4e18784e077b3610331186f5d1f45c0b94fbf5dd67e9ac46401aa70",
+    "components/materials_statistics/stats_distribution.py": "caf8d2a9c72d04e4249c9445c95296bae7fb56a7ea5b360b8501267be71761f3",
+    "components/materials_statistics/stats_evaluate.py": "89157a44539e1b208bd5d57435143798510e34c80dd9859eb4e88c285c4579d7",
+    "components/materials_statistics/stats_grouped.py": "def91bfe56d4cf6f098ea0e56512d217f3829efe1f5d49fd13ab47a19c7c92f9",
+    "components/materials_statistics/stats_multiple.py": "0997aa4266d77896fac47e3b78de48a0382234854273160ab2986356ce79dedc",
+    "components/materials_statistics/stats_predict.py": "49a18a28524f5638d56880fd594921be3bf672ebb104713360aaea5ad7a57b07",
+    "components/materials_statistics/stats_regression.py": "173c571d0feffe8b22d1253cccd53877cc417d894800ae77855240e5873a8b45",
+    "components/materials_statistics/stats_significance.py": "83aafa34aa34381d312dce06eacd39338302bb854ea1a57e6add589ea1cf7ba9",
+    "components/materials_visualization/export_report.py": "a5bf51689b9989fbfa1975af7cf9a532b6eea7fc7318ccb7d49462ae288c953b",
+    "components/materials_visualization/export_table.py": "ebc825e856cceb60153e9040917d14ce08bc292a8d6eadae1423f85a60898d13",
+    "components/materials_visualization/viz_mechanics.py": "f973628b993b763d17bfcd1fe5f59863daed59eb3c021e23a4b3447cc5d1fbbb",
+    "components/materials_visualization/viz_performance.py": "0b03b14122c36c9c5dc0a4109a8515d358d40ec7bf080d0a82b73530c9869aaa",
+    "components/materials_visualization/viz_spectra.py": "46d6f06d422f9bd3570251d3d32cc2ba3191dec8456b836885945b76cace182b",
+    "components/materials_visualization/viz_statistics.py": "cfea6ed49e556d74d0f7347ee5ddd9a267490612a4aa8a9bb7689c2f7c54d155"
+  }
+}

@@ -16,6 +16,8 @@ from PIL import Image
 
 from examples.science_flows.fixture_source import ScienceFixtureBundle
 from materials_quality.science.catalog import component_class, entries
+from materials_quality.science.ui_config_import import config_to_form
+from materials_quality.science.ui_schema import REPORT_COLLECTION_KEYS, contract_for, fields_for
 
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / "examples/science_flows"
@@ -51,9 +53,26 @@ class Flow:
         config = {"output_dir": "@asset:output", **(config or {})}
         if key.startswith("viz.") or key == "stats.distribution":
             config = {"profile": "paper", "data_kind": "synthetic", **config}
+        task = None
+        if (
+            key == "stats.predict"
+            and upstream
+            and self.operations[upstream] in {"stats.regression", "stats.predict"}
+        ):
+            task = "saved"
+        paths = {field["path"] for field in fields_for(key)}
+        # The previous builder injected this key into every operation. Remove it
+        # only where it cannot direct a generated file; all other keys stay exact.
+        conditional_no_files = (
+            task == "saved"
+            or key == "stats.evaluate" and bool(config.get("y_true") and config.get("y_pred"))
+            or key == "materials.sem_eds" and config.get("method") == "eds"
+        )
+        if conditional_no_files or not contract_for(key)["artifacts_output"] and "output_dir" not in paths:
+            config.pop("output_dir", None)
         data_node = self.nodes[upstream] if upstream else self.source
         inputs = {
-            "config_json": encoded(config),
+            **config_to_form(key, config, task=task),
             "input_data": data_node.build_report if upstream else self.source.build_data,
         }
         parents = [data_node]
@@ -65,6 +84,8 @@ class Flow:
             inputs["input_tables"] = [self.nodes[t].build_table for t in tables]
             parents.extend(self.nodes[t] for t in tables)
         if reports:
+            if key not in REPORT_COLLECTION_KEYS:
+                raise ValueError(f"{key} does not accept a report collection")
             inputs["reports"] = [self.nodes[r].build_report for r in reports]
             parents.extend(self.nodes[r] for r in reports)
         node.set(**inputs)
@@ -287,7 +308,8 @@ def morphology_flow():
         {"feature": "pore", "threshold": 127, "pixel_size": 2, "spatial_unit": "um"},
         upstream="image",
     )
-    f.add("eds", "materials.sem_eds", {"method": "eds", "path": "@asset:composition.csv"})
+    # read_path accepts path/file_path identically; EDS exposes the latter in its native form.
+    f.add("eds", "materials.sem_eds", {"method": "eds", "file_path": "@asset:composition.csv"})
     f.add(
         "areas",
         "export.table",
@@ -320,7 +342,8 @@ def statistics_flow():
     f.add(
         "box",
         "viz.performance",
-        {"method": "box", "group": "group", "x": "x", "y": "value"},
+        # The box branch uses group/y; x is read only for scatter plots.
+        {"method": "box", "group": "group", "y": "value"},
         table="fixture",
         reports=["grouped", "tukey"],
     )

@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceVizSpectra(Component):
+class ScienceVizSpectra(ScienceFormMixin, Component):
     display_name = "材料科学·光谱或衍射图"
     description = "可追溯的光谱或衍射图；具体方法与前提见随仓库提供的手册。"
     name = "ScienceVizSpectra"
-    icon = "FlaskConical"
-    inputs = node_inputs({"method": "overlay", "x": "x", "columns": ["intensity"]})
-    outputs = node_outputs()
+    icon = "Waves"
+    ui_contract_version = 2
+    ui_operation_key = "viz.spectra"
+    inputs = node_inputs("viz.spectra", {"method": "overlay", "x": "x", "columns": ["intensity"]})
+    outputs = node_outputs("viz.spectra")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "viz.spectra", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "viz.spectra")
