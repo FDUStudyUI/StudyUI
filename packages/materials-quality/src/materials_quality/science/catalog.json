@@ -14,7 +14,134 @@
     },
     "directory": "materials_sources",
     "filename": "io_table_import",
-    "class_name": "ScienceIoTableImport"
+    "class_name": "ScienceIoTableImport",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [
+      "csv",
+      "tsv",
+      "txt",
+      "dat",
+      "xlsx",
+      "xls",
+      "xlsm",
+      "ods"
+    ],
+    "icon": "FileSpreadsheet",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "encoding",
+        "label": "文本编码",
+        "kind": "choice",
+        "default": "auto",
+        "choices": [
+          "auto",
+          "utf-8",
+          "utf-8-sig",
+          "gb18030",
+          "gbk",
+          "utf-16",
+          "latin-1"
+        ],
+        "advanced": false,
+        "info": "auto 依次检查 BOM、UTF-8、GB18030；识别失败时选择源文件实际编码。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "sheet",
+        "label": "Excel 工作表名称或序号",
+        "kind": "str",
+        "default": "0",
+        "choices": [],
+        "advanced": false,
+        "info": "Excel/ODS 使用名称或从 0 开始的工作表序号；CSV/TSV 忽略此项。",
+        "when": {},
+        "required": false,
+        "converter": "number_or_text"
+      },
+      {
+        "path": "header",
+        "label": "表头行号 / null 无表头",
+        "kind": "str",
+        "default": "0",
+        "choices": [],
+        "advanced": false,
+        "info": "从 0 开始，且相对于所选矩形区域；输入 null 表示无表头，再用列名列表命名。",
+        "when": {},
+        "required": false,
+        "converter": "nullable_int"
+      },
+      {
+        "path": "delimiter",
+        "label": "文本分隔符",
+        "kind": "str",
+        "default": "auto",
+        "choices": [],
+        "advanced": false,
+        "info": "auto 自动识别；手填一个实际字符，如逗号、分号、竖线或实际制表符；Excel 忽略。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "range",
+        "label": "读取矩形区域",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可留空读取全表；用 A2:C20 形式选取原始单元格矩形，表头行号相对于此区域。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "names",
+        "label": "无表头时的列名",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "仅 header=null 时使用；列名唯一，数量等于选中区域的列数，留空自动生成。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "id_columns",
+        "label": "保留为文本的标识符列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写实际列名；保留样本编号、前导零及超长整数，避免数值推断破坏标识符。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "dtype",
+        "label": "列类型映射",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "列名到 pandas 类型，如 sample_id:string、count:Int64、value:float64；标识符须为文本。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "io.text_import",
@@ -31,7 +158,191 @@
     },
     "directory": "materials_sources",
     "filename": "io_text_import",
-    "class_name": "ScienceIoTextImport"
+    "class_name": "ScienceIoTextImport",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [
+      "txt",
+      "csv",
+      "tsv",
+      "dat",
+      "log"
+    ],
+    "icon": "FileText",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "method",
+        "label": "文本解析方式",
+        "kind": "choice",
+        "default": "lines",
+        "choices": [
+          "lines",
+          "delimited",
+          "fixed_width"
+        ],
+        "advanced": false,
+        "info": "lines 保留行号和原文；delimited 解析分隔表；fixed_width 按每列字符宽度解析。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "encoding",
+        "label": "文本编码",
+        "kind": "choice",
+        "default": "auto",
+        "choices": [
+          "auto",
+          "utf-8",
+          "utf-8-sig",
+          "gb18030",
+          "gbk",
+          "utf-16",
+          "latin-1"
+        ],
+        "advanced": false,
+        "info": "auto 依次检查 BOM、UTF-8、GB18030；识别失败时选择源文件实际编码。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "header",
+        "label": "表头行号 / null 无表头",
+        "kind": "str",
+        "default": "0",
+        "choices": [],
+        "advanced": false,
+        "info": "从 0 开始，且相对于所选矩形区域；输入 null 表示无表头，再用列名列表命名。",
+        "when": {
+          "method": [
+            "delimited"
+          ]
+        },
+        "required": false,
+        "converter": "nullable_int"
+      },
+      {
+        "path": "delimiter",
+        "label": "文本分隔符",
+        "kind": "str",
+        "default": "auto",
+        "choices": [],
+        "advanced": false,
+        "info": "auto 自动识别；手填一个实际字符，如逗号、分号、竖线或实际制表符；Excel 忽略。",
+        "when": {
+          "method": [
+            "delimited"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "range",
+        "label": "读取矩形区域",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可留空读取全表；用 A2:C20 形式选取原始单元格矩形，表头行号相对于此区域。",
+        "when": {
+          "method": [
+            "delimited"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "id_columns",
+        "label": "保留为文本的标识符列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写实际列名；保留样本编号、前导零及超长整数，避免数值推断破坏标识符。",
+        "when": {
+          "method": [
+            "delimited"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "names",
+        "label": "列名列表",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "固定宽度时数量须等于 widths；分隔模式仅 header=null 时使用；列名须唯一。",
+        "when": {
+          "method": [
+            "delimited",
+            "fixed_width"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "dtype",
+        "label": "列类型映射",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选列名到 pandas 类型映射，如 sample_id:string；固定宽度解析时直接交给 pandas。",
+        "when": {
+          "method": [
+            "delimited",
+            "fixed_width"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "widths",
+        "label": "各列字符宽度",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "按列顺序填写正整数宽度，例如 8、12、10。",
+        "when": {
+          "method": [
+            "fixed_width"
+          ]
+        },
+        "required": true,
+        "converter": "int_list"
+      },
+      {
+        "path": "skiprows",
+        "label": "跳过开头行数",
+        "kind": "int",
+        "default": 0,
+        "choices": [],
+        "advanced": false,
+        "info": "固定宽度模式读取前跳过的行数，从 0 开始；这些行不会作为数据。",
+        "when": {
+          "method": [
+            "fixed_width"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "io.pdf_import",
@@ -48,7 +359,85 @@
     },
     "directory": "materials_sources",
     "filename": "io_pdf_import",
-    "class_name": "ScienceIoPdfImport"
+    "class_name": "ScienceIoPdfImport",
+    "table_output": false,
+    "artifacts_output": true,
+    "upload_types": [
+      "pdf"
+    ],
+    "icon": "FileText",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "pages",
+        "label": "页码列表",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空处理全部页面；页码从 1 开始，例如 1、3、5，不使用 0 起始索引。",
+        "when": {},
+        "required": false,
+        "converter": "int_list"
+      },
+      {
+        "path": "dpi",
+        "label": "OCR / 渲染分辨率",
+        "kind": "int",
+        "default": 150,
+        "choices": [],
+        "advanced": false,
+        "info": "36 至 1200 DPI；更高分辨率可改善小字识别，也增加运行时间和附件体积。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "render_all",
+        "label": "渲染全部所选页面",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "默认只渲染没有原生文字的页面；打开后每页生成 PNG 附件。此节点输出页面信息而非表格。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "附件输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用独立临时目录；填写绝对路径可集中保存渲染页或转换结果。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "overwrite",
+        "label": "允许覆盖同名输出",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "默认遇同名文件生成新名称；原始输入文件始终受保护。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "io.image_import",
@@ -64,7 +453,36 @@
     },
     "directory": "materials_sources",
     "filename": "io_image_import",
-    "class_name": "ScienceIoImageImport"
+    "class_name": "ScienceIoImageImport",
+    "table_output": false,
+    "artifacts_output": false,
+    "upload_types": [
+      "png",
+      "jpg",
+      "jpeg",
+      "tif",
+      "tiff",
+      "bmp",
+      "webp",
+      "gif"
+    ],
+    "icon": "Image",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "io.instrument_import",
@@ -80,7 +498,164 @@
     },
     "directory": "materials_sources",
     "filename": "io_instrument_import",
-    "class_name": "ScienceIoInstrumentImport"
+    "class_name": "ScienceIoInstrumentImport",
+    "table_output": true,
+    "artifacts_output": true,
+    "upload_types": [
+      "xy",
+      "xye",
+      "csv",
+      "txt",
+      "dat",
+      "jdx",
+      "dx",
+      "jcamp",
+      "brml",
+      "raw"
+    ],
+    "icon": "Activity",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "format",
+        "label": "仪器数据格式",
+        "kind": "choice",
+        "default": null,
+        "choices": [
+          "xy",
+          "xye",
+          "csv",
+          "txt",
+          "dat",
+          "jdx",
+          "dx",
+          "jcamp",
+          "brml",
+          "raw"
+        ],
+        "advanced": false,
+        "info": "留空按扩展名识别；XY 须是无文字表头的数值行，JCAMP 只直接支持未压缩数据。BRML 请显式选择格式并填写通道，RAW 须另配插件/转换器。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "encoding",
+        "label": "文本编码",
+        "kind": "choice",
+        "default": "auto",
+        "choices": [
+          "auto",
+          "utf-8",
+          "utf-8-sig",
+          "gb18030",
+          "gbk",
+          "utf-16",
+          "latin-1"
+        ],
+        "advanced": false,
+        "info": "auto 依次检查 BOM、UTF-8、GB18030；识别失败时选择源文件实际编码。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "x_index",
+        "label": "BRML 横坐标通道索引",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "从 0 开始，须根据该仪器 Datum 格式明确指定，系统不猜测通道顺序。",
+        "when": {
+          "format": [
+            "brml"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "y_index",
+        "label": "BRML 信号通道索引",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "从 0 开始，须为非负整数且小于 Datum 通道数量。",
+        "when": {
+          "format": [
+            "brml"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "plugin",
+        "label": "仪器解析插件",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "可选 module:function；插件优先于外部转换命令，接收隔离副本并返回表格或独立转换文件。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "converter",
+        "label": "外部转换命令参数",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "每项一个命令参数，必须同时包含 {input} 与 {output}；不使用 shell 语法，输入在隔离副本中处理。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "timeout",
+        "label": "转换命令超时（秒）",
+        "kind": "float",
+        "default": 60.0,
+        "choices": [],
+        "advanced": true,
+        "info": "仅外部 converter 命令使用；命令须生成新的 CSV 输出文件。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "附件输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用独立临时目录；填写绝对路径可集中保存渲染页或转换结果。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "overwrite",
+        "label": "允许覆盖同名输出",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "默认遇同名文件生成新名称；原始输入文件始终受保护。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "io.database_import",
@@ -98,7 +673,315 @@
     },
     "directory": "materials_sources",
     "filename": "io_database_import",
-    "class_name": "ScienceIoDatabaseImport"
+    "class_name": "ScienceIoDatabaseImport",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [
+      "db",
+      "sqlite",
+      "sqlite3"
+    ],
+    "icon": "Database",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "数据接入方式",
+        "kind": "choice",
+        "default": "sqlite",
+        "choices": [
+          "sqlite",
+          "sqlalchemy",
+          "rest"
+        ],
+        "advanced": false,
+        "info": "SQLite 和 SQLAlchemy 仅执行只读查询；REST 读取 JSON 对象列表并可分页。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {
+          "method": [
+            "sqlite"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "query",
+        "label": "只读 SQL 查询",
+        "kind": "str",
+        "default": "SELECT * FROM samples",
+        "choices": [],
+        "advanced": false,
+        "info": "仅允许单条 SELECT 或 WITH 查询；拒绝写入、扩展加载、文件导出及不支持只读事务的数据库。",
+        "when": {
+          "method": [
+            "sqlite",
+            "sqlalchemy"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "parameters",
+        "label": "SQL 绑定参数",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "参数名到值的映射，对应查询中的 :参数名；使用只读账户连接远程数据库。",
+        "when": {
+          "method": [
+            "sqlite",
+            "sqlalchemy"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "url",
+        "label": "数据库连接串 / REST URL",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "SQLAlchemy 使用数据库连接 URL；REST 使用 HTTP(S) URL，认证信息放入 headers，不嵌入 REST URL。",
+        "when": {
+          "method": [
+            "sqlalchemy",
+            "rest"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "fields",
+        "label": "输出字段列表",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空保留全部字段；SQL 用结果列名，REST 支持嵌套字段路径，如 sample.id。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "params",
+        "label": "REST 查询参数",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "附加到 URL 的参数名和值；分页字段由下方分页配置写入。",
+        "when": {
+          "method": [
+            "rest"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "headers",
+        "label": "REST 请求头",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "可选请求头；凭据会随保存的配置传递，请使用测试或受限凭据并依照本地密钥管理策略。",
+        "when": {
+          "method": [
+            "rest"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "records_path",
+        "label": "REST 记录列表路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空表示响应本身是对象列表；否则填写 data.items 等点分隔路径，结果须为字典列表。",
+        "when": {
+          "method": [
+            "rest"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "timeout",
+        "label": "REST 超时（秒）",
+        "kind": "float",
+        "default": 20.0,
+        "choices": [],
+        "advanced": false,
+        "info": "单次 REST 请求超时；跨来源重定向和跨来源下一页链接会被拒绝。",
+        "when": {
+          "method": [
+            "rest"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "pagination.mode",
+        "label": "REST 分页方式",
+        "kind": "choice",
+        "default": "page",
+        "choices": [
+          "page",
+          "offset",
+          "next",
+          "none"
+        ],
+        "advanced": false,
+        "info": "page 使用页码；offset 使用偏移；next 读取响应链接；none 只请求一次。",
+        "when": {
+          "method": [
+            "rest"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "pagination.max_pages",
+        "label": "最大读取页数",
+        "kind": "int",
+        "default": 100,
+        "choices": [],
+        "advanced": false,
+        "info": "须大于 0；达到上限但尚未结束时标注结果不完整，不宣称完整下载。",
+        "when": {
+          "method": [
+            "rest"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "pagination.page_size",
+        "label": "每页记录数",
+        "kind": "int",
+        "default": 100,
+        "choices": [],
+        "advanced": false,
+        "info": "须大于 0；传给页大小参数，服务端实际返回数量可能不同。",
+        "when": {
+          "method": [
+            "rest"
+          ],
+          "pagination.mode": [
+            "page",
+            "offset"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "pagination.start",
+        "label": "起始页码 / 偏移",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空时 page 从 1、offset 从 0 开始；按服务 API 约定填写。",
+        "when": {
+          "method": [
+            "rest"
+          ],
+          "pagination.mode": [
+            "page",
+            "offset"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "pagination.page_param",
+        "label": "页码参数名",
+        "kind": "str",
+        "default": "page",
+        "choices": [],
+        "advanced": false,
+        "info": "分页 URL 中的页码参数名。",
+        "when": {
+          "method": [
+            "rest"
+          ],
+          "pagination.mode": [
+            "page"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "pagination.offset_param",
+        "label": "偏移参数名",
+        "kind": "str",
+        "default": "offset",
+        "choices": [],
+        "advanced": false,
+        "info": "分页 URL 中的起始记录偏移参数名。",
+        "when": {
+          "method": [
+            "rest"
+          ],
+          "pagination.mode": [
+            "offset"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "pagination.size_param",
+        "label": "每页数量参数名",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空时 page 使用 page_size，offset 使用 limit；也可按接口文档填写。",
+        "when": {
+          "method": [
+            "rest"
+          ],
+          "pagination.mode": [
+            "page",
+            "offset"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "pagination.next_path",
+        "label": "下一页链接字段",
+        "kind": "str",
+        "default": "next",
+        "choices": [],
+        "advanced": false,
+        "info": "响应中下一页链接的点分隔路径，链接为空时结束，下一页必须保持同一来源。",
+        "when": {
+          "method": [
+            "rest"
+          ],
+          "pagination.mode": [
+            "next"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "extract.pdf_text",
@@ -115,7 +998,137 @@
     },
     "directory": "materials_extraction",
     "filename": "extract_pdf_text",
-    "class_name": "ScienceExtractPdfText"
+    "class_name": "ScienceExtractPdfText",
+    "table_output": true,
+    "artifacts_output": true,
+    "upload_types": [
+      "pdf"
+    ],
+    "icon": "ScanText",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "pages",
+        "label": "页码列表",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空处理全部页面；页码从 1 开始，例如 1、3、5，不使用 0 起始索引。",
+        "when": {},
+        "required": false,
+        "converter": "int_list"
+      },
+      {
+        "path": "dpi",
+        "label": "OCR / 渲染分辨率",
+        "kind": "int",
+        "default": 150,
+        "choices": [],
+        "advanced": false,
+        "info": "36 至 1200 DPI；更高分辨率可改善小字识别，也增加运行时间和附件体积。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "method",
+        "label": "PDF 文字提取方式",
+        "kind": "choice",
+        "default": "auto",
+        "choices": [
+          "auto",
+          "native",
+          "ocr"
+        ],
+        "advanced": false,
+        "info": "auto 优先原生文字，仅扫描页使用 OCR；native 只取原文；ocr 强制渲染并识别。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "text_score",
+        "label": "文字识别置信度阈值",
+        "kind": "float",
+        "default": 0.5,
+        "choices": [],
+        "advanced": false,
+        "info": "0 到 1；只保留达到阈值的真实识别结果，空结果会保留为空表。",
+        "when": {
+          "method": [
+            "auto",
+            "ocr"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "box_thresh",
+        "label": "文字检测框阈值",
+        "kind": "float",
+        "default": 0.5,
+        "choices": [],
+        "advanced": false,
+        "info": "传给 RapidOCR 的检测框阈值，建议 0 到 1；阈值升高会减少低置信度区域。",
+        "when": {
+          "method": [
+            "auto",
+            "ocr"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "ocr_config_path",
+        "label": "RapidOCR 模型配置路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "可选的现有 RapidOCR 配置文件；留空使用已安装的本地 ONNX 模型。",
+        "when": {
+          "method": [
+            "auto",
+            "ocr"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "附件输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用独立临时目录；填写绝对路径可集中保存渲染页或转换结果。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "overwrite",
+        "label": "允许覆盖同名输出",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "默认遇同名文件生成新名称；原始输入文件始终受保护。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "extract.pdf_tables",
@@ -132,7 +1145,259 @@
     },
     "directory": "materials_extraction",
     "filename": "extract_pdf_tables",
-    "class_name": "ScienceExtractPdfTables"
+    "class_name": "ScienceExtractPdfTables",
+    "table_output": true,
+    "artifacts_output": true,
+    "upload_types": [
+      "pdf"
+    ],
+    "icon": "Table",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "pages",
+        "label": "页码列表",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空处理全部页面；页码从 1 开始，例如 1、3、5，不使用 0 起始索引。",
+        "when": {},
+        "required": false,
+        "converter": "int_list"
+      },
+      {
+        "path": "dpi",
+        "label": "OCR / 渲染分辨率",
+        "kind": "int",
+        "default": 150,
+        "choices": [],
+        "advanced": false,
+        "info": "36 至 1200 DPI；更高分辨率可改善小字识别，也增加运行时间和附件体积。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "method",
+        "label": "PDF 表格提取方式",
+        "kind": "choice",
+        "default": "auto",
+        "choices": [
+          "auto",
+          "lines",
+          "text",
+          "ocr"
+        ],
+        "advanced": false,
+        "info": "auto 先网格线、再文字对齐，未检出时使用 OCR；OCR 表格须有可识别的网格线。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "header",
+        "label": "将第一行作为列名",
+        "kind": "bool",
+        "default": true,
+        "choices": [],
+        "advanced": false,
+        "info": "关闭后自动生成列名并保留首行数据；重复印刷表头会被区分命名。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "region",
+        "label": "提取矩形区域",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可留空处理全图/全页；依次填写 left、top、right、bottom，单位为PDF 点（1/72 英寸，可为小数）；右下界大于左上界。",
+        "when": {},
+        "required": false,
+        "converter": "float_list"
+      },
+      {
+        "path": "min_words_vertical",
+        "label": "文字对齐最少词数",
+        "kind": "int",
+        "default": 3,
+        "choices": [],
+        "advanced": false,
+        "info": "原生文字对齐策略用于识别纵向表格结构的最少词数。",
+        "when": {
+          "method": [
+            "auto",
+            "text"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "text_score",
+        "label": "文字识别置信度阈值",
+        "kind": "float",
+        "default": 0.5,
+        "choices": [],
+        "advanced": false,
+        "info": "0 到 1；只保留达到阈值的真实识别结果，空结果会保留为空表。",
+        "when": {
+          "method": [
+            "auto",
+            "ocr"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "box_thresh",
+        "label": "文字检测框阈值",
+        "kind": "float",
+        "default": 0.5,
+        "choices": [],
+        "advanced": false,
+        "info": "传给 RapidOCR 的检测框阈值，建议 0 到 1；阈值升高会减少低置信度区域。",
+        "when": {
+          "method": [
+            "auto",
+            "ocr"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "ocr_config_path",
+        "label": "RapidOCR 模型配置路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "可选的现有 RapidOCR 配置文件；留空使用已安装的本地 ONNX 模型。",
+        "when": {
+          "method": [
+            "auto",
+            "ocr"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "x_lines",
+        "label": "手动纵向网格线坐标",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可留空自动检测；手动时须同时填 y_lines，至少两个严格递增的原图像素坐标。",
+        "when": {
+          "method": [
+            "auto",
+            "ocr"
+          ]
+        },
+        "required": false,
+        "converter": "int_list"
+      },
+      {
+        "path": "y_lines",
+        "label": "手动横向网格线坐标",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "须与 x_lines 同时填写；坐标位于所选区域内，末线严格小于区域右/下边界。",
+        "when": {
+          "method": [
+            "auto",
+            "ocr"
+          ]
+        },
+        "required": false,
+        "converter": "int_list"
+      },
+      {
+        "path": "line_threshold",
+        "label": "网格线灰度阈值",
+        "kind": "int",
+        "default": 180,
+        "choices": [],
+        "advanced": false,
+        "info": "0 到 255；仅用于自动检测有线表格的深色网格，不推断无框表格。",
+        "when": {
+          "method": [
+            "auto",
+            "ocr"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "min_table_width",
+        "label": "最小表格宽度（像素）",
+        "kind": "int",
+        "default": 40,
+        "choices": [],
+        "advanced": false,
+        "info": "自动网格检测的最小区域宽度；过小区域会被忽略。",
+        "when": {
+          "method": [
+            "auto",
+            "ocr"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "min_table_height",
+        "label": "最小表格高度（像素）",
+        "kind": "int",
+        "default": 30,
+        "choices": [],
+        "advanced": false,
+        "info": "自动网格检测的最小区域高度；没有网格时返回真实空表及提示。",
+        "when": {
+          "method": [
+            "auto",
+            "ocr"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "附件输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用独立临时目录；填写绝对路径可集中保存渲染页或转换结果。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "overwrite",
+        "label": "允许覆盖同名输出",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "默认遇同名文件生成新名称；原始输入文件始终受保护。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "extract.image_ocr",
@@ -149,7 +1414,111 @@
     },
     "directory": "materials_extraction",
     "filename": "extract_image_ocr",
-    "class_name": "ScienceExtractImageOcr"
+    "class_name": "ScienceExtractImageOcr",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [
+      "png",
+      "jpg",
+      "jpeg",
+      "tif",
+      "tiff",
+      "bmp",
+      "webp",
+      "gif"
+    ],
+    "icon": "ScanText",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "regions",
+        "label": "识别区域列表",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空自动检测全图；每行一个原图整数像素矩形 left/top/right/bottom，须处于图像范围内。",
+        "when": {},
+        "required": false,
+        "converter": "rectangles",
+        "table_schema": [
+          {
+            "name": "left",
+            "display_name": "左",
+            "type": "int",
+            "description": "左",
+            "edit_mode": "inline"
+          },
+          {
+            "name": "top",
+            "display_name": "上",
+            "type": "int",
+            "description": "上",
+            "edit_mode": "inline"
+          },
+          {
+            "name": "right",
+            "display_name": "右",
+            "type": "int",
+            "description": "右",
+            "edit_mode": "inline"
+          },
+          {
+            "name": "bottom",
+            "display_name": "下",
+            "type": "int",
+            "description": "下",
+            "edit_mode": "inline"
+          }
+        ]
+      },
+      {
+        "path": "text_score",
+        "label": "文字识别置信度阈值",
+        "kind": "float",
+        "default": 0.5,
+        "choices": [],
+        "advanced": false,
+        "info": "0 到 1；只保留达到阈值的真实识别结果，空结果会保留为空表。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "box_thresh",
+        "label": "文字检测框阈值",
+        "kind": "float",
+        "default": 0.5,
+        "choices": [],
+        "advanced": false,
+        "info": "传给 RapidOCR 的检测框阈值，建议 0 到 1；阈值升高会减少低置信度区域。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "ocr_config_path",
+        "label": "RapidOCR 模型配置路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "可选的现有 RapidOCR 配置文件；留空使用已安装的本地 ONNX 模型。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "extract.image_tables",
@@ -166,7 +1535,149 @@
     },
     "directory": "materials_extraction",
     "filename": "extract_image_tables",
-    "class_name": "ScienceExtractImageTables"
+    "class_name": "ScienceExtractImageTables",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [
+      "png",
+      "jpg",
+      "jpeg",
+      "tif",
+      "tiff",
+      "bmp",
+      "webp",
+      "gif"
+    ],
+    "icon": "Table",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "region",
+        "label": "提取矩形区域",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可留空处理全图/全页；依次填写 left、top、right、bottom，单位为原图整数像素；右下界大于左上界。",
+        "when": {},
+        "required": false,
+        "converter": "int_list"
+      },
+      {
+        "path": "header",
+        "label": "将第一行作为列名",
+        "kind": "bool",
+        "default": true,
+        "choices": [],
+        "advanced": false,
+        "info": "有网格表格逐单元格 OCR；关闭后生成列名并保留第一行数据。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "x_lines",
+        "label": "手动纵向网格线坐标",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可留空自动检测；手动时须同时填 y_lines，至少两个严格递增的原图像素坐标。",
+        "when": {},
+        "required": false,
+        "converter": "int_list"
+      },
+      {
+        "path": "y_lines",
+        "label": "手动横向网格线坐标",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "须与 x_lines 同时填写；坐标位于所选区域内，末线严格小于区域右/下边界。",
+        "when": {},
+        "required": false,
+        "converter": "int_list"
+      },
+      {
+        "path": "line_threshold",
+        "label": "网格线灰度阈值",
+        "kind": "int",
+        "default": 180,
+        "choices": [],
+        "advanced": false,
+        "info": "0 到 255；仅用于自动检测有线表格的深色网格，不推断无框表格。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "min_table_width",
+        "label": "最小表格宽度（像素）",
+        "kind": "int",
+        "default": 40,
+        "choices": [],
+        "advanced": false,
+        "info": "自动网格检测的最小区域宽度；过小区域会被忽略。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "min_table_height",
+        "label": "最小表格高度（像素）",
+        "kind": "int",
+        "default": 30,
+        "choices": [],
+        "advanced": false,
+        "info": "自动网格检测的最小区域高度；没有网格时返回真实空表及提示。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "text_score",
+        "label": "文字识别置信度阈值",
+        "kind": "float",
+        "default": 0.5,
+        "choices": [],
+        "advanced": false,
+        "info": "0 到 1；只保留达到阈值的真实识别结果，空结果会保留为空表。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "box_thresh",
+        "label": "文字检测框阈值",
+        "kind": "float",
+        "default": 0.5,
+        "choices": [],
+        "advanced": false,
+        "info": "传给 RapidOCR 的检测框阈值，建议 0 到 1；阈值升高会减少低置信度区域。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "ocr_config_path",
+        "label": "RapidOCR 模型配置路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "可选的现有 RapidOCR 配置文件；留空使用已安装的本地 ONNX 模型。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "extract.chart_digitize",
@@ -188,7 +1699,189 @@
     },
     "directory": "materials_extraction",
     "filename": "extract_chart_digitize",
-    "class_name": "ScienceExtractChartDigitize"
+    "class_name": "ScienceExtractChartDigitize",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [
+      "png",
+      "jpg",
+      "jpeg",
+      "tif",
+      "tiff",
+      "bmp",
+      "webp",
+      "gif"
+    ],
+    "icon": "ChartLine",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "calibration.x",
+        "label": "X 轴两点标定",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "恰好两行，填写原图上的像素坐标与对应实际值；两像素及两实际值均须不同且有限。",
+        "when": {},
+        "required": true,
+        "converter": "pairs",
+        "pair_columns": [
+          "pixel",
+          "value"
+        ],
+        "table_schema": [
+          {
+            "name": "pixel",
+            "display_name": "原图像素位置",
+            "type": "float",
+            "description": "原图像素位置",
+            "edit_mode": "inline"
+          },
+          {
+            "name": "value",
+            "display_name": "实际坐标值",
+            "type": "float",
+            "description": "实际坐标值",
+            "edit_mode": "inline"
+          }
+        ]
+      },
+      {
+        "path": "calibration.y",
+        "label": "Y 轴两点标定",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "恰好两行，填写原图上的像素坐标与对应实际值；两像素及两实际值均须不同且有限。",
+        "when": {},
+        "required": true,
+        "converter": "pairs",
+        "pair_columns": [
+          "pixel",
+          "value"
+        ],
+        "table_schema": [
+          {
+            "name": "pixel",
+            "display_name": "原图像素位置",
+            "type": "float",
+            "description": "原图像素位置",
+            "edit_mode": "inline"
+          },
+          {
+            "name": "value",
+            "display_name": "实际坐标值",
+            "type": "float",
+            "description": "实际坐标值",
+            "edit_mode": "inline"
+          }
+        ]
+      },
+      {
+        "path": "calibration.x_scale",
+        "label": "X 轴刻度",
+        "kind": "choice",
+        "default": "linear",
+        "choices": [
+          "linear",
+          "log"
+        ],
+        "advanced": false,
+        "info": "linear 为线性轴；log 为十进对数轴，两个实际标定值必须为正。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "calibration.y_scale",
+        "label": "Y 轴刻度",
+        "kind": "choice",
+        "default": "linear",
+        "choices": [
+          "linear",
+          "log"
+        ],
+        "advanced": false,
+        "info": "linear 为线性轴；log 为十进对数轴，两个实际标定值必须为正。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "color",
+        "label": "曲线 RGB 颜色",
+        "kind": "list",
+        "default": [
+          255,
+          0,
+          0
+        ],
+        "choices": [],
+        "advanced": false,
+        "info": "依次填写红、绿、蓝三个 0 到 255 的整数，例如 255、0、0 表示红色。",
+        "when": {},
+        "required": true,
+        "converter": "int_list"
+      },
+      {
+        "path": "color_tolerance",
+        "label": "颜色欧氏距离容差",
+        "kind": "float",
+        "default": 40.0,
+        "choices": [],
+        "advanced": false,
+        "info": "非负有限值；选择与 RGB 目标颜色距离不大于此值的像素。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "region",
+        "label": "提取矩形区域",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可留空处理全图/全页；依次填写 left、top、right、bottom，单位为原图整数像素；右下界大于左上界。",
+        "when": {},
+        "required": false,
+        "converter": "int_list"
+      },
+      {
+        "path": "pixel_step",
+        "label": "横向采样步长（像素）",
+        "kind": "int",
+        "default": 1,
+        "choices": [],
+        "advanced": false,
+        "info": "正整数；每隔这些像素取一列，以匹配像素的纵坐标中位数定位曲线。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "max_thickness",
+        "label": "厚度警告阈值（像素）",
+        "kind": "float",
+        "default": 10.0,
+        "choices": [],
+        "advanced": false,
+        "info": "同一横向位置命中像素的纵向跨度大于此值时警告；多曲线/标记可能混入结果。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "extract.convert_file",
@@ -205,7 +1898,263 @@
     },
     "directory": "materials_extraction",
     "filename": "extract_convert_file",
-    "class_name": "ScienceExtractConvertFile"
+    "class_name": "ScienceExtractConvertFile",
+    "table_output": true,
+    "artifacts_output": true,
+    "upload_types": [
+      "pdf",
+      "csv",
+      "tsv",
+      "txt",
+      "dat",
+      "xlsx",
+      "xls",
+      "xlsm",
+      "ods",
+      "png",
+      "jpg",
+      "jpeg",
+      "tif",
+      "tiff",
+      "bmp",
+      "webp",
+      "xy",
+      "xye",
+      "jdx",
+      "dx",
+      "jcamp",
+      "brml",
+      "raw"
+    ],
+    "icon": "FileOutput",
+    "method_path": "target",
+    "table_methods": [
+      "csv",
+      "txt"
+    ],
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "本地文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传文件、填写现有文件的绝对路径，或连接上游 Data.file_path；源文件保持不变。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "target",
+        "label": "目标文件格式",
+        "kind": "choice",
+        "default": "csv",
+        "choices": [
+          "csv",
+          "txt",
+          "png"
+        ],
+        "advanced": false,
+        "info": "CSV 输出提取表格；TXT 输出文字或制表分隔表；PNG 渲染 PDF 页面、转换图片或绘制输入表。PNG 模式只暴露附件输出。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "filename",
+        "label": "输出文件名",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可留空使用 converted.目标扩展名；手填须为无目录的文件名，扩展名须与目标格式一致。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "method",
+        "label": "源文件解析方式",
+        "kind": "choice",
+        "default": null,
+        "choices": [
+          "auto",
+          "lines",
+          "text",
+          "native",
+          "ocr",
+          "delimited",
+          "fixed_width"
+        ],
+        "advanced": false,
+        "info": "留空按源格式默认解析；PDF→CSV 选 auto/lines/text/ocr，PDF→TXT 选 auto/native/ocr，TXT 可选 lines/fixed_width。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "encoding",
+        "label": "文本编码",
+        "kind": "choice",
+        "default": "auto",
+        "choices": [
+          "auto",
+          "utf-8",
+          "utf-8-sig",
+          "gb18030",
+          "gbk",
+          "utf-16",
+          "latin-1"
+        ],
+        "advanced": false,
+        "info": "auto 依次检查 BOM、UTF-8、GB18030；识别失败时选择源文件实际编码。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "sheet",
+        "label": "源 Excel 工作表",
+        "kind": "str",
+        "default": "0",
+        "choices": [],
+        "advanced": false,
+        "info": "Excel/ODS 的名称或从 0 开始的序号；其他来源忽略。",
+        "when": {},
+        "required": false,
+        "converter": "number_or_text"
+      },
+      {
+        "path": "delimiter",
+        "label": "源文本分隔符",
+        "kind": "str",
+        "default": "auto",
+        "choices": [],
+        "advanced": false,
+        "info": "分隔表使用 auto 或一个实际分隔字符；PDF、图片和数值仪器文件忽略。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "range",
+        "label": "源表格读取区域",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "表格来源可选 A2:C20 矩形；不会用于 PDF/图片裁剪。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "widths",
+        "label": "定宽文本各列宽度",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "仅 TXT 定宽解析使用，按顺序填写各列正整数字符宽度。",
+        "when": {
+          "method": [
+            "fixed_width"
+          ]
+        },
+        "required": true,
+        "converter": "int_list"
+      },
+      {
+        "path": "names",
+        "label": "定宽文本列名",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可留空自动命名；手填须唯一且与宽度数量一致。",
+        "when": {
+          "method": [
+            "fixed_width"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "pages",
+        "label": "PDF 页码列表",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "仅 PDF 来源使用；从 1 开始，留空转换全部页面。",
+        "when": {},
+        "required": false,
+        "converter": "int_list"
+      },
+      {
+        "path": "dpi",
+        "label": "PDF 渲染分辨率",
+        "kind": "int",
+        "default": 150,
+        "choices": [],
+        "advanced": false,
+        "info": "36 至 1200 DPI；扫描页文字/表格 OCR 和 PDF→PNG 使用。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "text_score",
+        "label": "文字识别置信度阈值",
+        "kind": "float",
+        "default": 0.5,
+        "choices": [],
+        "advanced": false,
+        "info": "0 到 1；只保留达到阈值的真实识别结果，空结果会保留为空表。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "box_thresh",
+        "label": "文字检测框阈值",
+        "kind": "float",
+        "default": 0.5,
+        "choices": [],
+        "advanced": false,
+        "info": "传给 RapidOCR 的检测框阈值，建议 0 到 1；阈值升高会减少低置信度区域。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "ocr_config_path",
+        "label": "RapidOCR 模型配置路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "可选的现有 RapidOCR 配置文件；留空使用已安装的本地 ONNX 模型。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "附件输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用独立临时目录；填写绝对路径可集中保存渲染页或转换结果。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "overwrite",
+        "label": "允许覆盖同名输出",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "默认遇同名文件生成新名称；原始输入文件始终受保护。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "preprocess.filter",
@@ -219,7 +2168,98 @@
     "default_config": {},
     "directory": "materials_preprocessing",
     "filename": "preprocess_filter",
-    "class_name": "SciencePreprocessFilter"
+    "class_name": "SciencePreprocessFilter",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "ListFilter",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "conditions",
+        "label": "行筛选条件",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "op 支持 eq/ne/lt/le/gt/ge/in/not_in/contains/isna/notna；数值自动解析，in/not_in 用逗号列表或 JSON 列表；isna/notna 无需值。",
+        "when": {},
+        "required": false,
+        "converter": "filter_conditions",
+        "table_schema": [
+          {
+            "name": "column",
+            "display_name": "列名",
+            "type": "str",
+            "description": "列名",
+            "edit_mode": "inline"
+          },
+          {
+            "name": "op",
+            "display_name": "运算符",
+            "type": "str",
+            "description": "运算符",
+            "edit_mode": "inline"
+          },
+          {
+            "name": "value",
+            "display_name": "比较值",
+            "type": "str",
+            "description": "比较值",
+            "edit_mode": "inline"
+          }
+        ]
+      },
+      {
+        "path": "logic",
+        "label": "条件组合方式",
+        "kind": "choice",
+        "default": "and",
+        "choices": [
+          "and",
+          "or"
+        ],
+        "advanced": false,
+        "info": "and 要求所有条件满足，or 要求任一条件满足；无条件时保留全部行。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "drop_empty",
+        "label": "删除全空行",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "先判断原表所有列是否为空白/默认缺失标记，再与条件结果取交集。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "columns",
+        "label": "处理 / 保留列名",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写表中实际列名，可手填自定义名称；留空处理全部列，数值方法请明确选取数值列。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "rename",
+        "label": "列重命名映射",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "原列名到新列名的映射；原列须位于保留列内，重命名后列名须唯一。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "preprocess.missing",
@@ -235,7 +2275,107 @@
     },
     "directory": "materials_preprocessing",
     "filename": "preprocess_missing",
-    "class_name": "SciencePreprocessMissing"
+    "class_name": "SciencePreprocessMissing",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Eraser",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "缺失值处理方式",
+        "kind": "choice",
+        "default": "keep",
+        "choices": [
+          "keep",
+          "drop",
+          "mean",
+          "median",
+          "mode",
+          "ffill",
+          "linear"
+        ],
+        "advanced": false,
+        "info": "keep 保留，drop 删除所选列含缺失的行；其余方法可分组填充；不自动外推边界。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "columns",
+        "label": "处理 / 保留列名",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写表中实际列名，可手填自定义名称；留空处理全部列，数值方法请明确选取数值列。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "missing_tokens",
+        "label": "额外缺失标记",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空仅识别真实空值与空白；填写时替代默认标记集，例如 NA、N/A、null。真实空值始终为缺失。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "group_by",
+        "label": "分组列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用全表；填写后仅在每组内计算基线/插值，组键不得缺失。",
+        "when": {
+          "method": [
+            "mean",
+            "median",
+            "mode",
+            "ffill",
+            "linear"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "order_by",
+        "label": "排序 / 插值坐标列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "须显式填写数值或日期时间坐标列；组内唯一且单调，需先在上游明确排序。",
+        "when": {
+          "method": [
+            "ffill",
+            "linear"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "continuous",
+        "label": "确认所选量可连续插值",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "线性插值必须明确勾选；每组每列至少两个观测点，仅填已知坐标范围内部的缺失值。",
+        "when": {
+          "method": [
+            "linear"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "preprocess.units",
@@ -252,7 +2392,49 @@
     },
     "directory": "materials_preprocessing",
     "filename": "preprocess_units",
-    "class_name": "SciencePreprocessUnits"
+    "class_name": "SciencePreprocessUnits",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Ruler",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "source_units",
+        "label": "原始单位映射",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "列名到原始单位，如 stress:MPa、temperature:degC；也可读取上游 Data.units、表 attrs 或单元格内单位。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "target_units",
+        "label": "目标单位映射",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "必须指定至少一列，如 stress:Pa；原始与目标物理量维度须一致，保留缺失单元格。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "missing_tokens",
+        "label": "额外缺失标记",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空仅识别真实空值与空白；填写时替代默认标记集，例如 NA、N/A、null。真实空值始终为缺失。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "preprocess.reshape",
@@ -269,7 +2451,182 @@
     },
     "directory": "materials_preprocessing",
     "filename": "preprocess_reshape",
-    "class_name": "SciencePreprocessReshape"
+    "class_name": "SciencePreprocessReshape",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Table",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "格式转换方式",
+        "kind": "choice",
+        "default": "types",
+        "choices": [
+          "types",
+          "wide_to_long",
+          "long_to_wide"
+        ],
+        "advanced": false,
+        "info": "types 显式转换类型；wide_to_long 将测量列展开；long_to_wide 以唯一键组合透视，不自动聚合重复值。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "types",
+        "label": "列目标类型映射",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "列名到 number/integer/datetime/category/string/boolean；integer 须可精确表示为 Int64，boolean 仅接受 true/false。",
+        "when": {
+          "method": [
+            "types"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "date_formats",
+        "label": "日期格式映射",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "datetime 列必须指定精确格式，如 date:%Y-%m-%d；要求原始字符串与格式严格一致。",
+        "when": {
+          "method": [
+            "types"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "categories",
+        "label": "分类允许值映射",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "category 列可指定逗号分隔的允许类别，如 phase:alpha,beta；不在列表中的非空值会报错。",
+        "when": {
+          "method": [
+            "types"
+          ]
+        },
+        "required": false,
+        "converter": "list_mapping"
+      },
+      {
+        "path": "id_vars",
+        "label": "宽转长的标识列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "展开后原样保留的列，如 sample_id、temperature。",
+        "when": {
+          "method": [
+            "wide_to_long"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "value_vars",
+        "label": "宽转长的测量列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "需要展开成多行的测量列；留空使用所有非标识列。",
+        "when": {
+          "method": [
+            "wide_to_long"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "var_name",
+        "label": "长表变量名列",
+        "kind": "str",
+        "default": "variable",
+        "choices": [],
+        "advanced": false,
+        "info": "存放原测量列名称的新列名，不能与保留列冲突。",
+        "when": {
+          "method": [
+            "wide_to_long"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "value_name",
+        "label": "长表测量值列",
+        "kind": "str",
+        "default": "value",
+        "choices": [],
+        "advanced": false,
+        "info": "存放测量值的新列名，不能与已有列冲突。",
+        "when": {
+          "method": [
+            "wide_to_long"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "index",
+        "label": "长转宽的行标识列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "一列或多列共同标识输出行，行标识与列分类的组合必须唯一。",
+        "when": {
+          "method": [
+            "long_to_wide"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "columns",
+        "label": "长转宽的列分类字段",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "一个实际列名，该字段的各个取值将成为新的宽表列名。",
+        "when": {
+          "method": [
+            "long_to_wide"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "values",
+        "label": "长转宽的测量值字段",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写一个实际列名以得到平坦列结构；重复键须先显式汇总，节点不会隐式取平均。",
+        "when": {
+          "method": [
+            "long_to_wide"
+          ]
+        },
+        "required": true
+      }
+    ]
   },
   {
     "key": "preprocess.merge",
@@ -288,7 +2645,174 @@
     },
     "directory": "materials_preprocessing",
     "filename": "preprocess_merge",
-    "class_name": "SciencePreprocessMerge"
+    "class_name": "SciencePreprocessMerge",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Merge",
+    "context_input": true,
+    "reports_input": true,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "多表合并方式",
+        "kind": "choice",
+        "default": "join",
+        "choices": [
+          "join",
+          "append",
+          "asof"
+        ],
+        "advanced": false,
+        "info": "连接至少两张表到 input_tables；join 按键关联，append 逐行追加，asof 为恰好两表的有容差近邻关联。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "on",
+        "label": "关联键 / 坐标列",
+        "kind": "list",
+        "default": [
+          "sample_id"
+        ],
+        "choices": [],
+        "advanced": false,
+        "info": "join 可填写多个键；asof 必须恰好一列，坐标不得缺失且两表均须按坐标递增排序。",
+        "when": {
+          "method": [
+            "join",
+            "asof"
+          ]
+        },
+        "required": true,
+        "converter": "column_or_list"
+      },
+      {
+        "path": "how",
+        "label": "键关联保留方式",
+        "kind": "choice",
+        "default": "left",
+        "choices": [
+          "left",
+          "right",
+          "inner",
+          "outer"
+        ],
+        "advanced": false,
+        "info": "left 保留左表键，right 保留右表键，inner 只保留交集，outer 保留并集。",
+        "when": {
+          "method": [
+            "join"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "validate",
+        "label": "键基数校验",
+        "kind": "choice",
+        "default": "one_to_one",
+        "choices": [
+          "one_to_one",
+          "one_to_many",
+          "many_to_one",
+          "many_to_many"
+        ],
+        "advanced": false,
+        "info": "默认要求两侧键唯一；按实验记录的真实重复关系选择，避免无意的笛卡尔扩增。",
+        "when": {
+          "method": [
+            "join"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "suffixes",
+        "label": "重复列名的左右后缀",
+        "kind": "list",
+        "default": [
+          "_left",
+          "_right"
+        ],
+        "choices": [],
+        "advanced": false,
+        "info": "恰好两个文本后缀，依次用于左表和右表的同名非键列。",
+        "when": {
+          "method": [
+            "join",
+            "asof"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "ignore_index",
+        "label": "追加后重建行索引",
+        "kind": "bool",
+        "default": true,
+        "choices": [],
+        "advanced": false,
+        "info": "打开后生成连续索引；不同列集合按名称对齐，缺失列保留为空。",
+        "when": {
+          "method": [
+            "append"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "by",
+        "label": "近邻关联的分组键",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选；仅在同组内寻找近邻，组键不得缺失，右表同组坐标不得重复。",
+        "when": {
+          "method": [
+            "asof"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "tolerance",
+        "label": "近邻最大容差",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "必须填写；数值坐标使用数值容差，日期时间坐标使用 1s、10ms 等 pandas 时间间隔。",
+        "when": {
+          "method": [
+            "asof"
+          ]
+        },
+        "required": true,
+        "converter": "number_or_text"
+      },
+      {
+        "path": "direction",
+        "label": "近邻匹配方向",
+        "kind": "choice",
+        "default": "nearest",
+        "choices": [
+          "nearest",
+          "backward",
+          "forward"
+        ],
+        "advanced": false,
+        "info": "nearest 选最近点，等距两候选会报错；backward/forward 明确选择较早/较晚坐标。",
+        "when": {
+          "method": [
+            "asof"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "preprocess.normalize",
@@ -304,7 +2828,42 @@
     },
     "directory": "materials_preprocessing",
     "filename": "preprocess_normalize",
-    "class_name": "SciencePreprocessNormalize"
+    "class_name": "SciencePreprocessNormalize",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "SlidersHorizontal",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "归一化方式",
+        "kind": "choice",
+        "default": "minmax",
+        "choices": [
+          "minmax",
+          "zscore",
+          "robust"
+        ],
+        "advanced": false,
+        "info": "minmax 按极差，zscore 按总体标准差 ddof=0，robust 按中位数与四分位距；常量列映射为零并提示。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "columns",
+        "label": "处理 / 保留列名",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写表中实际列名，可手填自定义名称；留空处理全部列，数值方法请明确选取数值列。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "materials.xrd",
@@ -324,7 +2883,255 @@
     },
     "directory": "materials_analysis",
     "filename": "materials_xrd",
-    "class_name": "ScienceMaterialsXrd"
+    "class_name": "ScienceMaterialsXrd",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "ChartLine",
+    "context_input": false,
+    "reports_input": true,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "x",
+        "label": "横坐标列",
+        "kind": "str",
+        "default": "x",
+        "choices": [],
+        "advanced": false,
+        "info": "填写表中实际列名；至少三个有限数值点，横坐标须严格递增且不重复。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "y",
+        "label": "信号列",
+        "kind": "str",
+        "default": "y",
+        "choices": [],
+        "advanced": false,
+        "info": "填写原始信号列名；不自动转换透过率、吸光度或仪器符号。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "sort",
+        "label": "按横坐标排序",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "仅适用于无序但唯一的坐标；加载/卸载曲线应先明确截取单调段。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "baseline.method",
+        "label": "基线方法",
+        "kind": "choice",
+        "default": "none",
+        "choices": [
+          "none",
+          "constant",
+          "linear",
+          "anchors"
+        ],
+        "advanced": false,
+        "info": "none 不扣除；constant 扣常数；linear 连首尾；anchors 使用覆盖全测量范围的锚点。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "baseline.value",
+        "label": "常数基线值",
+        "kind": "float",
+        "default": 0.0,
+        "choices": [],
+        "advanced": false,
+        "info": "有限数值，单位与输入信号列相同。",
+        "when": {
+          "baseline.method": [
+            "constant"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "baseline.points",
+        "label": "基线锚点",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "至少两行；横坐标严格递增，首末锚点须覆盖全测量范围；使用原始坐标及信号单位。",
+        "when": {
+          "baseline.method": [
+            "anchors"
+          ]
+        },
+        "required": true,
+        "converter": "pairs",
+        "pair_columns": [
+          "x",
+          "y"
+        ],
+        "table_schema": [
+          {
+            "name": "x",
+            "display_name": "横坐标",
+            "type": "float"
+          },
+          {
+            "name": "y",
+            "display_name": "基线信号",
+            "type": "float"
+          }
+        ]
+      },
+      {
+        "path": "smooth_window",
+        "label": "平滑窗口（点数）",
+        "kind": "int",
+        "default": 0,
+        "choices": [],
+        "advanced": false,
+        "info": "0 关闭；开启时须为正奇数、不超过样本数且大于多项式阶数。要求横坐标等间距。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "smooth_order",
+        "label": "平滑多项式阶数",
+        "kind": "int",
+        "default": 2,
+        "choices": [],
+        "advanced": false,
+        "info": "非负整数；启用平滑时须小于窗口点数。使用 Savitzky–Golay 方法。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "prominence",
+        "label": "寻峰突出度",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空按信号极差的 5% 自适应；手填须大于 0，单位与基线校正后的信号相同。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "peak_distance",
+        "label": "最小峰间距（采样点）",
+        "kind": "int",
+        "default": 1,
+        "choices": [],
+        "advanced": false,
+        "info": "整数且至少为 1；这是采样点数，不是横坐标单位。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "x_unit",
+        "label": "横坐标单位",
+        "kind": "str",
+        "default": "deg",
+        "choices": [],
+        "advanced": false,
+        "info": "例如 2θ 对应 deg；须与参考库一致。峰宽是表观宽度，未扣仪器展宽。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "match",
+        "label": "参考库匹配",
+        "kind": "choice",
+        "default": "none",
+        "choices": [
+          "none",
+          "profile",
+          "peaks"
+        ],
+        "advanced": false,
+        "info": "默认关闭；profile 比较完整谱形，peaks 在给定容差内一对一匹配峰位；分数仅用于候选排序。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "match_tolerance",
+        "label": "峰位容差",
+        "kind": "float",
+        "default": 0.1,
+        "choices": [],
+        "advanced": false,
+        "info": "须大于 0，单位与横坐标相同；参考库峰位必须使用相同单位。",
+        "when": {
+          "match": [
+            "peaks"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "references",
+        "label": "用户参考库（高级）",
+        "kind": "json",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "也可由上游 Data.references 提供；名称须唯一。峰匹配用 name/peaks，谱形匹配或参考拟合用 name/x/y；谱形须非负、非零并覆盖测量范围，声明的 x_unit 必须一致。仅评价所提供库。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "whole_pattern",
+        "label": "全谱经验拟合",
+        "kind": "choice",
+        "default": "none",
+        "choices": [
+          "none",
+          "reference",
+          "gaussian"
+        ],
+        "advanced": false,
+        "info": "默认关闭；reference 为参考谱非负组合，系数不是质量分数；gaussian 为高斯峰和。均不是 Rietveld 精修。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "fit_peaks",
+        "label": "高斯峰初值",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "每行一个峰；峰中心在测量范围内部，sigma 与峰高均 > 0；中心和 sigma 用横坐标单位，峰高用信号单位。",
+        "when": {
+          "whole_pattern": [
+            "gaussian"
+          ]
+        },
+        "required": true,
+        "table_schema": [
+          {
+            "name": "center",
+            "display_name": "峰中心",
+            "type": "float"
+          },
+          {
+            "name": "sigma",
+            "display_name": "标准差",
+            "type": "float"
+          },
+          {
+            "name": "amplitude",
+            "display_name": "峰高",
+            "type": "float"
+          }
+        ]
+      }
+    ]
   },
   {
     "key": "materials.spectra",
@@ -342,7 +3149,252 @@
     },
     "directory": "materials_analysis",
     "filename": "materials_spectra",
-    "class_name": "ScienceMaterialsSpectra"
+    "class_name": "ScienceMaterialsSpectra",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Waves",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "x",
+        "label": "横坐标列",
+        "kind": "str",
+        "default": "x",
+        "choices": [],
+        "advanced": false,
+        "info": "填写表中实际列名；至少三个有限数值点，横坐标须严格递增且不重复。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "y",
+        "label": "信号列",
+        "kind": "str",
+        "default": "y",
+        "choices": [],
+        "advanced": false,
+        "info": "填写原始信号列名；不自动转换透过率、吸光度或仪器符号。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "sort",
+        "label": "按横坐标排序",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "仅适用于无序但唯一的坐标；加载/卸载曲线应先明确截取单调段。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "baseline.method",
+        "label": "基线方法",
+        "kind": "choice",
+        "default": "none",
+        "choices": [
+          "none",
+          "constant",
+          "linear",
+          "anchors"
+        ],
+        "advanced": false,
+        "info": "none 不扣除；constant 扣常数；linear 连首尾；anchors 使用覆盖全测量范围的锚点。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "baseline.value",
+        "label": "常数基线值",
+        "kind": "float",
+        "default": 0.0,
+        "choices": [],
+        "advanced": false,
+        "info": "有限数值，单位与输入信号列相同。",
+        "when": {
+          "baseline.method": [
+            "constant"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "baseline.points",
+        "label": "基线锚点",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "至少两行；横坐标严格递增，首末锚点须覆盖全测量范围；使用原始坐标及信号单位。",
+        "when": {
+          "baseline.method": [
+            "anchors"
+          ]
+        },
+        "required": true,
+        "converter": "pairs",
+        "pair_columns": [
+          "x",
+          "y"
+        ],
+        "table_schema": [
+          {
+            "name": "x",
+            "display_name": "横坐标",
+            "type": "float"
+          },
+          {
+            "name": "y",
+            "display_name": "基线信号",
+            "type": "float"
+          }
+        ]
+      },
+      {
+        "path": "smooth_window",
+        "label": "平滑窗口（点数）",
+        "kind": "int",
+        "default": 0,
+        "choices": [],
+        "advanced": false,
+        "info": "0 关闭；开启时须为正奇数、不超过样本数且大于多项式阶数。要求横坐标等间距。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "smooth_order",
+        "label": "平滑多项式阶数",
+        "kind": "int",
+        "default": 2,
+        "choices": [],
+        "advanced": false,
+        "info": "非负整数；启用平滑时须小于窗口点数。使用 Savitzky–Golay 方法。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "prominence",
+        "label": "寻峰突出度",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空按信号极差的 5% 自适应；手填须大于 0，单位与基线校正后的信号相同。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "peak_distance",
+        "label": "最小峰间距（采样点）",
+        "kind": "int",
+        "default": 1,
+        "choices": [],
+        "advanced": false,
+        "info": "整数且至少为 1；这是采样点数，不是横坐标单位。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "x_unit",
+        "label": "光谱横坐标单位",
+        "kind": "str",
+        "default": "cm^-1",
+        "choices": [],
+        "advanced": false,
+        "info": "填写实际波数/波长单位，例如 cm^-1、nm；FTIR 应输入适当信号约定，不自动把透过率转为吸光度。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "normalization",
+        "label": "归一化",
+        "kind": "choice",
+        "default": "none",
+        "choices": [
+          "none",
+          "max",
+          "l2",
+          "area"
+        ],
+        "advanced": false,
+        "info": "none 保留量级；max 按最大绝对值；l2 按向量范数；area 按绝对信号积分。峰面积在归一化前计算。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "area_ranges",
+        "label": "积分区间",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用全测量范围；每行下限 < 上限且均在测量范围内，单位同横坐标。定量分析请选互不重叠区间。",
+        "when": {},
+        "required": false,
+        "converter": "pairs",
+        "pair_columns": [
+          "lower",
+          "upper"
+        ],
+        "table_schema": [
+          {
+            "name": "lower",
+            "display_name": "下限",
+            "type": "float"
+          },
+          {
+            "name": "upper",
+            "display_name": "上限",
+            "type": "float"
+          }
+        ]
+      },
+      {
+        "path": "match",
+        "label": "参考库匹配",
+        "kind": "choice",
+        "default": "none",
+        "choices": [
+          "none",
+          "profile",
+          "peaks"
+        ],
+        "advanced": false,
+        "info": "默认关闭；profile 比较完整谱形，peaks 在给定容差内一对一匹配峰位；分数仅用于候选排序。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "match_tolerance",
+        "label": "峰位容差",
+        "kind": "float",
+        "default": 0.1,
+        "choices": [],
+        "advanced": false,
+        "info": "须大于 0，单位与横坐标相同；参考库峰位必须使用相同单位。",
+        "when": {
+          "match": [
+            "peaks"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "references",
+        "label": "用户参考库（高级）",
+        "kind": "json",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "也可由上游 Data.references 提供；名称须唯一。峰匹配用 name/peaks，谱形匹配或参考拟合用 name/x/y；谱形须非负、非零并覆盖测量范围，声明的 x_unit 必须一致。仅评价所提供库。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "materials.thermal",
@@ -360,7 +3412,329 @@
     },
     "directory": "materials_analysis",
     "filename": "materials_thermal",
-    "class_name": "ScienceMaterialsThermal"
+    "class_name": "ScienceMaterialsThermal",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Thermometer",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "kind",
+        "label": "热分析类型",
+        "kind": "choice",
+        "default": "tg",
+        "choices": [
+          "tg",
+          "dsc"
+        ],
+        "advanced": false,
+        "info": "TG 分析失重阶段；DSC 按仪器吸热符号约定积分。切换类型后须核对纵轴单位。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "x",
+        "label": "横坐标列",
+        "kind": "str",
+        "default": "x",
+        "choices": [],
+        "advanced": false,
+        "info": "填写表中实际列名；至少三个有限数值点，横坐标须严格递增且不重复。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "y",
+        "label": "信号列",
+        "kind": "str",
+        "default": "y",
+        "choices": [],
+        "advanced": false,
+        "info": "填写原始信号列名；不自动转换透过率、吸光度或仪器符号。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "sort",
+        "label": "按横坐标排序",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "仅适用于无序但唯一的坐标；加载/卸载曲线应先明确截取单调段。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "baseline.method",
+        "label": "基线方法",
+        "kind": "choice",
+        "default": "none",
+        "choices": [
+          "none",
+          "constant",
+          "linear",
+          "anchors"
+        ],
+        "advanced": false,
+        "info": "none 不扣除；constant 扣常数；linear 连首尾；anchors 使用覆盖全测量范围的锚点。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "baseline.value",
+        "label": "常数基线值",
+        "kind": "float",
+        "default": 0.0,
+        "choices": [],
+        "advanced": false,
+        "info": "有限数值，单位与输入信号列相同。",
+        "when": {
+          "baseline.method": [
+            "constant"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "baseline.points",
+        "label": "基线锚点",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "至少两行；横坐标严格递增，首末锚点须覆盖全测量范围；使用原始坐标及信号单位。",
+        "when": {
+          "baseline.method": [
+            "anchors"
+          ]
+        },
+        "required": true,
+        "converter": "pairs",
+        "pair_columns": [
+          "x",
+          "y"
+        ],
+        "table_schema": [
+          {
+            "name": "x",
+            "display_name": "横坐标",
+            "type": "float"
+          },
+          {
+            "name": "y",
+            "display_name": "基线信号",
+            "type": "float"
+          }
+        ]
+      },
+      {
+        "path": "smooth_window",
+        "label": "平滑窗口（点数）",
+        "kind": "int",
+        "default": 0,
+        "choices": [],
+        "advanced": false,
+        "info": "0 关闭；开启时须为正奇数、不超过样本数且大于多项式阶数。要求横坐标等间距。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "smooth_order",
+        "label": "平滑多项式阶数",
+        "kind": "int",
+        "default": 2,
+        "choices": [],
+        "advanced": false,
+        "info": "非负整数；启用平滑时须小于窗口点数。使用 Savitzky–Golay 方法。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "prominence",
+        "label": "寻峰突出度",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空按信号极差的 5% 自适应；手填须大于 0，单位与基线校正后的信号相同。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "peak_distance",
+        "label": "最小峰间距（采样点）",
+        "kind": "int",
+        "default": 1,
+        "choices": [],
+        "advanced": false,
+        "info": "整数且至少为 1；这是采样点数，不是横坐标单位。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "x_unit",
+        "label": "温度或时间单位",
+        "kind": "choice",
+        "default": "degC",
+        "choices": [
+          "degC",
+          "K",
+          "s",
+          "min"
+        ],
+        "advanced": false,
+        "info": "须与横坐标数据一致；DSC 用温度作横坐标时还必须声明升温速率。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "y_unit",
+        "label": "质量或热流单位",
+        "kind": "choice",
+        "default": "%",
+        "choices": [
+          "%",
+          "mg",
+          "g",
+          "W/g",
+          "mW/mg",
+          "mW/g",
+          "W",
+          "mW"
+        ],
+        "advanced": false,
+        "info": "TG 仅可选 %、mg、g；DSC 必须改选 W/g、mW/mg、mW/g、W 或 mW。不得只更改单位标签而不转换数据。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "initial_mass",
+        "label": "TG 初始质量",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用首个校正质量值；手填须 > 0，单位同纵轴。使用 % 数据时通常首值约为 100。",
+        "when": {
+          "kind": [
+            "tg"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "stage_threshold",
+        "label": "TG 失重速率阈值",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空采用最大失重速率的 5%（有正数下限）；手填 > 0，单位 percent/横坐标单位。阈值会影响阶段分界。",
+        "when": {
+          "kind": [
+            "tg"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "endotherm",
+        "label": "DSC 吸热方向",
+        "kind": "choice",
+        "default": null,
+        "choices": [
+          "positive",
+          "negative"
+        ],
+        "advanced": false,
+        "info": "按仪器约定明确选择正峰吸热或负峰吸热；不根据峰形推断。",
+        "when": {
+          "kind": [
+            "dsc"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "heating_rate",
+        "label": "DSC 升温速率",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "须 > 0；填写实际实验速率，不默认猜测。横坐标为时间时不使用此项。",
+        "when": {
+          "kind": [
+            "dsc"
+          ],
+          "x_unit": [
+            "degC",
+            "K"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "heating_rate_unit",
+        "label": "升温速率单位",
+        "kind": "choice",
+        "default": "K/min",
+        "choices": [
+          "K/min",
+          "K/s",
+          "degC/min",
+          "degC/s"
+        ],
+        "advanced": false,
+        "info": "与实际升温速率数值配套；每分钟和每秒会影响焓积分换算。",
+        "when": {
+          "kind": [
+            "dsc"
+          ],
+          "x_unit": [
+            "degC",
+            "K"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "area_ranges",
+        "label": "积分区间",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用全测量范围；每行下限 < 上限且均在测量范围内，单位同横坐标。定量分析请选互不重叠区间。",
+        "when": {
+          "kind": [
+            "dsc"
+          ]
+        },
+        "required": false,
+        "converter": "pairs",
+        "pair_columns": [
+          "lower",
+          "upper"
+        ],
+        "table_schema": [
+          {
+            "name": "lower",
+            "display_name": "下限",
+            "type": "float"
+          },
+          {
+            "name": "upper",
+            "display_name": "上限",
+            "type": "float"
+          }
+        ]
+      }
+    ]
   },
   {
     "key": "materials.mechanics",
@@ -377,7 +3751,112 @@
     },
     "directory": "materials_analysis",
     "filename": "materials_mechanics",
-    "class_name": "ScienceMaterialsMechanics"
+    "class_name": "ScienceMaterialsMechanics",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Activity",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "x",
+        "label": "应变列",
+        "kind": "str",
+        "default": "strain",
+        "choices": [],
+        "advanced": false,
+        "info": "工程应变的实际列名；至少三个有限点且严格递增。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "y",
+        "label": "应力列",
+        "kind": "str",
+        "default": "stress",
+        "choices": [],
+        "advanced": false,
+        "info": "工程应力的实际列名；仅用于单调拉伸加载段。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "strain_unit",
+        "label": "输入应变单位",
+        "kind": "choice",
+        "default": "fraction",
+        "choices": [
+          "fraction",
+          "%"
+        ],
+        "advanced": false,
+        "info": "fraction 表示 0.01 = 1%；% 表示 1 = 1%。拟合区间使用此输入单位。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "stress_unit",
+        "label": "输入应力单位",
+        "kind": "choice",
+        "default": "MPa",
+        "choices": [
+          "Pa",
+          "kPa",
+          "MPa",
+          "GPa"
+        ],
+        "advanced": false,
+        "info": "与原始数据一致；输出应力及弹性模量统一换算为 MPa。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "fit_range",
+        "label": "弹性拟合应变区间",
+        "kind": "range",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "必须按输入应变单位手选递增上下限，位于实测范围内且至少包含三个点；不自动假定材料弹性区。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "yield_offset",
+        "label": "屈服偏移（绝对应变）",
+        "kind": "float",
+        "default": 0.002,
+        "choices": [],
+        "advanced": false,
+        "info": "须 > 0，始终使用 fraction；0.002 表示 0.2% 偏移，与输入应变单位选择无关。缺少实测交点时不报屈服强度。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "fracture_confirmed",
+        "label": "已有实验依据确认末点断裂",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "仅在实验确证最后测量点为断裂时勾选；否则断裂应变保持缺失。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "sort",
+        "label": "按应变排序",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": true,
+        "info": "默认保留加载次序；仅对明确单调加载段的无序唯一点使用，不可混排加载/卸载路径。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "materials.sem_eds",
@@ -394,7 +3873,324 @@
     },
     "directory": "materials_analysis",
     "filename": "materials_sem_eds",
-    "class_name": "ScienceMaterialsSemEds"
+    "class_name": "ScienceMaterialsSemEds",
+    "table_output": true,
+    "artifacts_output": true,
+    "upload_types": [
+      "png",
+      "jpg",
+      "jpeg",
+      "tif",
+      "tiff",
+      "bmp",
+      "webp",
+      "csv"
+    ],
+    "icon": "ScanLine",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "SEM/EDS 模式",
+        "kind": "choice",
+        "default": "image",
+        "choices": [
+          "image",
+          "eds"
+        ],
+        "advanced": false,
+        "info": "image 提取二维图像形貌；eds 读取外部已定量元素百分比，不做元素谱峰解卷积或 ZAF 校正。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "path",
+        "label": "图像或文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传图像或填写本地完整路径；也可连接含 file_path 或 image 数组的上游 Data。",
+        "when": {
+          "method": [
+            "image"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "feature",
+        "label": "前景物理含义",
+        "kind": "choice",
+        "default": "particle",
+        "choices": [
+          "particle",
+          "pore",
+          "grain"
+        ],
+        "advanced": false,
+        "info": "按实际样品解释选择颗粒、孔或晶粒；二维连通区域不会自动分开相接颗粒。",
+        "when": {
+          "method": [
+            "image"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "segmentation",
+        "label": "分割方法",
+        "kind": "choice",
+        "default": "threshold",
+        "choices": [
+          "threshold",
+          "ml"
+        ],
+        "advanced": false,
+        "info": "threshold 用亮度阈值；ml 需要上游同一图像的 training_labels，不含预训练材料模型。",
+        "when": {
+          "method": [
+            "image"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "threshold",
+        "label": "阈值（otsu 或数值）",
+        "kind": "str",
+        "default": "otsu",
+        "choices": [],
+        "advanced": false,
+        "info": "otsu 自动估计；也可填原图灰度尺度的有限数值。常量图像必须手填阈值，灰度图不强制缩放到 0–255。",
+        "when": {
+          "method": [
+            "image"
+          ],
+          "segmentation": [
+            "threshold"
+          ]
+        },
+        "required": false,
+        "converter": "number_or_text"
+      },
+      {
+        "path": "foreground",
+        "label": "阈值前景",
+        "kind": "choice",
+        "default": "bright",
+        "choices": [
+          "bright",
+          "dark"
+        ],
+        "advanced": false,
+        "info": "bright：灰度 > 阈值；dark：灰度 ≤ 阈值。请按目标结构实际亮暗选择。",
+        "when": {
+          "method": [
+            "image"
+          ],
+          "segmentation": [
+            "threshold"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "ml_features",
+        "label": "监督分割特征",
+        "kind": "choice",
+        "default": "intensity",
+        "choices": [
+          "intensity",
+          "multiscale"
+        ],
+        "advanced": false,
+        "info": "默认仅亮度；多尺度还用平滑、梯度与局部方差。Data.training_labels 必须同形状，取 -1/0/1，且包含两类标注。",
+        "when": {
+          "method": [
+            "image"
+          ],
+          "segmentation": [
+            "ml"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "random_state",
+        "label": "随机种子",
+        "kind": "int",
+        "default": 0,
+        "choices": [],
+        "advanced": false,
+        "info": "整数；控制随机森林可重复性，不代表已完成独立准确率验证。",
+        "when": {
+          "method": [
+            "image"
+          ],
+          "segmentation": [
+            "ml"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "pixel_size",
+        "label": "物理像素尺寸",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空且物理单位也留空时按 px 输出。物理标定时须大于 0，并同时填写每像素对应的实际长度单位。",
+        "when": {
+          "method": [
+            "image"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "spatial_unit",
+        "label": "物理长度单位",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "与像素尺寸一起填写，例如 um、nm、mm；物理标定不能填 px。无标定时两个字段均留空。",
+        "when": {
+          "method": [
+            "image"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "connectivity",
+        "label": "连通邻域",
+        "kind": "choice",
+        "default": 1,
+        "choices": [
+          1,
+          2
+        ],
+        "advanced": false,
+        "info": "1 为四邻域，2 为八邻域；对角接触区域是否合并由此决定。",
+        "when": {
+          "method": [
+            "image"
+          ]
+        },
+        "required": false,
+        "converter": "int"
+      },
+      {
+        "path": "min_area_pixels",
+        "label": "最小区域面积（像素）",
+        "kind": "int",
+        "default": 1,
+        "choices": [],
+        "advanced": false,
+        "info": "至少为 1 的整数；小于此像素面积的前景区域被移除，不使用标定后面积。",
+        "when": {
+          "method": [
+            "image"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "分割附件目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空创建临时目录；输出 materials_mask.png 和 materials_labels.npy，输入图像受到覆盖保护。",
+        "when": {
+          "method": [
+            "image"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "file_path",
+        "label": "EDS CSV 路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "优先连接结果表；也可上传 CSV、填写完整路径或连接上游 file_path。",
+        "when": {
+          "method": [
+            "eds"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "encoding",
+        "label": "CSV 编码",
+        "kind": "str",
+        "default": "utf-8-sig",
+        "choices": [],
+        "advanced": false,
+        "info": "只用于读取 CSV；例如 utf-8-sig、utf-8、gb18030。",
+        "when": {
+          "method": [
+            "eds"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "element_column",
+        "label": "元素列",
+        "kind": "str",
+        "default": "element",
+        "choices": [],
+        "advanced": false,
+        "info": "元素标识不能为空；同一组成内元素不能重复，多测点需设置组成分组列。",
+        "when": {
+          "method": [
+            "eds"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "percent_columns",
+        "label": "百分比列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空自动识别存在的 wt_percent、at_percent；自定义列必须是 0–100 的有限百分比值。",
+        "when": {
+          "method": [
+            "eds"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "group_by",
+        "label": "组成/测点分组列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "多个测点请填写实际标识列；不得有缺失。留空将全表视为一个组成并核查总和与重复元素。",
+        "when": {
+          "method": [
+            "eds"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "materials.microstructure",
@@ -410,7 +4206,190 @@
     },
     "directory": "materials_analysis",
     "filename": "materials_microstructure",
-    "class_name": "ScienceMaterialsMicrostructure"
+    "class_name": "ScienceMaterialsMicrostructure",
+    "table_output": true,
+    "artifacts_output": true,
+    "upload_types": [
+      "png",
+      "jpg",
+      "jpeg",
+      "tif",
+      "tiff",
+      "bmp",
+      "webp"
+    ],
+    "icon": "Microscope",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "path",
+        "label": "图像或文件路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可上传图像或填写本地完整路径；也可连接含 file_path 或 image 数组的上游 Data。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "feature",
+        "label": "前景物理含义",
+        "kind": "choice",
+        "default": "particle",
+        "choices": [
+          "particle",
+          "pore",
+          "grain"
+        ],
+        "advanced": false,
+        "info": "按实际样品解释选择颗粒、孔或晶粒；二维连通区域不会自动分开相接颗粒。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "segmentation",
+        "label": "分割方法",
+        "kind": "choice",
+        "default": "threshold",
+        "choices": [
+          "threshold",
+          "ml"
+        ],
+        "advanced": false,
+        "info": "threshold 用亮度阈值；ml 需要上游同一图像的 training_labels，不含预训练材料模型。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "threshold",
+        "label": "阈值（otsu 或数值）",
+        "kind": "str",
+        "default": "otsu",
+        "choices": [],
+        "advanced": false,
+        "info": "otsu 自动估计；也可填原图灰度尺度的有限数值。常量图像必须手填阈值，灰度图不强制缩放到 0–255。",
+        "when": {
+          "segmentation": [
+            "threshold"
+          ]
+        },
+        "required": false,
+        "converter": "number_or_text"
+      },
+      {
+        "path": "foreground",
+        "label": "阈值前景",
+        "kind": "choice",
+        "default": "bright",
+        "choices": [
+          "bright",
+          "dark"
+        ],
+        "advanced": false,
+        "info": "bright：灰度 > 阈值；dark：灰度 ≤ 阈值。请按目标结构实际亮暗选择。",
+        "when": {
+          "segmentation": [
+            "threshold"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "ml_features",
+        "label": "监督分割特征",
+        "kind": "choice",
+        "default": "intensity",
+        "choices": [
+          "intensity",
+          "multiscale"
+        ],
+        "advanced": false,
+        "info": "默认仅亮度；多尺度还用平滑、梯度与局部方差。Data.training_labels 必须同形状，取 -1/0/1，且包含两类标注。",
+        "when": {
+          "segmentation": [
+            "ml"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "random_state",
+        "label": "随机种子",
+        "kind": "int",
+        "default": 0,
+        "choices": [],
+        "advanced": false,
+        "info": "整数；控制随机森林可重复性，不代表已完成独立准确率验证。",
+        "when": {
+          "segmentation": [
+            "ml"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "pixel_size",
+        "label": "物理像素尺寸",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空且物理单位也留空时按 px 输出。物理标定时须大于 0，并同时填写每像素对应的实际长度单位。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "spatial_unit",
+        "label": "物理长度单位",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "与像素尺寸一起填写，例如 um、nm、mm；物理标定不能填 px。无标定时两个字段均留空。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "connectivity",
+        "label": "连通邻域",
+        "kind": "choice",
+        "default": 1,
+        "choices": [
+          1,
+          2
+        ],
+        "advanced": false,
+        "info": "1 为四邻域，2 为八邻域；对角接触区域是否合并由此决定。",
+        "when": {},
+        "required": false,
+        "converter": "int"
+      },
+      {
+        "path": "min_area_pixels",
+        "label": "最小区域面积（像素）",
+        "kind": "int",
+        "default": 1,
+        "choices": [],
+        "advanced": false,
+        "info": "至少为 1 的整数；小于此像素面积的前景区域被移除，不使用标定后面积。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "分割附件目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空创建临时目录；输出 materials_mask.png 和 materials_labels.npy，输入图像受到覆盖保护。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "stats.grouped",
@@ -429,7 +4408,51 @@
     },
     "directory": "materials_statistics",
     "filename": "stats_grouped",
-    "class_name": "ScienceStatsGrouped"
+    "class_name": "ScienceStatsGrouped",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "TableProperties",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "group",
+        "label": "分组列",
+        "kind": "str",
+        "default": "group",
+        "choices": [],
+        "advanced": false,
+        "info": "输入自定义分组列名；标签不能缺失。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "columns",
+        "label": "统计数值列",
+        "kind": "list",
+        "default": [
+          "value"
+        ],
+        "choices": [],
+        "advanced": false,
+        "info": "填写有限数值列名；每组计算数量、均值、样本标准差和分位数。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "units",
+        "label": "列单位",
+        "kind": "dict",
+        "default": {},
+        "choices": [],
+        "advanced": false,
+        "info": "列名到单位的映射；单观测组的样本标准差未定义。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "stats.distribution",
@@ -446,7 +4469,125 @@
     },
     "directory": "materials_statistics",
     "filename": "stats_distribution",
-    "class_name": "ScienceStatsDistribution"
+    "class_name": "ScienceStatsDistribution",
+    "table_output": false,
+    "artifacts_output": true,
+    "upload_types": [],
+    "icon": "ChartColumn",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "column",
+        "label": "数值列",
+        "kind": "str",
+        "default": "value",
+        "choices": [],
+        "advanced": false,
+        "info": "至少三个有限且非常数的观测值；输出直方图、Q-Q 图和 Shapiro 检验信息，无表输出。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "bins",
+        "label": "直方图分箱",
+        "kind": "str",
+        "default": "auto",
+        "choices": [],
+        "advanced": false,
+        "info": "填写正整数，或 auto、fd、doane、scott、stone、rice、sturges、sqrt。",
+        "when": {},
+        "required": false,
+        "converter": "histogram_bins"
+      },
+      {
+        "path": "profile",
+        "label": "图件用途",
+        "kind": "choice",
+        "default": "preview",
+        "choices": [
+          "preview",
+          "paper"
+        ],
+        "advanced": false,
+        "info": "preview 用于预览；paper 默认导出 PNG、SVG、PDF、TIFF。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "formats",
+        "label": "导出格式",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选 png、svg、pdf、tiff；留空采用所选用途的默认格式。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "dpi",
+        "label": "分辨率 DPI",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "72 至 1200；留空按用途选择，TIFF 至少 600 DPI。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "data_kind",
+        "label": "数据来源类型",
+        "kind": "choice",
+        "default": "unspecified",
+        "choices": [
+          "unspecified",
+          "synthetic",
+          "measured",
+          "simulated",
+          "derived"
+        ],
+        "advanced": false,
+        "info": "准确标识实测、模拟、合成或派生数据，图件将记录来源。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "units",
+        "label": "列单位",
+        "kind": "dict",
+        "default": {},
+        "choices": [],
+        "advanced": false,
+        "info": "数值列名到单位的映射，用于坐标标签。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空自动创建临时目录；填写本机可写目录。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "overwrite",
+        "label": "覆盖同名文件",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "关闭时为已有文件生成唯一文件名，保留旧结果。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "stats.correlation",
@@ -466,7 +4607,60 @@
     },
     "directory": "materials_statistics",
     "filename": "stats_correlation",
-    "class_name": "ScienceStatsCorrelation"
+    "class_name": "ScienceStatsCorrelation",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "ChartScatter",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "columns",
+        "label": "相关分析列",
+        "kind": "list",
+        "default": [
+          "x",
+          "y"
+        ],
+        "choices": [],
+        "advanced": false,
+        "info": "至少两列有限且非常数的数值；逐对输出相关系数与未校正 p 值。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "method",
+        "label": "相关方法",
+        "kind": "choice",
+        "default": "pearson",
+        "choices": [
+          "pearson",
+          "spearman",
+          "kendall"
+        ],
+        "advanced": false,
+        "info": "Pearson 为线性相关；Spearman 与 Kendall 为秩相关。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "alpha",
+        "label": "置信区间显著性水平",
+        "kind": "float",
+        "default": 0.05,
+        "choices": [],
+        "advanced": false,
+        "info": "0 与 1 之间；Pearson 区间置信度为 1-alpha。",
+        "when": {
+          "method": [
+            "pearson"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "stats.significance",
@@ -484,7 +4678,122 @@
     },
     "directory": "materials_statistics",
     "filename": "stats_significance",
-    "class_name": "ScienceStatsSignificance"
+    "class_name": "ScienceStatsSignificance",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Scale",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "检验方法",
+        "kind": "choice",
+        "default": "welch",
+        "choices": [
+          "welch",
+          "independent_t",
+          "paired_t",
+          "mannwhitney",
+          "anova",
+          "kruskal"
+        ],
+        "advanced": false,
+        "info": "Welch 等双组方法需恰好两组；ANOVA 和 Kruskal 可比较多组。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "group",
+        "label": "分组列",
+        "kind": "str",
+        "default": "group",
+        "choices": [],
+        "advanced": false,
+        "info": "输入分组列名，可填写自定义列名；组标签不能缺失。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "column",
+        "label": "测量值列",
+        "kind": "str",
+        "default": "value",
+        "choices": [],
+        "advanced": false,
+        "info": "输入有限数值列名；每组至少两个观测值。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "groups",
+        "label": "参与比较的组",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用全部组；填写组标签并保留比较顺序，不能重复。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "subject",
+        "label": "独立实验单位 ID 列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选。独立检验中 ID 必须唯一且非缺失；技术重复需先聚合。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "alpha",
+        "label": "显著性水平",
+        "kind": "float",
+        "default": 0.05,
+        "choices": [],
+        "advanced": false,
+        "info": "0 与 1 之间；结果同时保留效应量与适用假设。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "pair_id",
+        "label": "配对 ID 列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "配对 t 检验必填。每个 ID 在每组仅有一条记录，不按行顺序猜测配对。",
+        "when": {
+          "method": [
+            "paired_t"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "incomplete_pairs",
+        "label": "不完整配对处理",
+        "kind": "choice",
+        "default": "error",
+        "choices": [
+          "error",
+          "drop"
+        ],
+        "advanced": false,
+        "info": "默认报错；选择 drop 明确丢弃不完整配对。",
+        "when": {
+          "method": [
+            "paired_t"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "stats.multiple",
@@ -501,7 +4810,120 @@
     },
     "directory": "materials_statistics",
     "filename": "stats_multiple",
-    "class_name": "ScienceStatsMultiple"
+    "class_name": "ScienceStatsMultiple",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "ListChecks",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "多重比较方法",
+        "kind": "choice",
+        "default": "holm",
+        "choices": [
+          "holm",
+          "fdr",
+          "tukey",
+          "dunn"
+        ],
+        "advanced": false,
+        "info": "Holm/FDR 校正已有 p 值；Tukey/Dunn 从分组原始测量值进行比较。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "column",
+        "label": "p 值 / 测量值列",
+        "kind": "str",
+        "default": "pvalue",
+        "choices": [],
+        "advanced": false,
+        "info": "Holm/FDR 选择 0 至 1 的 p 值列；Tukey/Dunn 选择原始测量值列，每组至少两个观测。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "group",
+        "label": "分组列",
+        "kind": "str",
+        "default": "group",
+        "choices": [],
+        "advanced": false,
+        "info": "输入分组列名，可填写自定义列名；组标签不能缺失。",
+        "when": {
+          "method": [
+            "tukey",
+            "dunn"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "groups",
+        "label": "参与比较的组",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用全部组；填写组标签并保留比较顺序，不能重复。",
+        "when": {
+          "method": [
+            "tukey",
+            "dunn"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "subject",
+        "label": "独立实验单位 ID 列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选。独立检验中 ID 必须唯一且非缺失；技术重复需先聚合。",
+        "when": {
+          "method": [
+            "tukey",
+            "dunn"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "alpha",
+        "label": "显著性水平",
+        "kind": "float",
+        "default": 0.05,
+        "choices": [],
+        "advanced": false,
+        "info": "0 与 1 之间；整个比较族使用相同阈值。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "correction",
+        "label": "Dunn 校正方法",
+        "kind": "choice",
+        "default": "holm",
+        "choices": [
+          "holm",
+          "fdr"
+        ],
+        "advanced": false,
+        "info": "对 Dunn 成对比较的 p 值应用 Holm 或 Benjamini-Hochberg FDR。",
+        "when": {
+          "method": [
+            "dunn"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "stats.regression",
@@ -522,7 +4944,168 @@
     },
     "directory": "materials_statistics",
     "filename": "stats_regression",
-    "class_name": "ScienceStatsRegression"
+    "class_name": "ScienceStatsRegression",
+    "table_output": true,
+    "artifacts_output": true,
+    "upload_types": [],
+    "icon": "ChartNoAxesCombined",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "回归模型",
+        "kind": "choice",
+        "default": "linear",
+        "choices": [
+          "linear",
+          "polynomial",
+          "ridge",
+          "lasso"
+        ],
+        "advanced": false,
+        "info": "先拆分训练/测试集，再拟合缩放器；输出测试集结果、模型及清单。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "features",
+        "label": "特征列（按顺序）",
+        "kind": "list",
+        "default": [
+          "x"
+        ],
+        "choices": [],
+        "advanced": false,
+        "info": "填写互不重复的有限数值列名，顺序与模型一致；不能包含目标列。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "target",
+        "label": "目标列",
+        "kind": "str",
+        "default": "y",
+        "choices": [],
+        "advanced": false,
+        "info": "训练时必填有限数值列；读取已保存模型时可留空使用清单中的目标列。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "id_column",
+        "label": "样本 ID 列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选。必须唯一且非缺失，用于记录训练和测试样本。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "group_column",
+        "label": "独立样本分组列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "同一试样的重复测量使用相同标签，避免泄漏；至少两组。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "seed",
+        "label": "随机种子",
+        "kind": "int",
+        "default": 42,
+        "choices": [],
+        "advanced": false,
+        "info": "非负整数；固定数据拆分及随机模型。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "test_size",
+        "label": "测试集比例",
+        "kind": "float",
+        "default": 0.2,
+        "choices": [],
+        "advanced": false,
+        "info": "0 与 1 之间；训练和测试各需至少两个样本。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "degree",
+        "label": "多项式阶数",
+        "kind": "int",
+        "default": 2,
+        "choices": [],
+        "advanced": false,
+        "info": "1 至 8 的整数；仅在训练数据上拟合。",
+        "when": {
+          "method": [
+            "polynomial"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "alpha",
+        "label": "正则化强度",
+        "kind": "float",
+        "default": 1.0,
+        "choices": [],
+        "advanced": false,
+        "info": "有限非负数；此处为模型惩罚系数。",
+        "when": {
+          "method": [
+            "ridge",
+            "lasso"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "max_iter",
+        "label": "Lasso 最大迭代数",
+        "kind": "int",
+        "default": 10000,
+        "choices": [],
+        "advanced": false,
+        "info": "正整数；未收敛时可增加迭代数。",
+        "when": {
+          "method": [
+            "lasso"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空自动创建临时目录；填写本机可写目录。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "overwrite",
+        "label": "覆盖同名文件",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "关闭时为已有文件生成唯一文件名，保留旧结果。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "stats.predict",
@@ -543,7 +5126,299 @@
     },
     "directory": "materials_statistics",
     "filename": "stats_predict",
-    "class_name": "ScienceStatsPredict"
+    "class_name": "ScienceStatsPredict",
+    "table_output": true,
+    "artifacts_output": true,
+    "upload_types": [],
+    "icon": "BrainCircuit",
+    "context_input": false,
+    "reports_input": true,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "prediction_task",
+        "label": "预测任务",
+        "kind": "choice",
+        "default": "train",
+        "choices": [
+          "train",
+          "saved"
+        ],
+        "advanced": false,
+        "info": "train 训练新模型；saved 使用本机模型或上游清单，自动读取清单中的特征顺序。",
+        "when": {},
+        "required": false,
+        "ui_only": true
+      },
+      {
+        "path": "model_path",
+        "label": "已有模型路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选。本机 .skops 文件或模型清单 .json；优先读取已有模型。",
+        "when": {
+          "prediction_task": [
+            "saved"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "manifest_path",
+        "label": "模型清单路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选。生成的 model-manifest.json；上游 Data 也可提供。",
+        "when": {
+          "prediction_task": [
+            "saved"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "method",
+        "label": "预测模型",
+        "kind": "choice",
+        "default": "random_forest",
+        "choices": [
+          "random_forest",
+          "gradient_boosting",
+          "svr"
+        ],
+        "advanced": false,
+        "info": "无已有模型输入时训练；同一试样重复测量应填写独立样本分组列。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "features",
+        "label": "特征列（按顺序）",
+        "kind": "list",
+        "default": [
+          "x"
+        ],
+        "choices": [],
+        "advanced": false,
+        "info": "填写互不重复的有限数值列名，顺序与模型一致；不能包含目标列。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "target",
+        "label": "目标列",
+        "kind": "str",
+        "default": "y",
+        "choices": [],
+        "advanced": false,
+        "info": "训练时必填有限数值列；读取已保存模型时可留空使用清单中的目标列。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "id_column",
+        "label": "样本 ID 列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选。必须唯一且非缺失，用于记录训练和测试样本。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "group_column",
+        "label": "独立样本分组列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "同一试样的重复测量使用相同标签，避免泄漏；至少两组。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "seed",
+        "label": "随机种子",
+        "kind": "int",
+        "default": 42,
+        "choices": [],
+        "advanced": false,
+        "info": "非负整数；固定数据拆分及随机模型。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "test_size",
+        "label": "训练时的测试集比例",
+        "kind": "float",
+        "default": 0.2,
+        "choices": [],
+        "advanced": false,
+        "info": "0 与 1 之间；训练和测试各至少两个样本。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "n_estimators",
+        "label": "树的数量",
+        "kind": "int",
+        "default": 100,
+        "choices": [],
+        "advanced": false,
+        "info": "正整数；模型固定单线程，数量增加会提高运行成本。",
+        "when": {
+          "method": [
+            "random_forest",
+            "gradient_boosting"
+          ],
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "max_depth",
+        "label": "树最大深度",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "正整数；留空时随机森林不限制深度，梯度提升使用深度 3。",
+        "when": {
+          "method": [
+            "random_forest",
+            "gradient_boosting"
+          ],
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "C",
+        "label": "SVR 惩罚参数 C",
+        "kind": "float",
+        "default": 10.0,
+        "choices": [],
+        "advanced": false,
+        "info": "有限正数；输入特征由训练集拟合的标准化器变换。",
+        "when": {
+          "method": [
+            "svr"
+          ],
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "epsilon",
+        "label": "SVR 不敏感区间",
+        "kind": "float",
+        "default": 0.1,
+        "choices": [],
+        "advanced": false,
+        "info": "有限非负数，使用目标值的单位。",
+        "when": {
+          "method": [
+            "svr"
+          ],
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "kernel",
+        "label": "SVR 核函数",
+        "kind": "choice",
+        "default": "rbf",
+        "choices": [
+          "rbf",
+          "linear",
+          "poly",
+          "sigmoid"
+        ],
+        "advanced": false,
+        "info": "选择 sklearn SVR 支持的普通核函数。",
+        "when": {
+          "method": [
+            "svr"
+          ],
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空自动创建临时目录；填写本机可写目录。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "overwrite",
+        "label": "覆盖同名文件",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "关闭时为已有文件生成唯一文件名，保留旧结果。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "stats.evaluate",
@@ -565,7 +5440,428 @@
     },
     "directory": "materials_statistics",
     "filename": "stats_evaluate",
-    "class_name": "ScienceStatsEvaluate"
+    "class_name": "ScienceStatsEvaluate",
+    "table_output": true,
+    "artifacts_output": true,
+    "upload_types": [],
+    "icon": "Gauge",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "evaluation_task",
+        "label": "评估数据来源",
+        "kind": "choice",
+        "default": "train",
+        "choices": [
+          "train",
+          "saved",
+          "predictions"
+        ],
+        "advanced": false,
+        "info": "train 训练评估；saved 读取已有模型清单；predictions 计算已有真实值和预测值的指标。",
+        "when": {},
+        "required": false,
+        "ui_only": true
+      },
+      {
+        "path": "model_path",
+        "label": "已有模型路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选。本机 .skops 文件或模型清单 .json；优先读取已有模型。",
+        "when": {
+          "evaluation_task": [
+            "saved"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "manifest_path",
+        "label": "模型清单路径",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选。生成的 model-manifest.json；上游 Data 也可提供。",
+        "when": {
+          "evaluation_task": [
+            "saved"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "y_true",
+        "label": "已有真实值列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "与预测值列一起填写时直接计算指标；上游 Data 也可提供两个数组。",
+        "when": {
+          "evaluation_task": [
+            "predictions"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "y_pred",
+        "label": "已有预测值列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "与真实值列对齐且至少两个有限观测；此模式不训练或保存模型。",
+        "when": {
+          "evaluation_task": [
+            "predictions"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "method",
+        "label": "重新训练的评估方式",
+        "kind": "choice",
+        "default": "cv",
+        "choices": [
+          "cv",
+          "holdout"
+        ],
+        "advanced": false,
+        "info": "无已有模型或预测数据输入时，按所选方式训练并计算评估指标。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "model_method",
+        "label": "训练模型",
+        "kind": "choice",
+        "default": "linear",
+        "choices": [
+          "linear",
+          "polynomial",
+          "ridge",
+          "lasso",
+          "random_forest",
+          "gradient_boosting",
+          "svr"
+        ],
+        "advanced": false,
+        "info": "交叉验证每折独立拟合预处理，holdout 仅在训练集拟合。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "features",
+        "label": "特征列（按顺序）",
+        "kind": "list",
+        "default": [
+          "x"
+        ],
+        "choices": [],
+        "advanced": false,
+        "info": "填写互不重复的有限数值列名，顺序与模型一致；不能包含目标列。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "target",
+        "label": "目标列",
+        "kind": "str",
+        "default": "y",
+        "choices": [],
+        "advanced": false,
+        "info": "训练时必填有限数值列；读取已保存模型时可留空使用清单中的目标列。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "id_column",
+        "label": "样本 ID 列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选。必须唯一且非缺失，用于记录训练和测试样本。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "group_column",
+        "label": "独立样本分组列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "同一试样的重复测量使用相同标签，避免泄漏；至少两组。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "seed",
+        "label": "随机种子",
+        "kind": "int",
+        "default": 42,
+        "choices": [],
+        "advanced": false,
+        "info": "非负整数；固定数据拆分及随机模型。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "folds",
+        "label": "交叉验证折数",
+        "kind": "int",
+        "default": 5,
+        "choices": [],
+        "advanced": false,
+        "info": "至少 2 折，每折至少两个测试观测；分组验证的组数不能少于折数。",
+        "when": {
+          "method": [
+            "cv"
+          ],
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "test_size",
+        "label": "测试集比例",
+        "kind": "float",
+        "default": 0.2,
+        "choices": [],
+        "advanced": false,
+        "info": "0 与 1 之间；仅 holdout 训练评估使用。",
+        "when": {
+          "method": [
+            "holdout"
+          ],
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "degree",
+        "label": "多项式阶数",
+        "kind": "int",
+        "default": 2,
+        "choices": [],
+        "advanced": false,
+        "info": "1 至 8 的整数；仅在训练数据上拟合。",
+        "when": {
+          "model_method": [
+            "polynomial"
+          ],
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "alpha",
+        "label": "正则化强度",
+        "kind": "float",
+        "default": 1.0,
+        "choices": [],
+        "advanced": false,
+        "info": "有限非负数；此处为模型惩罚系数。",
+        "when": {
+          "model_method": [
+            "ridge",
+            "lasso"
+          ],
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "max_iter",
+        "label": "Lasso 最大迭代数",
+        "kind": "int",
+        "default": 10000,
+        "choices": [],
+        "advanced": false,
+        "info": "正整数；未收敛时可增加迭代数。",
+        "when": {
+          "model_method": [
+            "lasso"
+          ],
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "n_estimators",
+        "label": "树的数量",
+        "kind": "int",
+        "default": 100,
+        "choices": [],
+        "advanced": false,
+        "info": "正整数；模型固定单线程，数量增加会提高运行成本。",
+        "when": {
+          "model_method": [
+            "random_forest",
+            "gradient_boosting"
+          ],
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "max_depth",
+        "label": "树最大深度",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "正整数；留空时随机森林不限制深度，梯度提升使用深度 3。",
+        "when": {
+          "model_method": [
+            "random_forest",
+            "gradient_boosting"
+          ],
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "C",
+        "label": "SVR 惩罚参数 C",
+        "kind": "float",
+        "default": 10.0,
+        "choices": [],
+        "advanced": false,
+        "info": "有限正数；输入特征由训练集拟合的标准化器变换。",
+        "when": {
+          "model_method": [
+            "svr"
+          ],
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "epsilon",
+        "label": "SVR 不敏感区间",
+        "kind": "float",
+        "default": 0.1,
+        "choices": [],
+        "advanced": false,
+        "info": "有限非负数，使用目标值的单位。",
+        "when": {
+          "model_method": [
+            "svr"
+          ],
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "kernel",
+        "label": "SVR 核函数",
+        "kind": "choice",
+        "default": "rbf",
+        "choices": [
+          "rbf",
+          "linear",
+          "poly",
+          "sigmoid"
+        ],
+        "advanced": false,
+        "info": "选择 sklearn SVR 支持的普通核函数。",
+        "when": {
+          "model_method": [
+            "svr"
+          ],
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空自动创建临时目录；填写本机可写目录。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "overwrite",
+        "label": "覆盖同名文件",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "关闭时为已有文件生成唯一文件名，保留旧结果。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "viz.performance",
@@ -583,7 +5879,226 @@
     },
     "directory": "materials_visualization",
     "filename": "viz_performance",
-    "class_name": "ScienceVizPerformance"
+    "class_name": "ScienceVizPerformance",
+    "table_output": false,
+    "artifacts_output": true,
+    "upload_types": [],
+    "icon": "ChartScatter",
+    "context_input": true,
+    "reports_input": true,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "性能对比图型",
+        "kind": "choice",
+        "default": "scatter",
+        "choices": [
+          "scatter",
+          "bar",
+          "box",
+          "violin"
+        ],
+        "advanced": false,
+        "info": "scatter 散点；bar 均值±样本标准差；box 四分位箱图；violin 核密度。各图保留全部观测点。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "x",
+        "label": "横坐标列",
+        "kind": "str",
+        "default": "x",
+        "choices": [],
+        "advanced": false,
+        "info": "填写实际数值列名；散点图要求横、纵轴均为有限数值。",
+        "when": {
+          "method": [
+            "scatter"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "y",
+        "label": "性能数值列",
+        "kind": "str",
+        "default": "y",
+        "choices": [],
+        "advanced": false,
+        "info": "填写实际列名；要求有限数值。误差棒表示样本离散程度，不代表显著性。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "group",
+        "label": "分组列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选，填写实际分组列名；不能缺失。留空把全部观测视为一组。小提琴图每组至少两个不同数值。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "title",
+        "label": "图标题",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用各图型的默认标题；应准确描述比较对象或诊断问题。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "units",
+        "label": "列单位",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "键填原始列名，值填单位（如 stress → MPa）；用于标注并与输入单位元数据核对，不改变数值。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "labels",
+        "label": "列显示名称",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "键填原始列名，值填轴标签；列选择仍使用原始列名。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "color_map",
+        "label": "系列颜色",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "键填分组或系列名称，值填 Matplotlib 颜色（如 #0072B2）；留空按系列名称稳定分配颜色。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "profile",
+        "label": "出图预设",
+        "kind": "choice",
+        "default": "preview",
+        "choices": [
+          "preview",
+          "paper"
+        ],
+        "advanced": false,
+        "info": "preview 默认 150 dpi PNG；paper 默认 300 dpi PNG/SVG/PDF/TIFF，并生成图件清单与图注；TIFF 固定 600 dpi。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "formats",
+        "label": "导出格式",
+        "kind": "list",
+        "default": null,
+        "choices": [
+          "png",
+          "svg",
+          "pdf",
+          "tiff"
+        ],
+        "advanced": false,
+        "info": "留空沿用预设；可填写 png、svg、pdf、tiff。始终保留 PNG 预览；SVG 文字可编辑。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "dpi",
+        "label": "PNG/PDF/SVG 导出 dpi",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空随预设（预览 150、论文 300）；手填整数 72–1200。TIFF 使用 600 dpi，栅格不得超过 5000 万像素。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "width_mm",
+        "label": "图宽（mm）",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空沿用预设（预览 177.8、论文 150 mm）；手填 50.8–762 mm。指定宽度后默认高度为宽度的 0.66。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "height_mm",
+        "label": "图高（mm）",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选，须同时指定宽度或使用 paper 预设才生效；范围 50.8–762 mm。最终尺寸还受栅格像素上限约束。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "data_kind",
+        "label": "数据来源性质",
+        "kind": "choice",
+        "default": "unspecified",
+        "choices": [
+          "unspecified",
+          "measured",
+          "derived",
+          "simulated",
+          "synthetic"
+        ],
+        "advanced": false,
+        "info": "按实际来源选择：实测、派生、模拟或合成演示；图件记录该声明，合成演示会明显标注。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "purpose",
+        "label": "图件要说明的问题",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "用于图件证据清单；留空使用标题或图型名称。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "evidence_role",
+        "label": "图件证据角色",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "例如 comparison、diagnostic；留空由图型设定。该标签不构成科学验证。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "图件输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空创建临时目录；同名文件自动使用新名称，输出清单保留原始数值。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "viz.spectra",
@@ -603,7 +6118,250 @@
     },
     "directory": "materials_visualization",
     "filename": "viz_spectra",
-    "class_name": "ScienceVizSpectra"
+    "class_name": "ScienceVizSpectra",
+    "table_output": false,
+    "artifacts_output": true,
+    "upload_types": [],
+    "icon": "Waves",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "光谱/衍射图型",
+        "kind": "choice",
+        "default": "overlay",
+        "choices": [
+          "line",
+          "overlay",
+          "difference"
+        ],
+        "advanced": false,
+        "info": "line 不偏移折线；overlay 允许逐条偏移；difference 计算第一条强度列减第二条。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "x",
+        "label": "光谱横坐标列",
+        "kind": "str",
+        "default": "x",
+        "choices": [],
+        "advanced": false,
+        "info": "至少两个点，横坐标必须严格递增且唯一；不同采样网格应先在上游明确重采样。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "columns",
+        "label": "强度列列表",
+        "kind": "list",
+        "default": [
+          "intensity"
+        ],
+        "choices": [],
+        "advanced": false,
+        "info": "填写一列或多列实际列名；difference 必须恰好两列，顺序决定相减方向。所有列使用同一横坐标。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "offset",
+        "label": "相邻曲线显示偏移",
+        "kind": "float",
+        "default": 0.0,
+        "choices": [],
+        "advanced": false,
+        "info": "仅影响显示，单位同强度；第 i 条曲线加 i×偏移，不修改原始输入。",
+        "when": {
+          "method": [
+            "overlay"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "peaks",
+        "label": "峰位注释",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选，每行填写有限峰位置及注释；峰位须在测量范围内，箭头位于第一条显示曲线上。不自动寻峰。",
+        "when": {},
+        "required": false,
+        "table_schema": [
+          {
+            "name": "x",
+            "display_name": "峰位置",
+            "type": "float"
+          },
+          {
+            "name": "label",
+            "display_name": "注释",
+            "type": "str"
+          }
+        ]
+      },
+      {
+        "path": "title",
+        "label": "图标题",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用各图型的默认标题；应准确描述比较对象或诊断问题。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "units",
+        "label": "列单位",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "键填原始列名，值填单位（如 stress → MPa）；用于标注并与输入单位元数据核对，不改变数值。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "labels",
+        "label": "列显示名称",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "键填原始列名，值填轴标签；列选择仍使用原始列名。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "color_map",
+        "label": "系列颜色",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "键填分组或系列名称，值填 Matplotlib 颜色（如 #0072B2）；留空按系列名称稳定分配颜色。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "profile",
+        "label": "出图预设",
+        "kind": "choice",
+        "default": "preview",
+        "choices": [
+          "preview",
+          "paper"
+        ],
+        "advanced": false,
+        "info": "preview 默认 150 dpi PNG；paper 默认 300 dpi PNG/SVG/PDF/TIFF，并生成图件清单与图注；TIFF 固定 600 dpi。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "formats",
+        "label": "导出格式",
+        "kind": "list",
+        "default": null,
+        "choices": [
+          "png",
+          "svg",
+          "pdf",
+          "tiff"
+        ],
+        "advanced": false,
+        "info": "留空沿用预设；可填写 png、svg、pdf、tiff。始终保留 PNG 预览；SVG 文字可编辑。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "dpi",
+        "label": "PNG/PDF/SVG 导出 dpi",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空随预设（预览 150、论文 300）；手填整数 72–1200。TIFF 使用 600 dpi，栅格不得超过 5000 万像素。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "width_mm",
+        "label": "图宽（mm）",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空沿用预设（预览 177.8、论文 150 mm）；手填 50.8–762 mm。指定宽度后默认高度为宽度的 0.66。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "height_mm",
+        "label": "图高（mm）",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选，须同时指定宽度或使用 paper 预设才生效；范围 50.8–762 mm。最终尺寸还受栅格像素上限约束。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "data_kind",
+        "label": "数据来源性质",
+        "kind": "choice",
+        "default": "unspecified",
+        "choices": [
+          "unspecified",
+          "measured",
+          "derived",
+          "simulated",
+          "synthetic"
+        ],
+        "advanced": false,
+        "info": "按实际来源选择：实测、派生、模拟或合成演示；图件记录该声明，合成演示会明显标注。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "purpose",
+        "label": "图件要说明的问题",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "用于图件证据清单；留空使用标题或图型名称。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "evidence_role",
+        "label": "图件证据角色",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "例如 comparison、diagnostic；留空由图型设定。该标签不构成科学验证。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "图件输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空创建临时目录；同名文件自动使用新名称，输出清单保留原始数值。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "viz.mechanics",
@@ -622,7 +6380,265 @@
     },
     "directory": "materials_visualization",
     "filename": "viz_mechanics",
-    "class_name": "ScienceVizMechanics"
+    "class_name": "ScienceVizMechanics",
+    "table_output": false,
+    "artifacts_output": true,
+    "upload_types": [],
+    "icon": "Activity",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "力学曲线图型",
+        "kind": "choice",
+        "default": "overlay",
+        "choices": [
+          "overlay",
+          "mean_error"
+        ],
+        "advanced": false,
+        "info": "overlay 显示各试样；mean_error 按独立试样计算均值及误差带，每组至少两条试样曲线。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "x",
+        "label": "应变列",
+        "kind": "str",
+        "default": "strain",
+        "choices": [],
+        "advanced": false,
+        "info": "每条试样曲线至少两个点，保持采集次序且应变严格递增；请先截取单调加载段。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "y",
+        "label": "应力列",
+        "kind": "str",
+        "default": "stress",
+        "choices": [],
+        "advanced": false,
+        "info": "填写实际数值列名；先在上游统一试样间的应力及应变单位。图件不会换算数值。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "sample",
+        "label": "独立试样标识列",
+        "kind": "str",
+        "default": "sample_id",
+        "choices": [],
+        "advanced": false,
+        "info": "每个独立试样使用不同标识，不得缺失；同一个试样内重复测量点不作为独立样本。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "group",
+        "label": "试样分组列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选；每个试样只能属于一个组，分组标识不得缺失。留空按全部试样汇总。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "error",
+        "label": "试样间误差带",
+        "kind": "choice",
+        "default": "std",
+        "choices": [
+          "std",
+          "sem",
+          "ci95"
+        ],
+        "advanced": false,
+        "info": "std 样本标准差；sem 均值标准误；ci95 逐点 Student t 95% 置信区间，不是同时置信带。",
+        "when": {
+          "method": [
+            "mean_error"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "grid",
+        "label": "显式插值应变网格",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选数值列表；不同试样采样点不一致时必须填写。至少两点、有限且严格递增，完全位于所有试样共同范围内，禁止外推。",
+        "when": {
+          "method": [
+            "mean_error"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "title",
+        "label": "图标题",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用各图型的默认标题；应准确描述比较对象或诊断问题。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "units",
+        "label": "列单位",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "键填原始列名，值填单位（如 stress → MPa）；用于标注并与输入单位元数据核对，不改变数值。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "labels",
+        "label": "列显示名称",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "键填原始列名，值填轴标签；列选择仍使用原始列名。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "color_map",
+        "label": "系列颜色",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "键填分组或系列名称，值填 Matplotlib 颜色（如 #0072B2）；留空按系列名称稳定分配颜色。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "profile",
+        "label": "出图预设",
+        "kind": "choice",
+        "default": "preview",
+        "choices": [
+          "preview",
+          "paper"
+        ],
+        "advanced": false,
+        "info": "preview 默认 150 dpi PNG；paper 默认 300 dpi PNG/SVG/PDF/TIFF，并生成图件清单与图注；TIFF 固定 600 dpi。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "formats",
+        "label": "导出格式",
+        "kind": "list",
+        "default": null,
+        "choices": [
+          "png",
+          "svg",
+          "pdf",
+          "tiff"
+        ],
+        "advanced": false,
+        "info": "留空沿用预设；可填写 png、svg、pdf、tiff。始终保留 PNG 预览；SVG 文字可编辑。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "dpi",
+        "label": "PNG/PDF/SVG 导出 dpi",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空随预设（预览 150、论文 300）；手填整数 72–1200。TIFF 使用 600 dpi，栅格不得超过 5000 万像素。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "width_mm",
+        "label": "图宽（mm）",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空沿用预设（预览 177.8、论文 150 mm）；手填 50.8–762 mm。指定宽度后默认高度为宽度的 0.66。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "height_mm",
+        "label": "图高（mm）",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选，须同时指定宽度或使用 paper 预设才生效；范围 50.8–762 mm。最终尺寸还受栅格像素上限约束。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "data_kind",
+        "label": "数据来源性质",
+        "kind": "choice",
+        "default": "unspecified",
+        "choices": [
+          "unspecified",
+          "measured",
+          "derived",
+          "simulated",
+          "synthetic"
+        ],
+        "advanced": false,
+        "info": "按实际来源选择：实测、派生、模拟或合成演示；图件记录该声明，合成演示会明显标注。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "purpose",
+        "label": "图件要说明的问题",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "用于图件证据清单；留空使用标题或图型名称。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "evidence_role",
+        "label": "图件证据角色",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "例如 comparison、diagnostic；留空由图型设定。该标签不构成科学验证。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "图件输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空创建临时目录；同名文件自动使用新名称，输出清单保留原始数值。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "viz.statistics",
@@ -639,7 +6655,286 @@
     },
     "directory": "materials_visualization",
     "filename": "viz_statistics",
-    "class_name": "ScienceVizStatistics"
+    "class_name": "ScienceVizStatistics",
+    "table_output": false,
+    "artifacts_output": true,
+    "upload_types": [],
+    "icon": "ChartColumnIncreasing",
+    "context_input": true,
+    "reports_input": true,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "统计诊断图型",
+        "kind": "choice",
+        "default": "histogram",
+        "choices": [
+          "histogram",
+          "correlation",
+          "residual",
+          "prediction"
+        ],
+        "advanced": false,
+        "info": "histogram 直方图；correlation 相关矩阵；residual 实测减预测；prediction 实测对预测及恒等线。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "column",
+        "label": "直方图数值列",
+        "kind": "str",
+        "default": "value",
+        "choices": [],
+        "advanced": false,
+        "info": "填写实际有限数值列名；直方图保留全部输入观测。",
+        "when": {
+          "method": [
+            "histogram"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "bins",
+        "label": "直方图分箱",
+        "kind": "str",
+        "default": "auto",
+        "choices": [],
+        "advanced": false,
+        "info": "填正整数箱数，或 auto、fd、doane、scott、stone、rice、sturges、sqrt 自动规则；范围限制请先在上游筛选。",
+        "when": {
+          "method": [
+            "histogram"
+          ]
+        },
+        "required": false,
+        "converter": "histogram_bins"
+      },
+      {
+        "path": "columns",
+        "label": "相关矩阵数值列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写实际数值列名列表；至少三个观测，各列均须有变化且无非有限值。",
+        "when": {
+          "method": [
+            "correlation"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "correlation_method",
+        "label": "相关系数",
+        "kind": "choice",
+        "default": "pearson",
+        "choices": [
+          "pearson",
+          "spearman",
+          "kendall"
+        ],
+        "advanced": false,
+        "info": "分别为 Pearson 线性相关、Spearman 秩相关及 Kendall 秩相关；相关不证明因果。",
+        "when": {
+          "method": [
+            "correlation"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "y_true",
+        "label": "实测值列",
+        "kind": "str",
+        "default": "y_true",
+        "choices": [],
+        "advanced": false,
+        "info": "填写实际数值列名；实测与预测必须声明一致单位，数值换算请在上游完成。",
+        "when": {
+          "method": [
+            "residual",
+            "prediction"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "y_pred",
+        "label": "预测值列",
+        "kind": "str",
+        "default": "y_pred",
+        "choices": [],
+        "advanced": false,
+        "info": "填写实际数值列名；残差定义为实测 − 预测。请使用独立验证或留出集预测评价模型。",
+        "when": {
+          "method": [
+            "residual",
+            "prediction"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "title",
+        "label": "图标题",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用各图型的默认标题；应准确描述比较对象或诊断问题。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "units",
+        "label": "列单位",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "键填原始列名，值填单位（如 stress → MPa）；用于标注并与输入单位元数据核对，不改变数值。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "labels",
+        "label": "列显示名称",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "键填原始列名，值填轴标签；列选择仍使用原始列名。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "color_map",
+        "label": "系列颜色",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "键填分组或系列名称，值填 Matplotlib 颜色（如 #0072B2）；留空按系列名称稳定分配颜色。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "profile",
+        "label": "出图预设",
+        "kind": "choice",
+        "default": "preview",
+        "choices": [
+          "preview",
+          "paper"
+        ],
+        "advanced": false,
+        "info": "preview 默认 150 dpi PNG；paper 默认 300 dpi PNG/SVG/PDF/TIFF，并生成图件清单与图注；TIFF 固定 600 dpi。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "formats",
+        "label": "导出格式",
+        "kind": "list",
+        "default": null,
+        "choices": [
+          "png",
+          "svg",
+          "pdf",
+          "tiff"
+        ],
+        "advanced": false,
+        "info": "留空沿用预设；可填写 png、svg、pdf、tiff。始终保留 PNG 预览；SVG 文字可编辑。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "dpi",
+        "label": "PNG/PDF/SVG 导出 dpi",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空随预设（预览 150、论文 300）；手填整数 72–1200。TIFF 使用 600 dpi，栅格不得超过 5000 万像素。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "width_mm",
+        "label": "图宽（mm）",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空沿用预设（预览 177.8、论文 150 mm）；手填 50.8–762 mm。指定宽度后默认高度为宽度的 0.66。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "height_mm",
+        "label": "图高（mm）",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选，须同时指定宽度或使用 paper 预设才生效；范围 50.8–762 mm。最终尺寸还受栅格像素上限约束。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "data_kind",
+        "label": "数据来源性质",
+        "kind": "choice",
+        "default": "unspecified",
+        "choices": [
+          "unspecified",
+          "measured",
+          "derived",
+          "simulated",
+          "synthetic"
+        ],
+        "advanced": false,
+        "info": "按实际来源选择：实测、派生、模拟或合成演示；图件记录该声明，合成演示会明显标注。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "purpose",
+        "label": "图件要说明的问题",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "用于图件证据清单；留空使用标题或图型名称。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "evidence_role",
+        "label": "图件证据角色",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "例如 comparison、diagnostic；留空由图型设定。该标签不构成科学验证。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "图件输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空创建临时目录；同名文件自动使用新名称，输出清单保留原始数值。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "export.table",
@@ -655,7 +6950,74 @@
     },
     "directory": "materials_visualization",
     "filename": "export_table",
-    "class_name": "ScienceExportTable"
+    "class_name": "ScienceExportTable",
+    "table_output": true,
+    "artifacts_output": true,
+    "upload_types": [],
+    "icon": "FileSpreadsheet",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "format",
+        "label": "结果表格式",
+        "kind": "choice",
+        "default": "csv",
+        "choices": [
+          "csv",
+          "excel"
+        ],
+        "advanced": false,
+        "info": "CSV 使用 UTF-8 BOM；Excel 输出 .xlsx 并带 Metadata 工作表。文件写出后会回读核查。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "filename",
+        "label": "导出文件名",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选简单文件名；CSV 须以 .csv 结尾，Excel 须以 .xlsx 结尾。留空自动选择 results.csv/xlsx。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "导出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空创建临时目录；始终避免覆盖同名文件，同时输出带哈希和类型信息的 metadata.json。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "id_columns",
+        "label": "样品标识列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写实际标识列名列表，回读时按字符串核对；Excel 不保证超过 15 位整数精度，应先转为文本或使用 CSV。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "units",
+        "label": "列单位",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "键填实际列名，值填单位；与上游单位元数据核对。重开 CSV 时请配套使用元数据以恢复标识类型和单位。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "export.report",
@@ -671,7 +7033,63 @@
     },
     "directory": "materials_visualization",
     "filename": "export_report",
-    "class_name": "ScienceExportReport"
+    "class_name": "ScienceExportReport",
+    "table_output": false,
+    "artifacts_output": true,
+    "upload_types": [],
+    "icon": "FileText",
+    "context_input": false,
+    "reports_input": true,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "format",
+        "label": "报告格式",
+        "kind": "choice",
+        "default": "html",
+        "choices": [
+          "html",
+          "markdown"
+        ],
+        "advanced": false,
+        "info": "HTML 或 Markdown 报告；图片嵌入为 PNG，源图哈希及嵌入尺寸会核查。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "title",
+        "label": "报告标题",
+        "kind": "str",
+        "default": "Materials analysis report",
+        "choices": [],
+        "advanced": false,
+        "info": "上游 Data.title 优先；连接结果上下文以提供 sources、parameters、results、warnings、figures。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "filename",
+        "label": "报告文件名",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选简单文件名；HTML 须为 .html，Markdown 须为 .md；留空自动使用 analysis-report.html/md。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "报告输出目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空创建临时目录；始终避免覆盖同名文件。可连接一张结果表；报告本身只输出 Data 和附件，不输出表。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "lit.search",
@@ -689,7 +7107,102 @@
     },
     "directory": "materials_literature",
     "filename": "lit_search",
-    "class_name": "ScienceLitSearch"
+    "class_name": "ScienceLitSearch",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Search",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "provider",
+        "label": "元数据来源",
+        "kind": "choice",
+        "default": "local",
+        "choices": [
+          "local",
+          "crossref"
+        ],
+        "advanced": false,
+        "info": "local 仅处理上游记录/文本；crossref 通过网络检索公开元数据。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "base_url",
+        "label": "Crossref 服务地址",
+        "kind": "str",
+        "default": "https://api.crossref.org",
+        "choices": [],
+        "advanced": false,
+        "info": "HTTP(S) 根地址；远程服务要求 HTTPS，本机服务可用 HTTP，不能嵌入凭据。",
+        "when": {
+          "provider": [
+            "crossref"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "timeout",
+        "label": "Crossref 超时（秒）",
+        "kind": "float",
+        "default": 20.0,
+        "choices": [],
+        "advanced": false,
+        "info": "大于 0 且不超过 60 秒；拒绝重定向并限制响应大小。",
+        "when": {
+          "provider": [
+            "crossref"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "method",
+        "label": "检索方式",
+        "kind": "choice",
+        "default": "keyword",
+        "choices": [
+          "keyword",
+          "boolean",
+          "author",
+          "doi"
+        ],
+        "advanced": false,
+        "info": "布尔检索支持 AND、OR、NOT、括号和引号短语；Crossref 仅过滤有限候选集。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "query",
+        "label": "检索词 / DOI",
+        "kind": "str",
+        "default": "ZnO",
+        "choices": [],
+        "advanced": false,
+        "info": "关键词、作者、布尔表达式或 DOI；本地模式从上游表或 Data.records/documents 检索。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "rows",
+        "label": "Crossref 候选数量",
+        "kind": "int",
+        "default": 20,
+        "choices": [],
+        "advanced": false,
+        "info": "1 至 1000 的整数；DOI 查找使用单篇结果，不保证关键词/布尔检索召回完整。",
+        "when": {
+          "provider": [
+            "crossref"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "lit.metadata",
@@ -705,7 +7218,71 @@
     },
     "directory": "materials_literature",
     "filename": "lit_metadata",
-    "class_name": "ScienceLitMetadata"
+    "class_name": "ScienceLitMetadata",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "BookOpen",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "provider",
+        "label": "元数据来源",
+        "kind": "choice",
+        "default": "local",
+        "choices": [
+          "local",
+          "crossref"
+        ],
+        "advanced": false,
+        "info": "local 仅处理上游记录/文本；crossref 通过网络检索公开元数据。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "base_url",
+        "label": "Crossref 服务地址",
+        "kind": "str",
+        "default": "https://api.crossref.org",
+        "choices": [],
+        "advanced": false,
+        "info": "HTTP(S) 根地址；远程服务要求 HTTPS，本机服务可用 HTTP，不能嵌入凭据。",
+        "when": {
+          "provider": [
+            "crossref"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "timeout",
+        "label": "Crossref 超时（秒）",
+        "kind": "float",
+        "default": 20.0,
+        "choices": [],
+        "advanced": false,
+        "info": "大于 0 且不超过 60 秒；拒绝重定向并限制响应大小。",
+        "when": {
+          "provider": [
+            "crossref"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "doi",
+        "label": "直接查询 DOI",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "无上游文档时可填写 DOI；Crossref 模式要求每份文档带 DOI。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "lit.extract",
@@ -724,7 +7301,140 @@
     },
     "directory": "materials_literature",
     "filename": "lit_extract",
-    "class_name": "ScienceLitExtract"
+    "class_name": "ScienceLitExtract",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "ScanText",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "提取方式",
+        "kind": "choice",
+        "default": "regex",
+        "choices": [
+          "regex",
+          "lexicon",
+          "table",
+          "llm"
+        ],
+        "advanced": false,
+        "info": "从上游含 text 的表或 Data.documents 提取，并保留来源 ID、原文与字符区间。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "patterns",
+        "label": "属性 → 正则表达式",
+        "kind": "dict",
+        "default": {
+          "strength": "(?P<value>\\d+(?:\\.\\d+)?)\\s*(?P<unit>MPa|GPa)"
+        },
+        "choices": [],
+        "advanced": false,
+        "info": "键为属性名，值为正则；命名组 value/unit 提取数值和单位。每条表达式最长 2000 字符。",
+        "when": {
+          "method": [
+            "regex"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "lexicon",
+        "label": "属性 → 术语列表",
+        "kind": "dict",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "普通键值编辑器：键为属性名，值为逗号分隔的术语；逐条执行忽略大小写的字面匹配。",
+        "when": {
+          "method": [
+            "lexicon"
+          ]
+        },
+        "required": true,
+        "converter": "list_mapping"
+      },
+      {
+        "path": "delimiter",
+        "label": "表格分隔符",
+        "kind": "str",
+        "default": ",",
+        "choices": [],
+        "advanced": false,
+        "info": "必须恰好一个字符；文本首行为唯一列名，每个物理行对应一行数据且列数一致。",
+        "when": {
+          "method": [
+            "table"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "llm.url",
+        "label": "LLM 完整接口地址",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "兼容聊天补全及 JSON Schema 的完整 HTTP(S) URL；远程要求 HTTPS。",
+        "when": {
+          "method": [
+            "llm"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "llm.model",
+        "label": "LLM 模型名",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写服务支持的模型标识；请求要求返回带精确原文与字符区间的声明。",
+        "when": {
+          "method": [
+            "llm"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "llm.api_key_env",
+        "label": "密钥环境变量名",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "只填写已设置的环境变量名称，如 OPENAI_API_KEY；不在工作流中填写密钥。",
+        "when": {
+          "method": [
+            "llm"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "llm.timeout",
+        "label": "LLM 超时（秒）",
+        "kind": "float",
+        "default": 20.0,
+        "choices": [],
+        "advanced": false,
+        "info": "大于 0 且不超过 60 秒；服务必须支持本节点的证据约束响应结构。",
+        "when": {
+          "method": [
+            "llm"
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "lit.compare",
@@ -740,7 +7450,38 @@
     },
     "directory": "materials_literature",
     "filename": "lit_compare",
-    "class_name": "ScienceLitCompare"
+    "class_name": "ScienceLitCompare",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Columns3",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "target_units",
+        "label": "属性 → 目标单位",
+        "kind": "dict",
+        "default": {},
+        "choices": [],
+        "advanced": false,
+        "info": "例如 strength → MPa；留空保留原单位。输入需有 material/preparation/test_condition/property/value/unit/source_id。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "relative_tolerance",
+        "label": "差异标记相对容差",
+        "kind": "float",
+        "default": 0.0,
+        "choices": [],
+        "advanced": false,
+        "info": "有限非负数；同材料、制备、测试条件、属性与归一化单位内比较，不等同于显著性检验。",
+        "when": {},
+        "required": false
+      }
+    ]
   },
   {
     "key": "lit.sources",
@@ -756,7 +7497,57 @@
     },
     "directory": "materials_literature",
     "filename": "lit_sources",
-    "class_name": "ScienceLitSources"
+    "class_name": "ScienceLitSources",
+    "table_output": true,
+    "artifacts_output": true,
+    "upload_types": [],
+    "icon": "Quote",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "save",
+        "label": "保存来源记录文件",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "始终返回来源记录表；开启后另写 literature-sources.json，精确检查原文和字符区间。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_dir",
+        "label": "保存目录",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选本机目录；留空创建临时目录，仅开启保存时使用。",
+        "when": {
+          "save": [
+            true
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "overwrite",
+        "label": "覆盖同名文件",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "关闭时为已有文件生成唯一文件名，保留以前的来源记录。",
+        "when": {
+          "save": [
+            true
+          ]
+        },
+        "required": false
+      }
+    ]
   },
   {
     "key": "lit.summary",
@@ -773,6 +7564,111 @@
     },
     "directory": "materials_literature",
     "filename": "lit_summary",
-    "class_name": "ScienceLitSummary"
+    "class_name": "ScienceLitSummary",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "NotebookPen",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "摘要方式",
+        "kind": "choice",
+        "default": "extractive",
+        "choices": [
+          "extractive",
+          "llm"
+        ],
+        "advanced": false,
+        "info": "按问题检索原文片段；extractive 直接引用，llm 对检索命中的来源生成受证据约束的声明。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "question",
+        "label": "检索与归纳问题",
+        "kind": "str",
+        "default": "strength",
+        "choices": [],
+        "advanced": false,
+        "info": "必填；按词语重叠排序原文片段，无命中时返回真实空表及提示。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "top_k",
+        "label": "最多检索片段数",
+        "kind": "int",
+        "default": 5,
+        "choices": [],
+        "advanced": false,
+        "info": "1 至 100 的整数；LLM 模式提交命中片段所属的完整来源文本以保留字符区间。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "llm.url",
+        "label": "LLM 完整接口地址",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "兼容聊天补全及 JSON Schema 的完整 HTTP(S) URL；远程要求 HTTPS。",
+        "when": {
+          "method": [
+            "llm"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "llm.model",
+        "label": "LLM 模型名",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写服务支持的模型标识；请求要求返回带精确原文与字符区间的声明。",
+        "when": {
+          "method": [
+            "llm"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "llm.api_key_env",
+        "label": "密钥环境变量名",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "只填写已设置的环境变量名称，如 OPENAI_API_KEY；不在工作流中填写密钥。",
+        "when": {
+          "method": [
+            "llm"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "llm.timeout",
+        "label": "LLM 超时（秒）",
+        "kind": "float",
+        "default": 20.0,
+        "choices": [],
+        "advanced": false,
+        "info": "大于 0 且不超过 60 秒；服务必须支持本节点的证据约束响应结构。",
+        "when": {
+          "method": [
+            "llm"
+          ]
+        },
+        "required": false
+      }
+    ]
   }
 ]

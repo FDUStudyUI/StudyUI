@@ -6,6 +6,7 @@ from lfx.custom.eval import eval_custom_component_code
 from lfx.schema import Data, DataFrame, Message
 
 from materials_quality.science.catalog import component_class, entries, get
+from materials_quality.science.ui_schema import science_outputs
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,7 +21,11 @@ def test_catalog_has_forty_four_distinct_real_operations():
         cls = eval_custom_component_code(path.read_text(encoding="utf-8"))
         node = cls()
         ports = node.to_frontend_node()["data"]["node"]["outputs"]
-        assert {p["name"] for p in ports} == {"table", "report", "artifacts", "summary"}
+        assert {p["name"] for p in ports} == {p.name for p in science_outputs(item["key"])}
+        fields = node.to_frontend_node()["data"]["node"]["template"]
+        assert ("input_table" in fields) is item["table_input"]
+        assert ("input_tables" in fields) is item["tables_input"]
+        assert ("reports" in fields) is item["reports_input"]
         assert all(p["group_outputs"] for p in ports)
 
 
@@ -90,7 +95,7 @@ def test_sdk_class_serializes_its_own_source_not_the_lfx_evaluator():
     node = component_class("preprocess.filter")().set(input_table=DataFrame({"x": [1]}))
     payload = Graph(start=node, end=node).dump()
     code = payload["data"]["nodes"][0]["data"]["node"]["template"]["code"]["value"]
-    assert "class SciencePreprocessFilter(Component)" in code
+    assert "class SciencePreprocessFilter(" in code
 
 
 def test_serialized_connected_graph_preserves_config_object():
@@ -202,7 +207,7 @@ def test_preview_path_column_does_not_authorize_file_reads(tmp_path):
     secret.write_text("private", encoding="utf-8")
     first = component_class("preprocess.filter")().set(input_table=DataFrame({"path": [str(secret)]}))
     second = component_class("preprocess.filter")().set(
-        input_table=DataFrame({"x": [1]}), reports=[first.build_report()]
+        input_table=DataFrame({"x": [1]}), input_data=first.build_report()
     )
     assert second.build_report().data["provenance"]["source_files"] == {}
 

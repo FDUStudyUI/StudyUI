@@ -11,15 +11,23 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceStatsPredict(Component):
+class ScienceStatsPredict(ScienceFormMixin, Component):
     display_name = "材料科学·预测模型"
     description = "可追溯的预测模型；具体方法与前提见随仓库提供的手册。"
     name = "ScienceStatsPredict"
-    icon = "FlaskConical"
-    inputs = node_inputs({"features": ["x"], "target": "y", "method": "random_forest", "seed": 42})
-    outputs = node_outputs()
+    icon = "BrainCircuit"
+    ui_contract_version = 2
+    ui_operation_key = "stats.predict"
+    inputs = node_inputs(
+        "stats.predict", {"features": ["x"], "target": "y", "method": "random_forest", "seed": 42}
+    )
+    outputs = node_outputs("stats.predict")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "stats.predict", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "stats.predict")

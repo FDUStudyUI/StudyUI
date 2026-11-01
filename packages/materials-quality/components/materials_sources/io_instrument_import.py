@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceIoInstrumentImport(Component):
+class ScienceIoInstrumentImport(ScienceFormMixin, Component):
     display_name = "材料科学·仪器文件导入"
     description = "可追溯的仪器文件导入；具体方法与前提见随仓库提供的手册。"
     name = "ScienceIoInstrumentImport"
-    icon = "FlaskConical"
-    inputs = node_inputs({"path": ""})
-    outputs = node_outputs()
+    icon = "Activity"
+    ui_contract_version = 2
+    ui_operation_key = "io.instrument_import"
+    inputs = node_inputs("io.instrument_import", {"path": ""})
+    outputs = node_outputs("io.instrument_import")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "io.instrument_import", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "io.instrument_import")

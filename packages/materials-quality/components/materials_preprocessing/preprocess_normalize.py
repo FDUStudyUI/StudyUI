@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class SciencePreprocessNormalize(Component):
+class SciencePreprocessNormalize(ScienceFormMixin, Component):
     display_name = "材料科学·数据归一化"
     description = "可追溯的数据归一化；具体方法与前提见随仓库提供的手册。"
     name = "SciencePreprocessNormalize"
-    icon = "FlaskConical"
-    inputs = node_inputs({"method": "minmax"})
-    outputs = node_outputs()
+    icon = "SlidersHorizontal"
+    ui_contract_version = 2
+    ui_operation_key = "preprocess.normalize"
+    inputs = node_inputs("preprocess.normalize", {"method": "minmax"})
+    outputs = node_outputs("preprocess.normalize")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "preprocess.normalize", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "preprocess.normalize")

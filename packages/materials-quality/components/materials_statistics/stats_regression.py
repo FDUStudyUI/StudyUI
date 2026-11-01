@@ -11,15 +11,23 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceStatsRegression(Component):
+class ScienceStatsRegression(ScienceFormMixin, Component):
     display_name = "材料科学·回归分析"
     description = "可追溯的回归分析；具体方法与前提见随仓库提供的手册。"
     name = "ScienceStatsRegression"
-    icon = "FlaskConical"
-    inputs = node_inputs({"features": ["x"], "target": "y", "method": "linear", "seed": 42})
-    outputs = node_outputs()
+    icon = "ChartNoAxesCombined"
+    ui_contract_version = 2
+    ui_operation_key = "stats.regression"
+    inputs = node_inputs(
+        "stats.regression", {"features": ["x"], "target": "y", "method": "linear", "seed": 42}
+    )
+    outputs = node_outputs("stats.regression")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "stats.regression", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "stats.regression")

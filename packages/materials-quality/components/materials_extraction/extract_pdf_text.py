@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceExtractPdfText(Component):
+class ScienceExtractPdfText(ScienceFormMixin, Component):
     display_name = "材料科学·PDF 文本提取"
     description = "可追溯的PDF 文本提取；具体方法与前提见随仓库提供的手册。"
     name = "ScienceExtractPdfText"
-    icon = "FlaskConical"
-    inputs = node_inputs({"path": "", "method": "auto"})
-    outputs = node_outputs()
+    icon = "ScanText"
+    ui_contract_version = 2
+    ui_operation_key = "extract.pdf_text"
+    inputs = node_inputs("extract.pdf_text", {"path": "", "method": "auto"})
+    outputs = node_outputs("extract.pdf_text")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "extract.pdf_text", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "extract.pdf_text")

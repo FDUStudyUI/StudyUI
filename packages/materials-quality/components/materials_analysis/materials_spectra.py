@@ -11,15 +11,21 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceMaterialsSpectra(Component):
+class ScienceMaterialsSpectra(ScienceFormMixin, Component):
     display_name = "材料科学·FTIR/Raman 数据处理"
     description = "可追溯的FTIR/Raman 数据处理；具体方法与前提见随仓库提供的手册。"
     name = "ScienceMaterialsSpectra"
-    icon = "FlaskConical"
-    inputs = node_inputs({"x": "x", "y": "y", "normalization": "none"})
-    outputs = node_outputs()
+    icon = "Waves"
+    ui_contract_version = 2
+    ui_operation_key = "materials.spectra"
+    inputs = node_inputs("materials.spectra", {"x": "x", "y": "y", "normalization": "none"})
+    outputs = node_outputs("materials.spectra")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "materials.spectra", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "materials.spectra")

@@ -11,15 +11,23 @@ from materials_quality.science.langflow_adapter import (
     output_summary,
     output_table,
 )
+from materials_quality.science.ui_schema import ScienceFormMixin, refresh_config
 
 
-class ScienceVizMechanics(Component):
+class ScienceVizMechanics(ScienceFormMixin, Component):
     display_name = "材料科学·应力—应变图"
     description = "可追溯的应力—应变图；具体方法与前提见随仓库提供的手册。"
     name = "ScienceVizMechanics"
-    icon = "FlaskConical"
-    inputs = node_inputs({"method": "overlay", "x": "strain", "y": "stress", "sample": "sample_id"})
-    outputs = node_outputs()
+    icon = "Activity"
+    ui_contract_version = 2
+    ui_operation_key = "viz.mechanics"
+    inputs = node_inputs(
+        "viz.mechanics", {"method": "overlay", "x": "strain", "y": "stress", "sample": "sample_id"}
+    )
+    outputs = node_outputs("viz.mechanics")
+
+    def update_build_config(self, build_config, field_value, field_name=None):
+        return refresh_config(self, "viz.mechanics", build_config, field_value, field_name)
 
     def build_table(self) -> DataFrame:
         return output_table(self, "viz.mechanics")

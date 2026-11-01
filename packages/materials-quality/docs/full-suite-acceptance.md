@@ -1,5 +1,8 @@
 # 全部工作流节点验收
 
+本页记录 0.3.0 完整功能及绘图升级的历史验收。0.4.0 的原生表单、端口和兼容迁移验收见
+[表单验收记录](node-ui-acceptance.md)，操作入口见[新手表单示例](../examples/form_flows/README.md)。
+
 验收目标：Python 3.10，Langflow/LFX 1.13.0；Windows 上使用 Playwright 驱动真实 Microsoft Edge。
 这是已实际运行的版本，团队改用其他版本时须重跑验证。
 
