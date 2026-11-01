@@ -65,8 +65,10 @@ class Flow:
         # only where it cannot direct a generated file; all other keys stay exact.
         conditional_no_files = (
             task == "saved"
-            or key == "stats.evaluate" and bool(config.get("y_true") and config.get("y_pred"))
-            or key == "materials.sem_eds" and config.get("method") == "eds"
+            or key == "stats.evaluate"
+            and bool(config.get("y_true") and config.get("y_pred"))
+            or key == "materials.sem_eds"
+            and config.get("method") == "eds"
         )
         if conditional_no_files or not contract_for(key)["artifacts_output"] and "output_dir" not in paths:
             config.pop("output_dir", None)

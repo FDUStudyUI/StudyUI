@@ -94,6 +94,24 @@ def test_saved_and_existing_prediction_tasks_omit_training_defaults():
     assert composed("stats.evaluate", values) == {"y_true": "y", "y_pred": "y_pred"}
 
 
+def test_legacy_strict_import_does_not_replace_algorithm_defaults_with_form_defaults():
+    config = {"features": ["x"], "target": "y"}
+    values = config_to_form("stats.evaluate", config, strict=True)
+    assert values["ui_mode"] == "json"  # algorithm holdout, native default cv
+    assert json.loads(values["config_json"]) == config
+    config = {"strain_unit": "fraction", "stress_unit": "MPa", "fit_range": [0, 0.001]}
+    values = config_to_form("materials.mechanics", config, strict=True)
+    assert values["ui_mode"] == "form"
+    assert composed("materials.mechanics", values)["fracture_confirmed"] is False
+
+
+def test_boolean_range_bound_is_not_silently_changed_to_numeric_zero():
+    config = {"strain_unit": "fraction", "stress_unit": "MPa", "fit_range": [False, 0.001]}
+    values = config_to_form("materials.mechanics", config, strict=True)
+    assert values["ui_mode"] == "json"
+    assert json.loads(values["config_json"])["fit_range"][0] is False
+
+
 def test_all_example_factories_build_native_forms_without_execution():
     from scripts.build_science_examples import FACTORIES
 

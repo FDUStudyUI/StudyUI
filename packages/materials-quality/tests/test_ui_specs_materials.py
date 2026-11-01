@@ -112,7 +112,7 @@ def test_materials_and_figures_ports_match_actual_node_results():
 def test_plotting_forms_expose_all_methods_and_native_units():
     expected = {
         "viz.performance": {"scatter", "bar", "box", "violin"},
-        "viz.spectra": {"line", "overlay", "difference"},
+        "viz.spectra": {"line", "overlay", "difference", "band"},
         "viz.mechanics": {"overlay", "mean_error"},
         "viz.statistics": {"histogram", "correlation", "residual", "prediction"},
     }

@@ -10,7 +10,8 @@
     "tables_input": false,
     "default_config": {
       "path": "",
-      "header": 0
+      "header": 0,
+      "delimiter": "auto"
     },
     "directory": "materials_sources",
     "filename": "io_table_import",
@@ -31,6 +32,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -65,14 +67,15 @@
       {
         "path": "sheet",
         "label": "Excel 工作表名称或序号",
-        "kind": "str",
+        "kind": "choice",
         "default": "0",
         "choices": [],
         "advanced": false,
         "info": "Excel/ODS 使用名称或从 0 开始的工作表序号；CSV/TSV 忽略此项。",
         "when": {},
         "required": false,
-        "converter": "number_or_text"
+        "converter": "number_or_text",
+        "combobox": true
       },
       {
         "path": "header",
@@ -172,6 +175,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -369,6 +373,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -470,6 +475,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -494,7 +500,8 @@
     "data_input": true,
     "tables_input": false,
     "default_config": {
-      "path": ""
+      "path": "",
+      "mode": "read"
     },
     "directory": "materials_sources",
     "filename": "io_instrument_import",
@@ -511,12 +518,18 @@
       "dx",
       "jcamp",
       "brml",
-      "raw"
+      "raw",
+      "h5",
+      "hdf5",
+      "nc",
+      "netcdf",
+      "nc4"
     ],
     "icon": "Activity",
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -544,7 +557,12 @@
           "dx",
           "jcamp",
           "brml",
-          "raw"
+          "raw",
+          "h5",
+          "hdf5",
+          "nc",
+          "netcdf",
+          "zarr"
         ],
         "advanced": false,
         "info": "留空按扩展名识别；XY 须是无文字表头的数值行，JCAMP 只直接支持未压缩数据。BRML 请显式选择格式并填写通道，RAW 须另配插件/转换器。",
@@ -567,6 +585,157 @@
         ],
         "advanced": false,
         "info": "auto 依次检查 BOM、UTF-8、GB18030；识别失败时选择源文件实际编码。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "mode",
+        "label": "数组读取模式",
+        "kind": "choice",
+        "default": "read",
+        "choices": [
+          "read",
+          "browse"
+        ],
+        "advanced": false,
+        "info": "HDF5/NetCDF/Zarr 可先 browse 查看实际路径、维度、类型和属性，再 read 明确选择数组；其他格式用 read。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "dataset_path",
+        "label": "信号数据集路径",
+        "kind": "choice",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "从 browse 结果复制实际路径，如 /measurement/intensity；不自动选择或合并数据集。",
+        "when": {},
+        "required": false,
+        "combobox": true
+      },
+      {
+        "path": "x_axis_path",
+        "label": "光谱坐标轴路径",
+        "kind": "choice",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "明确选择一维坐标数组路径；长度须匹配指定光谱轴，不自动猜测坐标。",
+        "when": {},
+        "required": false,
+        "combobox": true
+      },
+      {
+        "path": "group_axis_path",
+        "label": "逐曲线标识轴路径",
+        "kind": "choice",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "二维信号必须选择另一维对应的一维唯一曲线标识；输出 curve_id 保留前导零。",
+        "when": {},
+        "required": false,
+        "combobox": true
+      },
+      {
+        "path": "spectrum_axis",
+        "label": "二维数组的光谱轴索引",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "二维数据必须显式启用并填写 0 或 1；不会按数组长度自动转置。一维数据不需要。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "background_path",
+        "label": "背景数据集路径",
+        "kind": "choice",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选一维背景或与信号同形数组；只在明确指定后执行 signal-background。",
+        "when": {},
+        "required": false,
+        "combobox": true
+      },
+      {
+        "path": "reference_path",
+        "label": "参考数据集路径",
+        "kind": "choice",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选一维参考或同形数组；按 (signal-background)/(reference-background) 计算，非正分母标记缺失。",
+        "when": {},
+        "required": false,
+        "combobox": true
+      },
+      {
+        "path": "reference_floor",
+        "label": "最小有效参考分母",
+        "kind": "float",
+        "default": 0.0,
+        "choices": [],
+        "advanced": true,
+        "info": "强度单位下的非负阈值；参考减背景小于等于该值的通道标记无效，不返回无穷大。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "noise_range",
+        "label": "声明的噪声坐标区间",
+        "kind": "range",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "可选源坐标单位下的区间，至少两个观测点；SNR=最大绝对信号/该区间样本标准差，区间内真实峰会造成偏差。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "decode_cf",
+        "label": "解码 NetCDF 缺失值与缩放属性",
+        "kind": "bool",
+        "default": true,
+        "choices": [],
+        "advanced": true,
+        "info": "NetCDF 使用 _FillValue/missing_value 和 scale_factor/add_offset；关闭时保留未缩放数值并仍标记缺失。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "max_rows",
+        "label": "数组最多输出测量点数",
+        "kind": "int",
+        "default": 2000000,
+        "choices": [],
+        "advanced": true,
+        "info": "读取数组前检查元素数；超限拒绝，需先在仪器软件或可信本地工具中导出子集。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "max_bytes",
+        "label": "数组与输出估算内存上限（字节）",
+        "kind": "int",
+        "default": 268435456,
+        "choices": [],
+        "advanced": true,
+        "info": "在数组分配和解压前检查数组、块及长表估算大小；默认 256 MiB。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "max_nodes",
+        "label": "数组树最多节点数",
+        "kind": "int",
+        "default": 2000,
+        "choices": [],
+        "advanced": true,
+        "info": "仅浏览有限数量的本地组和数据集；超限明确报错，不静默省略剩余节点。",
         "when": {},
         "required": false
       },
@@ -685,6 +854,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -1008,6 +1178,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -1155,6 +1326,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -1431,6 +1603,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -1552,6 +1725,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -1716,6 +1890,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -1935,6 +2110,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -2176,6 +2352,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "conditions",
@@ -2258,6 +2435,40 @@
         "info": "原列名到新列名的映射；原列须位于保留列内，重命名后列名须唯一。",
         "when": {},
         "required": false
+      },
+      {
+        "path": "derived_columns",
+        "label": "公式派生列（筛选前计算）",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "仅支持标识符列名、+ - * / **、abs/sqrt/log/log10/exp/minimum/maximum；禁止对象访问与代码执行。缩放/同单位加减保留单位；乘除/开方/幂等须声明实际输出单位，数值不自动换算。",
+        "when": {},
+        "required": false,
+        "table_schema": [
+          {
+            "name": "column",
+            "display_name": "新列名",
+            "type": "str",
+            "description": "新列名",
+            "edit_mode": "inline"
+          },
+          {
+            "name": "expression",
+            "display_name": "数值公式",
+            "type": "str",
+            "description": "数值公式",
+            "edit_mode": "inline"
+          },
+          {
+            "name": "unit",
+            "display_name": "输出单位",
+            "type": "str",
+            "description": "输出单位",
+            "edit_mode": "inline"
+          }
+        ]
       }
     ]
   },
@@ -2283,6 +2494,7 @@
     "context_input": true,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -2400,6 +2612,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "source_units",
@@ -2459,6 +2672,7 @@
     "context_input": true,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -2653,6 +2867,7 @@
     "context_input": true,
     "reports_input": true,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -2836,6 +3051,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -2860,6 +3076,17 @@
         "choices": [],
         "advanced": false,
         "info": "填写表中实际列名，可手填自定义名称；留空处理全部列，数值方法请明确选取数值列。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "group_by",
+        "label": "独立归一化分组列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "选择 curve_id、sample_id 或实验组列；每组分别拟合中心/尺度并保留参数。留空按全表归一化。",
         "when": {},
         "required": false
       }
@@ -2891,6 +3118,7 @@
     "context_input": false,
     "reports_input": true,
     "ui_version": 2,
+    "features_output": true,
     "form_fields": [
       {
         "path": "x",
@@ -3157,6 +3385,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": true,
     "form_fields": [
       {
         "path": "x",
@@ -3420,6 +3649,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "kind",
@@ -3759,6 +3989,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "x",
@@ -3890,6 +4121,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -4222,6 +4454,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "path",
@@ -4416,6 +4649,7 @@
     "context_input": true,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "group",
@@ -4427,6 +4661,42 @@
         "info": "输入自定义分组列名；标签不能缺失。",
         "when": {},
         "required": true
+      },
+      {
+        "path": "group_by",
+        "label": "多级分组列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选，优先于单个分组列；例如条件、样品、曲线。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "normalize_by_group",
+        "label": "各组先除以自身均值",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "分别对每组每个数值列归一化；零均值时报错。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "output_format",
+        "label": "输出布局",
+        "kind": "choice",
+        "default": "long",
+        "choices": [
+          "long",
+          "wide"
+        ],
+        "advanced": false,
+        "info": "long 每个变量一行；wide 将变量与统计量展开为列。",
+        "when": {},
+        "required": false
       },
       {
         "path": "columns",
@@ -4477,6 +4747,7 @@
     "context_input": true,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "column",
@@ -4615,6 +4886,7 @@
     "context_input": true,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "columns",
@@ -4686,6 +4958,7 @@
     "context_input": true,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -4818,6 +5091,7 @@
     "context_input": true,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -4952,6 +5226,7 @@
     "context_input": true,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -5024,6 +5299,72 @@
         "advanced": false,
         "info": "非负整数；固定数据拆分及随机模型。",
         "when": {},
+        "required": false
+      },
+      {
+        "path": "validation_split",
+        "label": "验证拆分策略",
+        "kind": "choice",
+        "default": "random",
+        "choices": [
+          "random",
+          "chronological_split"
+        ],
+        "advanced": false,
+        "info": "random 保留原随机/按试样分组拆分；chronological_split 按时间留出后段；blocked_cv 需选择 cv，逐块只用过去训练。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "time_column",
+        "label": "时间或测量顺序列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "选择有限数值或有效日期时间列；按时间稳定排序，同一时间不跨训练/测试。试样分组跨边界时明确报错。",
+        "when": {
+          "validation_split": [
+            "chronological_split"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "residual_diagnostics",
+        "label": "输出残差诊断",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "报告留出残差的均值、离散和顺序相关摘要；不能证明模型假设成立。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "linear_trend_ci",
+        "label": "单变量线性均值置信带",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "仅非正则化单变量 OLS；限训练特征范围内的均值区间，非个体预测或未来外推区间。检出异方差时不输出经典置信带。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "confidence_level",
+        "label": "均值置信水平",
+        "kind": "float",
+        "default": 0.95,
+        "choices": [],
+        "advanced": false,
+        "info": "0 与 1 之间；有限样本 t 区间仍需线性、独立、正态误差和方差齐性假设。",
+        "when": {
+          "linear_trend_ci": [
+            true
+          ]
+        },
         "required": false
       },
       {
@@ -5134,6 +5475,7 @@
     "context_input": false,
     "reports_input": true,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "prediction_task",
@@ -5270,6 +5612,90 @@
         "advanced": false,
         "info": "非负整数；固定数据拆分及随机模型。",
         "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "validation_split",
+        "label": "验证拆分策略",
+        "kind": "choice",
+        "default": "random",
+        "choices": [
+          "random",
+          "chronological_split"
+        ],
+        "advanced": false,
+        "info": "random 保留原随机/按试样分组拆分；chronological_split 按时间留出后段；blocked_cv 需选择 cv，逐块只用过去训练。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "time_column",
+        "label": "时间或测量顺序列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "选择有限数值或有效日期时间列；按时间稳定排序，同一时间不跨训练/测试。试样分组跨边界时明确报错。",
+        "when": {
+          "validation_split": [
+            "chronological_split"
+          ],
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "residual_diagnostics",
+        "label": "输出残差诊断",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "报告留出残差的均值、离散和顺序相关摘要；不能证明模型假设成立。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "linear_trend_ci",
+        "label": "单变量线性均值置信带",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "仅非正则化单变量 OLS；限训练特征范围内的均值区间，非个体预测或未来外推区间。检出异方差时不输出经典置信带。",
+        "when": {
+          "prediction_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "confidence_level",
+        "label": "均值置信水平",
+        "kind": "float",
+        "default": 0.95,
+        "choices": [],
+        "advanced": false,
+        "info": "0 与 1 之间；有限样本 t 区间仍需线性、独立、正态误差和方差齐性假设。",
+        "when": {
+          "linear_trend_ci": [
+            true
+          ],
           "prediction_task": [
             "train"
           ]
@@ -5448,6 +5874,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "evaluation_task",
@@ -5464,6 +5891,21 @@
         "when": {},
         "required": false,
         "ui_only": true
+      },
+      {
+        "path": "residual_diagnostics",
+        "label": "输出残差诊断",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "对留出集或每折预测报告残差摘要；只描述已观察到的误差。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
       },
       {
         "path": "model_path",
@@ -5567,6 +6009,30 @@
         "required": false
       },
       {
+        "path": "models",
+        "label": "比较多个候选模型（可选）",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "留空使用单个训练模型；选多个时用完全一致的留出/验证折比较，输出分数表，不自动重训或保存胜出者。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false,
+        "suggestions": [
+          "linear",
+          "polynomial",
+          "ridge",
+          "lasso",
+          "random_forest",
+          "gradient_boosting",
+          "svr"
+        ]
+      },
+      {
         "path": "features",
         "label": "特征列（按顺序）",
         "kind": "list",
@@ -5637,6 +6103,77 @@
         "advanced": false,
         "info": "非负整数；固定数据拆分及随机模型。",
         "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "validation_split",
+        "label": "验证拆分策略",
+        "kind": "choice",
+        "default": "random",
+        "choices": [
+          "random",
+          "chronological_split",
+          "blocked_cv"
+        ],
+        "advanced": false,
+        "info": "random 保留原随机/按试样分组拆分；chronological_split 按时间留出后段；blocked_cv 需选择 cv，逐块只用过去训练。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "time_column",
+        "label": "时间或测量顺序列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "选择有限数值或有效日期时间列；按时间稳定排序，同一时间不跨训练/测试。试样分组跨边界时明确报错。",
+        "when": {
+          "validation_split": [
+            "chronological_split",
+            "blocked_cv"
+          ],
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "linear_trend_ci",
+        "label": "单变量线性均值置信带",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "仅非正则化单变量 OLS；限训练特征范围内的均值区间，非个体预测或未来外推区间。检出异方差时不输出经典置信带。",
+        "when": {
+          "evaluation_task": [
+            "train"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "confidence_level",
+        "label": "均值置信水平",
+        "kind": "float",
+        "default": 0.95,
+        "choices": [],
+        "advanced": false,
+        "info": "0 与 1 之间；有限样本 t 区间仍需线性、独立、正态误差和方差齐性假设。",
+        "when": {
+          "linear_trend_ci": [
+            true
+          ],
           "evaluation_task": [
             "train"
           ]
@@ -5887,6 +6424,7 @@
     "context_input": true,
     "reports_input": true,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -6126,6 +6664,7 @@
     "context_input": true,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -6135,10 +6674,11 @@
         "choices": [
           "line",
           "overlay",
-          "difference"
+          "difference",
+          "band"
         ],
         "advanced": false,
-        "info": "line 不偏移折线；overlay 允许逐条偏移；difference 计算第一条强度列减第二条。",
+        "info": "line 不偏移折线；overlay 允许逐条偏移；difference 计算第一条强度列减第二条；band 使用长表完整独立曲线计算均值与真实填充带。",
         "when": {},
         "required": false
       },
@@ -6149,7 +6689,7 @@
         "default": "x",
         "choices": [],
         "advanced": false,
-        "info": "至少两个点，横坐标必须严格递增且唯一；不同采样网格应先在上游明确重采样。",
+        "info": "每条曲线至少两个递增且唯一的坐标点；band 的不同网格须显式指定公共插值网格。",
         "when": {},
         "required": true
       },
@@ -6163,8 +6703,108 @@
         "choices": [],
         "advanced": false,
         "info": "填写一列或多列实际列名；difference 必须恰好两列，顺序决定相减方向。所有列使用同一横坐标。",
-        "when": {},
+        "when": {
+          "method": [
+            "line",
+            "overlay",
+            "difference"
+          ]
+        },
         "required": true
+      },
+      {
+        "path": "y",
+        "label": "长表强度列",
+        "kind": "str",
+        "default": "intensity",
+        "choices": [],
+        "advanced": false,
+        "info": "长格式数据中每行一个实测坐标点的有限数值强度列。",
+        "when": {
+          "method": [
+            "band"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "curve_id",
+        "label": "完整曲线 ID 列",
+        "kind": "str",
+        "default": "curve_id",
+        "choices": [],
+        "advanced": false,
+        "info": "一条完整曲线代表一个独立实验重复；每条曲线至少两个递增且不重复的横坐标。",
+        "when": {
+          "method": [
+            "band"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "group",
+        "label": "曲线分组列（可选）",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "同一曲线 ID 必须始终属于同一组。",
+        "when": {
+          "method": [
+            "band"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "band",
+        "label": "均值周围填充带",
+        "kind": "choice",
+        "default": "iqr",
+        "choices": [
+          "iqr",
+          "sd",
+          "ci95"
+        ],
+        "advanced": false,
+        "info": "IQR 为逐点25%–75%观测分位带；SD 为样本标准差；ci95 为独立曲线均值逐点t区间，非同时置信带。",
+        "when": {
+          "method": [
+            "band"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "grid",
+        "label": "显式公共插值网格",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "网格相同可留空；不同网格必须填写严格递增数值列表，范围在所有曲线交集内，仅线性内插。",
+        "when": {
+          "method": [
+            "band"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "unit_column",
+        "label": "强度单位列（长表可选）",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "如每行另有 unit 列，可选择以核对；所有被汇总曲线必须单位一致，不自动换算。",
+        "when": {
+          "method": [
+            "band"
+          ]
+        },
+        "required": false
       },
       {
         "path": "offset",
@@ -6189,7 +6829,13 @@
         "choices": [],
         "advanced": false,
         "info": "可选，每行填写有限峰位置及注释；峰位须在测量范围内，箭头位于第一条显示曲线上。不自动寻峰。",
-        "when": {},
+        "when": {
+          "method": [
+            "line",
+            "overlay",
+            "difference"
+          ]
+        },
         "required": false,
         "table_schema": [
           {
@@ -6388,6 +7034,7 @@
     "context_input": true,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -6663,6 +7310,7 @@
     "context_input": true,
     "reports_input": true,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -6958,6 +7606,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "format",
@@ -7041,6 +7690,7 @@
     "context_input": false,
     "reports_input": true,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "format",
@@ -7115,6 +7765,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "provider",
@@ -7226,6 +7877,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "provider",
@@ -7309,6 +7961,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",
@@ -7458,6 +8111,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "target_units",
@@ -7505,6 +8159,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "save",
@@ -7572,6 +8227,7 @@
     "context_input": false,
     "reports_input": false,
     "ui_version": 2,
+    "features_output": false,
     "form_fields": [
       {
         "path": "method",

@@ -235,6 +235,8 @@ def _headers(frame, config):
 def table_import(table=None, *, config=None, data=None, tables=None):
     """CSV/TSV or Excel sheet, zero-based header and A1 rectangle selection."""
     config = dict(config or {})
+    from materials_quality.common import json_value
+
     path = read_path(config, data)
     metadata = {"file_path": str(path), "range": config.get("range"), "header": config.get("header", 0)}
     if path.suffix.lower() in {".xlsx", ".xls", ".xlsm", ".ods"}:
@@ -243,7 +245,9 @@ def table_import(table=None, *, config=None, data=None, tables=None):
             raise ValueError("sheet must be a sheet name or zero-based index")
         # Preserve actual cell types and literal NA/N/A strings before selecting
         # the header. Pandas' default NA/type inference can destroy identifiers.
-        frame = pd.read_excel(path, sheet_name=sheet, header=None, dtype=object, keep_default_na=False)
+        with pd.ExcelFile(path) as workbook:
+            metadata["sheet_names"] = list(workbook.sheet_names)
+            frame = workbook.parse(sheet_name=sheet, header=None, dtype=object, keep_default_na=False)
         metadata["sheet"] = sheet
     else:
         text, encoding = _decode(path, config)
@@ -261,6 +265,8 @@ def table_import(table=None, *, config=None, data=None, tables=None):
             "columns": frame.columns.tolist(),
             "source_rows": config.get("range") or "entire file",
             "schema": schema,
+            "preview": json_value(frame.head(20).to_dict("records")),
+            "preview_rows": min(20, len(frame)),
         },
     )
 
@@ -437,6 +443,18 @@ def _jcamp(path, config):
 def instrument_import(table=None, *, config=None, data=None, tables=None):
     """XY, uncompressed JCAMP and BRML; explicit plugin/command for vendor binaries."""
     config = dict(config or {})
+    candidate = config.get("path") or config.get("file_path") or (data or {}).get("file_path")
+    selected_format = config.get("format") or (
+        Path(candidate).suffix.lower().lstrip(".") if candidate else ""
+    )
+    if selected_format in {"h5", "hdf", "hdf5", "nc", "nc4", "netcdf", "zarr"} and not (
+        config.get("plugin") or config.get("converter")
+    ):
+        from .instrument_arrays import import_array
+
+        return import_array(candidate, config)
+    if config.get("mode", "read") != "read":
+        raise ValueError("browse mode is available for HDF5, NetCDF and local Zarr arrays")
     path = read_path(config, data)
     method = config.get("format", path.suffix.lower().lstrip("."))
     extra, artifacts = {}, []
@@ -757,11 +775,11 @@ CATALOG = [
         "default_config": defaults,
     }
     for key, title, defaults in [
-        ("table_import", "表格文件导入", {"path": "", "header": 0}),
+        ("table_import", "表格文件导入", {"path": "", "header": 0, "delimiter": "auto"}),
         ("text_import", "文本文件导入", {"path": "", "method": "lines"}),
         ("pdf_import", "PDF 文件导入", {"path": "", "dpi": 150}),
         ("image_import", "图片文件导入", {"path": ""}),
-        ("instrument_import", "仪器文件导入", {"path": ""}),
+        ("instrument_import", "仪器文件导入", {"path": "", "mode": "read"}),
         ("database_import", "数据库接入", {"method": "sqlite", "path": "", "query": "SELECT * FROM samples"}),
     ]
 ]

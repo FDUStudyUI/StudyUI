@@ -81,6 +81,8 @@ COLUMN_FIELDS = {
     "y_pred",
     "id_column",
     "group_column",
+    "group_by",
+    "time_column",
 }
 # These operations combine distinct sources: multiple tables, saved model + new
 # samples, reference + instrument, or measured + statistical evidence.
@@ -92,6 +94,7 @@ REPORT_COLLECTION_KEYS = {
     "viz.performance",
     "viz.statistics",
 }
+FEATURE_OPERATIONS = {"materials.spectra", "materials.xrd"}
 
 
 def _boolean(value):
@@ -386,6 +389,7 @@ def _field_inputs(spec, default_config, controllers=()):
             DropdownInput(
                 **common,
                 options=options,
+                combobox=spec.get("combobox", False),
                 value=str(default) if default is not None else None,
                 real_time_refresh=True,
             )
@@ -536,6 +540,8 @@ def science_outputs(key, config=None):
     definitions = [("report", "结果与追溯", "build_report"), ("summary", "运行摘要", "build_summary")]
     if table:
         definitions.insert(0, ("table", "结果表格", "build_table"))
+    if key in FEATURE_OPERATIONS:
+        definitions.insert(1, ("features", "峰值特征表", "build_features"))
     if contract["artifacts_output"]:
         definitions.append(("artifacts", "生成文件", "build_artifacts"))
     return [
@@ -603,6 +609,8 @@ class ScienceFormMixin:
         return super()._process_connection_or_parameters(key, value)
 
     def to_frontend_node(self, *args, **kwargs):
+        from materials_quality.batch.native import prepare_form
+
         mode = effective_mode(self)
         self._sync_conditional_outputs()
         result = super().to_frontend_node(*args, **kwargs)
@@ -626,7 +634,7 @@ class ScienceFormMixin:
             )
             if present and name in template:
                 template[name]["advanced"] = False
-        return result
+        return prepare_form(result)
 
     def _sync_conditional_outputs(self):
         key = getattr(self, "ui_operation_key", None)

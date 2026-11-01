@@ -17,6 +17,7 @@ class NodeResult:
     data: dict = field(default_factory=dict)
     artifacts: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    features: pd.DataFrame | None = None
 
 
 def require_table(table, columns=None, min_rows=1):

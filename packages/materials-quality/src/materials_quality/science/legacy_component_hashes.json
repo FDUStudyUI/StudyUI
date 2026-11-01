@@ -17,164 +17,220 @@
     "examples/science_flows/06-morphology.json",
     "examples/science_flows/07-statistics.json",
     "examples/science_flows/08-model.json",
-    "examples/science_flows/09-literature.json"
+    "examples/science_flows/09-literature.json",
+    "9fc0571:components/**/*.py",
+    "9fc0571:examples/**/*.json"
   ],
   "classes": {
     "MaterialDuplicateCheck": [
+      "7b293c503428a3f95df98e678249daccef6bfc9b37d7ef9638d06fd07c4fa3a9",
       "8f58ccbe0477cfce2d2e5f229fcc2b6c8a887c99fd51868bc248b842a3091a08"
     ],
     "MaterialMissingCheck": [
+      "1e622400f2117dca38b4cfb692b6749d5fc7879c3b241fbbf558254cc210cf76",
       "e36147da76e3b87972e3652493ab6584f98adfd6ee119e0259039e9aa55392de"
     ],
     "MaterialOutlierCheck": [
+      "c15fa92dfb8c339d8421db44a1f19332351df03c748be6a00a54bcfa4ad0334c",
       "fb45bfdb20fe0d8b835acac97430fb3930049c787c45f8e4c27b326053038baa"
     ],
     "MaterialQualityContext": [
+      "4e635ec7f56dc8690166119f4260e1ce7adaf0192f1600b9042863c75dc3450a",
       "b938b7e9de293b75a7cadac7864c9a54e40eae863f9de2cb9ddadd786e80c4a9"
     ],
     "MaterialQualitySummary": [
       "338616c64538e49ce7d56d76110a0eac2f4cb8dbb90732cf4b4ad20eb95fb975"
     ],
     "MaterialSchemaCheck": [
-      "6fc6c34d2a9c1e8f57a1d0876c2bc81fee5457a9fa3f6d1e89482c666734ddc9"
+      "6fc6c34d2a9c1e8f57a1d0876c2bc81fee5457a9fa3f6d1e89482c666734ddc9",
+      "7dc6c9f0622cbd214c984ef2bdf9a04ab6fde3f36ddcc750a25a36aa429f31a4"
     ],
     "MaterialTypeCheck": [
-      "3ac4d51bed8336c6c471d1f15b8d5f0523eef5c5a4057e7b3592795b1a92379d"
+      "3ac4d51bed8336c6c471d1f15b8d5f0523eef5c5a4057e7b3592795b1a92379d",
+      "4c1c83e0c46c156fcfe908c98c88749ce277c8eb0fd35831182ab45c36544132"
     ],
     "MaterialUnitCheck": [
+      "354463ed9999a50804224dc960fd1c74c71d5f9d93b3b72c09681ba1c20fc8fe",
       "68d075f2d794c031ed0266284039b72ee5d897a33d1da94af60ea365016c50d0"
     ],
     "ScienceExportReport": [
+      "a5bf51689b9989fbfa1975af7cf9a532b6eea7fc7318ccb7d49462ae288c953b",
       "c5d075af71e8845a0e431cf3c18eebcaa79190823c795cd66194543b68aec148"
     ],
     "ScienceExportTable": [
-      "b21393f8fc0f50d84d3af8dbb326d9bec09a5c40d89b289180806ad2aa86b26d"
+      "b21393f8fc0f50d84d3af8dbb326d9bec09a5c40d89b289180806ad2aa86b26d",
+      "ebc825e856cceb60153e9040917d14ce08bc292a8d6eadae1423f85a60898d13"
     ],
     "ScienceExtractChartDigitize": [
-      "2978e65d692a1cc03ba8c5646aaaa0966299cb2db1ee2dc598ab8dc43296ce89"
+      "2978e65d692a1cc03ba8c5646aaaa0966299cb2db1ee2dc598ab8dc43296ce89",
+      "e5eafaacd99814591e78de041b6603e688e1c253564f2b3637128cdb6b4600b6"
     ],
     "ScienceExtractConvertFile": [
+      "09d18d1de7bff6235e0c965349c165826e1c3aca5cb7420631d727f23f6dfbad",
       "3beb3ae3e8689cf7c0134e4b080462d643d6804d31c77f7283bb1e81f3ab69af"
     ],
     "ScienceExtractImageOcr": [
-      "3bf395be466bb982ecd33ad48d35867ed471fd3ac6301253a70c8839953ad9fa"
+      "3bf395be466bb982ecd33ad48d35867ed471fd3ac6301253a70c8839953ad9fa",
+      "c958ebdc5761648043a4a940c737cfe81e0cd097a92debfb96f6dc9b8e8900e3"
     ],
     "ScienceExtractImageTables": [
+      "71da0f632932bd62f0b56256fff23f91ef9eaaa9912882dbd93dd27df17a4a3b",
       "c4953b93a0ba5fe2c5b641228b8a582c3ebcaebe519fd2d2373adf190a6cfc70"
     ],
     "ScienceExtractPdfTables": [
-      "5a3af82010bb2c251584ae95850f7c3e119429ccd81418601c7192da2d331a49"
+      "5a3af82010bb2c251584ae95850f7c3e119429ccd81418601c7192da2d331a49",
+      "8a5f7955af31cf535dd291fb145e34d634b73b2640d5ac7c4b14d0f2e52263f8"
     ],
     "ScienceExtractPdfText": [
+      "3aa87a002ef80e101ac6a0612ba15a6cfc722b025f2cf7e5d68885351c728feb",
       "479fcea1f39abafdf94c865360115d804bfd9ffcb7c61df3268574d283716a0d"
     ],
     "ScienceIoDatabaseImport": [
-      "11c54a051e5d8be9ddbd944bbb3f7c99833797b2fe9412b7cbb26636cc8d108f"
+      "11c54a051e5d8be9ddbd944bbb3f7c99833797b2fe9412b7cbb26636cc8d108f",
+      "a2c819edf5e06ac48321fd8d5d254e3d9f9039470b07eade39adccb6c5fd3daa"
     ],
     "ScienceIoImageImport": [
-      "931be7fca90188dc03498220623db8482e540fd1d86e4dd9e0d1270d1eec798b"
+      "931be7fca90188dc03498220623db8482e540fd1d86e4dd9e0d1270d1eec798b",
+      "d90c301c5fdb65a9add324ff263275fa8953d288542e317d1232d4cb7dbcac84"
     ],
     "ScienceIoInstrumentImport": [
+      "5be6e94bc7f2e4e81cade3869c9433dc75eda878af9aa0194e98dee2d5b90dc7",
       "afee09aa26379aec77217bcf411e3b77a239ff59a346dc5768c68114640d702b"
     ],
     "ScienceIoPdfImport": [
-      "2dd5927a01964d3bb7b702f13da583a661b376936b783875bc1ae5fee4356b40"
+      "2dd5927a01964d3bb7b702f13da583a661b376936b783875bc1ae5fee4356b40",
+      "f1fac394ecc9caeb1fdce75d3d0c256a46532f6b354ac2b92b31d66606b7c62e"
     ],
     "ScienceIoTableImport": [
-      "01a432dc109ee7f6c4eaafe10838c211b94814c3f4e93a52f43ce8ec5691eb89"
+      "01a432dc109ee7f6c4eaafe10838c211b94814c3f4e93a52f43ce8ec5691eb89",
+      "3f14966397066cc989817897ea2089b20fdfabda00c9c50ca6c97da571a70854"
     ],
     "ScienceIoTextImport": [
+      "c63c6c2e7b76d38d596ffe300a50f36c5e3dc9d921ba2352ca74cf23000da068",
       "c98e272890af98f5530773bf065e9c1f45f1e02cca83171a70a6d2df00de9aed"
     ],
     "ScienceLitCompare": [
+      "2b87239f45313b9c87f8b6450001dec6d19c4592fc397bc4c574e556be53c550",
       "f94a16be3b8395734e1a093d63c5c8d5608b4177448d9d3d9109074c017de155"
     ],
     "ScienceLitExtract": [
-      "3c76a515c6b3afd6a3462bd6f0ee887fce9e54e4bc7554fc43434314e55ab488"
+      "3c76a515c6b3afd6a3462bd6f0ee887fce9e54e4bc7554fc43434314e55ab488",
+      "c6703b6ed6372a31b2c8e51ff3da1f42a8845ad914fbec17795abfe8376ef313"
     ],
     "ScienceLitMetadata": [
+      "5e9ad02f12364447cf499c3572b45dacea227982744f2c87f01e31c76fb18697",
       "a93816b1d2172f149371ea92f836b27de8e60849df0eca657875b7ae1da4b75f"
     ],
     "ScienceLitSearch": [
-      "22bde9ac8d05a86de5f4e1763fc43eca2971811b2eddf848b66e5ec8a74d8436"
+      "22bde9ac8d05a86de5f4e1763fc43eca2971811b2eddf848b66e5ec8a74d8436",
+      "3d60989bb40ab7664b403a62a604f2fed0b9fecff86bef97758ea7c91339f18d"
     ],
     "ScienceLitSources": [
-      "a8bfd743d991ecc090290b56d21badef9709b4f6dc2b81436f7a7b24e660bfeb"
+      "a8bfd743d991ecc090290b56d21badef9709b4f6dc2b81436f7a7b24e660bfeb",
+      "faf357ccd2b4107fdbead2761af7ca190ad9e1bce270060edcb5ac82ecb9772f"
     ],
     "ScienceLitSummary": [
+      "1c92e0c2b37110272af15cfd9cb78edd6b428f8cf519587a8fe38b7486add1fa",
       "7948c57ea173e88455ef012b320c889b84774c44e4e176b85536ee3330a4df8e"
     ],
     "ScienceMaterialsMechanics": [
+      "8b270182f47a05531627afedd1256aded6243a30ca40c9876c438b2c471938b9",
       "e2045b4eabffdff08c800a837841ce45938c87224776a4e35094aca3fe0b11b7"
     ],
     "ScienceMaterialsMicrostructure": [
+      "1765f285ad610d95070ed1f3cd3e3524f7dca53f0fcbfa6751b9f69114165030",
       "fcf805e3ca5f08ff6f44d57728f51ba7e3026a07a70f816e2c4bf885d58db64c"
     ],
     "ScienceMaterialsSemEds": [
+      "71c189d06f8b70cbed7003d13b5c968fcc08e82b4e4639ca9db20724fa9e9c81",
       "cbd92ba1ead3fcc85d1cd04a7a7a69484f12ee93d34568056da7bd72f48fb236"
     ],
     "ScienceMaterialsSpectra": [
+      "98e25532c13dfdad03a645afecc9dd4f6ddd7725aeb5a24c320032ae1b55f4ba",
       "99dd937e0f72f7c585c826b49d0e30e35f600cd3f193a48bd025173502879b5d"
     ],
     "ScienceMaterialsThermal": [
+      "4ef59a68101607bc0c98a1a72a2772769bf99a35530ab5f1164216d1fa22db22",
       "b206a9d9223e1f4e6e85d9e1e0bde48cf310ed82fe1342d20e9b1419f363cfe0"
     ],
     "ScienceMaterialsXrd": [
+      "143f979c46fe3c519105355d97950396f4891350a15c84330bb1470445430ff6",
       "5bbae26b6113efb9e2f53cf36db21c3e392158560f10aa0c9f96c9ba8a707df2"
     ],
     "SciencePreprocessFilter": [
+      "43a3af63f54a4efc3fb0d282eafece80d638af1865b613ae4c714f194c9d8793",
       "d2e097084f09f74b951776bd8b60da68512ac1177e64aaa7e3b0ebf06af2061f"
     ],
     "SciencePreprocessMerge": [
-      "3a6a261cf3424e2aa8de8a9a748e5b30b7475c1d539759b42b2b018aa8ee8446"
+      "3a6a261cf3424e2aa8de8a9a748e5b30b7475c1d539759b42b2b018aa8ee8446",
+      "dd8a4a25e4a96500b5de4a5aae9d4f131285b22ed9d2c1313432dfb1500102c8"
     ],
     "SciencePreprocessMissing": [
-      "39462da5690e0965acbeb353a448fe3ef535ac010c137094953384f03ef658b1"
+      "39462da5690e0965acbeb353a448fe3ef535ac010c137094953384f03ef658b1",
+      "827e6ac588273297d4b9ddf7c18b4f6037741dd19d8bedc348220dab511b52ef"
     ],
     "SciencePreprocessNormalize": [
-      "50322df35d0411370cb0975ad52f4b137d35367056d150fb3255580a6bbdd085"
+      "50322df35d0411370cb0975ad52f4b137d35367056d150fb3255580a6bbdd085",
+      "cf030c0d7650b56ec573f93cf0fd4a520ef8846fde4984a6e0d5903dd89a72b5"
     ],
     "SciencePreprocessReshape": [
-      "72713522428a65eec029560c9dee9ef07ae91e47cee22d4f96d55fdb7314974c"
+      "72713522428a65eec029560c9dee9ef07ae91e47cee22d4f96d55fdb7314974c",
+      "e50067be37ea2d15278ff35908abb7aa7105b21a664b0a40eae33049aff95077"
     ],
     "SciencePreprocessUnits": [
+      "76de5a5de7a2d589a37bf3c011dfc18c2e7fb205ca21f05f023822cb15b866d4",
       "a77bbb88ca995e6e4142881af5cb90ec43f13ead699c7e702468fee365d35240"
     ],
     "ScienceStatsCorrelation": [
+      "c90a39bef4e18784e077b3610331186f5d1f45c0b94fbf5dd67e9ac46401aa70",
       "f00e46f748b3c8d0283b8fd082d034e0ef8cb3532a67074a8876665e238cdf9f"
     ],
     "ScienceStatsDistribution": [
+      "caf8d2a9c72d04e4249c9445c95296bae7fb56a7ea5b360b8501267be71761f3",
       "f75f826035fde12ed467841ac59d1edbf144b8608e3e76b1f979db299ec3fdec"
     ],
     "ScienceStatsEvaluate": [
+      "89157a44539e1b208bd5d57435143798510e34c80dd9859eb4e88c285c4579d7",
       "b69a71c690683ed42adbbef554eb45f2dce5fa6960e422a77ca2b8df29b5e12a"
     ],
     "ScienceStatsGrouped": [
-      "35a3339963f0d7731baf3a6b44f498d7e4127cef4089497015cdf7646f05c9b8"
+      "35a3339963f0d7731baf3a6b44f498d7e4127cef4089497015cdf7646f05c9b8",
+      "def91bfe56d4cf6f098ea0e56512d217f3829efe1f5d49fd13ab47a19c7c92f9"
     ],
     "ScienceStatsMultiple": [
+      "0997aa4266d77896fac47e3b78de48a0382234854273160ab2986356ce79dedc",
       "752e81d07fbb0ccdea56f06bd7c40b4e05dbb6ccf29067b571248d81203bc38e"
     ],
     "ScienceStatsPredict": [
-      "254a9a182a2d89b4679c4778049476615727d072e127ad35fa87c245d7725498"
+      "254a9a182a2d89b4679c4778049476615727d072e127ad35fa87c245d7725498",
+      "49a18a28524f5638d56880fd594921be3bf672ebb104713360aaea5ad7a57b07"
     ],
     "ScienceStatsRegression": [
+      "173c571d0feffe8b22d1253cccd53877cc417d894800ae77855240e5873a8b45",
       "8d99fc17d5fbc70c2e2c798b9f97f09a8973a686f868d484d4fe3d0a0665d302"
     ],
     "ScienceStatsSignificance": [
-      "592da79739bbc8e3cbd0258efc01a116ae5de31c0d0f99fdfec839e7a946cfd8"
+      "592da79739bbc8e3cbd0258efc01a116ae5de31c0d0f99fdfec839e7a946cfd8",
+      "83aafa34aa34381d312dce06eacd39338302bb854ea1a57e6add589ea1cf7ba9"
     ],
     "ScienceVizMechanics": [
-      "63ba1a3a25cd7024c578f8716d33077b0553183086ed4b7dcb2b2b85d2058c58"
+      "63ba1a3a25cd7024c578f8716d33077b0553183086ed4b7dcb2b2b85d2058c58",
+      "f973628b993b763d17bfcd1fe5f59863daed59eb3c021e23a4b3447cc5d1fbbb"
     ],
     "ScienceVizPerformance": [
+      "0b03b14122c36c9c5dc0a4109a8515d358d40ec7bf080d0a82b73530c9869aaa",
       "b99797ec3ab02e4d3cdf5de985b0b12d5095f605473dedeb800fb541bd9c6865"
     ],
     "ScienceVizSpectra": [
+      "46d6f06d422f9bd3570251d3d32cc2ba3191dec8456b836885945b76cace182b",
       "a7c49a78ac5bf18efa41ef74e141211a55216c3e151b712a20d33c21d1556c0c"
     ],
     "ScienceVizStatistics": [
-      "8cdd4b84be447ec0977be96d8d51178ec2a39e4b6ee7997fd46b70a372b959f1"
+      "8cdd4b84be447ec0977be96d8d51178ec2a39e4b6ee7997fd46b70a372b959f1",
+      "cfea6ed49e556d74d0f7347ee5ddd9a267490612a4aa8a9bb7689c2f7c54d155"
     ]
-  }
+  },
+  "additional_baselines": [
+    "9fc0571"
+  ]
 }

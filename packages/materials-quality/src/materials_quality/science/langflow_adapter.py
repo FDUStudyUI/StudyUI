@@ -2,10 +2,12 @@
 
 import hashlib
 import json
+import os
 import re
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
+from time import perf_counter
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pandas as pd
@@ -171,7 +173,47 @@ def _input_paths(key, config, data, reports):
     return values
 
 
-def _file_hashes(value, *, paths=False):
+class _SourceLimitError(ValueError):
+    pass
+
+
+def _zarr_fingerprint(path, max_entries, max_bytes):
+    if type(max_entries) is not int or max_entries <= 0 or type(max_bytes) is not int or max_bytes <= 0:
+        raise _SourceLimitError("Zarr fingerprint limits must be positive integers")
+    if path.is_symlink():
+        raise _SourceLimitError("Zarr source contains a symbolic link")
+    manifest, entries, size = [], 0, 0
+    pending = [path]
+    while pending:
+        with os.scandir(pending.pop()) as children:
+            for entry in children:
+                entries += 1
+                if entries > max_entries:
+                    raise _SourceLimitError("Zarr max_store_entries limit exceeded before hashing")
+                member = Path(entry.path)
+                if entry.is_symlink():
+                    raise _SourceLimitError("Zarr source contains a symbolic link")
+                if entry.is_dir(follow_symlinks=False):
+                    pending.append(member)
+                elif entry.is_file(follow_symlinks=False):
+                    count = entry.stat(follow_symlinks=False).st_size
+                    size += count
+                    if size > max_bytes:
+                        raise _SourceLimitError("Zarr source byte limit exceeded before hashing")
+                    manifest.append((member.relative_to(path).as_posix(), member, count))
+    digest = hashlib.sha256()
+    for relative, member, count in sorted(manifest):
+        name = relative.encode("utf-8")
+        digest.update(len(name).to_bytes(8, "big"))
+        digest.update(name)
+        digest.update(count.to_bytes(8, "big"))
+        with member.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _file_hashes(value, *, paths=False, max_store_entries=100_000, max_store_bytes=1024**3):
     found = {}
 
     def visit(obj, admitted=False):
@@ -187,6 +229,19 @@ def _file_hashes(value, *, paths=False):
                         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                             digest.update(chunk)
                     found[str(path.resolve())] = digest.hexdigest()
+                elif path.is_dir() and any(
+                    (path / marker).is_file() for marker in (".zgroup", ".zarray", "zarr.json")
+                ):
+                    try:
+                        found[str(path.resolve())] = _zarr_fingerprint(
+                            path, max_store_entries, max_store_bytes
+                        )
+                    except OSError as error:
+                        raise _SourceLimitError(
+                            f"Zarr source changed or could not be read: {error}"
+                        ) from error
+            except _SourceLimitError:
+                raise
             except (ValueError, OSError):
                 pass
 
@@ -275,7 +330,7 @@ def _form_task_data(component, key, config, data):
     return selected, task
 
 
-def execute(component, key):
+def _operation_config(component, key):
     if getattr(component, "ui_contract_version", 1) >= 2:
         from .ui_schema import form_config
 
@@ -286,6 +341,23 @@ def execute(component, key):
         if not value and isinstance(raw_value, dict):
             value = raw_value
         config = _strict_json(value)
+    return config
+
+
+def execute(component, key):
+    from materials_quality.batch.packet import is_batch
+
+    upstream = _object(getattr(component, "input_data", None))
+    if is_batch(upstream):
+        from materials_quality.batch.execution import execute_batch
+
+        return execute_batch(component, key, upstream, _operation_config(component, key), _execute_single)
+    return _execute_single(component, key)
+
+
+def _execute_single(component, key, config_override=None):
+    started = perf_counter()
+    config = _operation_config(component, key) if config_override is None else deepcopy(config_override)
     upstream = _object(getattr(component, "input_data", None))
     data = dict(_unwrap(upstream))
     assets = data.get("asset_paths", {})
@@ -301,12 +373,19 @@ def execute(component, key):
     table = getattr(component, "input_table", None)
     if isinstance(table, str) and not table:
         table = None
-    tables = getattr(component, "input_tables", None) or []
+    tables = getattr(component, "input_tables", None)
+    if tables is None:
+        tables = []
     if isinstance(tables, pd.DataFrame):
         tables = [tables]
     reports = [_object(x) for x in (getattr(component, "reports", None) or [])]
     envelopes = [upstream, *reports]
-    files = _file_hashes(_input_paths(key, config, data, reports), paths=True)
+    files = _file_hashes(
+        _input_paths(key, config, data, reports),
+        paths=True,
+        max_store_entries=config.get("max_store_entries", 100_000),
+        max_store_bytes=config.get("max_file_bytes", 1024**3),
+    )
     signature = _digest(
         [
             key,
@@ -353,6 +432,12 @@ def execute(component, key):
         ) from exc
     if not isinstance(result, NodeResult):
         raise TypeError(f"{key} returned an invalid operation result")
+    if key in {"materials.spectra", "materials.xrd"}:
+        from .features import features_for
+
+        result.features = features_for(
+            key, result, getattr(component, "batch_item_id", None), getattr(component, "batch_group", None)
+        )
     result_data = dict(result.data)
     if assets:
         result_data["asset_paths"] = assets
@@ -374,6 +459,15 @@ def execute(component, key):
                 "data": result_data,
                 "warnings": result.warnings,
                 "artifacts": result.artifacts,
+                "elapsed_seconds": perf_counter() - started,
+                "features_preview": None
+                if result.features is None
+                else {
+                    "total_rows": len(result.features),
+                    "columns": list(result.features.columns),
+                    "records": result.features.head(20).to_dict("records"),
+                    "units": result.features.attrs.get("units", {}),
+                },
                 "table_available": result.table is not None,
                 "table_summary": None
                 if result.table is None
@@ -420,6 +514,25 @@ def output_report(component, key):
     return Data(data=execute(component, key)[1])
 
 
+def output_features(component, key):
+    result, envelope = execute(component, key)
+    frame = result.features
+    if envelope.get("schema_version") == "materials-batch/1":
+        from materials_quality.batch.packet import unpack_table
+
+        frames = [
+            unpack_table(item["features"])
+            for item in envelope["items"]
+            if item["status"] == "completed" and item.get("features") is not None
+        ]
+        frame = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    if frame is None:
+        raise ValueError("该操作未提供特征表。")
+    output = DataFrame(frame.copy(deep=True))
+    output.attrs = deepcopy(frame.attrs)
+    return output
+
+
 def output_artifacts(component, key):
     _, envelope = execute(component, key)
     return DataFrame(
@@ -433,6 +546,12 @@ def output_artifacts(component, key):
 
 def output_summary(component, key):
     _, envelope = execute(component, key)
+    if envelope.get("schema_version") == "materials-batch/1":
+        counts = envelope["counts"]
+        return Message(
+            text=f"{get(key)['title']}：共 {counts['total']} 项，完成 {counts['completed']} 项，"
+            f"失败 {counts['failed']} 项，跳过 {counts['skipped']} 项。"
+        )
     table = envelope["table_summary"]
     table_text = (
         "未产生表格（请查看结构化结果或文件）"

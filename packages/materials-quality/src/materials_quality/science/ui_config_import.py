@@ -9,6 +9,142 @@ from .ui_types import input_name
 
 _ABSENT = object()
 
+# Reviewed against the algorithm implementations, not the catalog/UI examples.
+# An unlisted addition is ambiguous and therefore remains JSON during migration.
+_LEGACY_DEFAULTS = {
+    "materials.mechanics": {
+        "x": "strain",
+        "y": "stress",
+        "yield_offset": 0.002,
+        "fracture_confirmed": False,
+        "sort": False,
+    },
+    "materials.microstructure": {
+        "segmentation": "threshold",
+        "foreground": "bright",
+        "connectivity": 1,
+        "min_area_pixels": 1,
+    },
+    "preprocess.filter": {"logic": "and", "conditions": [], "drop_empty": False, "rename": {}},
+    "preprocess.reshape": {"method": "types", "types": {}},
+    "preprocess.missing": {"method": "keep"},
+    "preprocess.units": {"source_units": {}, "target_units": {}},
+    "preprocess.normalize": {"method": "minmax"},
+    "preprocess.merge": {
+        "method": "join",
+        "how": "left",
+        "validate": "one_to_one",
+        "suffixes": ["_left", "_right"],
+        "ignore_index": True,
+        "direction": "nearest",
+    },
+    "io.table_import": {"encoding": "auto", "delimiter": "auto", "header": 0, "sheet": 0},
+    "io.text_import": {
+        "method": "lines",
+        "encoding": "auto",
+        "delimiter": "auto",
+        "header": 0,
+        "skiprows": 0,
+    },
+    "io.database_import": {"method": "sqlite"},
+    "io.pdf_import": {"dpi": 150, "render_all": False, "overwrite": False},
+    "io.instrument_import": {"encoding": "auto", "timeout": 60, "overwrite": False},
+    "extract.pdf_text": {"dpi": 150, "overwrite": False},
+    "extract.pdf_tables": {"dpi": 150, "header": True, "overwrite": False},
+    "extract.image_ocr": {"text_score": 0.5, "box_thresh": 0.5},
+    "extract.image_tables": {
+        "header": True,
+        "line_threshold": 180,
+        "min_table_width": 40,
+        "min_table_height": 30,
+        "text_score": 0.5,
+        "box_thresh": 0.5,
+    },
+    "extract.chart_digitize": {
+        "calibration.x_scale": "linear",
+        "calibration.y_scale": "linear",
+        "color_tolerance": 40,
+        "pixel_step": 1,
+        "max_thickness": 10,
+    },
+    "extract.convert_file": {
+        "encoding": "auto",
+        "sheet": 0,
+        "delimiter": "auto",
+        "dpi": 150,
+        "text_score": 0.5,
+        "box_thresh": 0.5,
+        "overwrite": False,
+    },
+    "stats.grouped": {"units": {}, "normalize_by_group": False, "output_format": "long"},
+    "stats.distribution": {"bins": "auto", "units": {}, "overwrite": False},
+    "stats.correlation": {"method": "pearson", "alpha": 0.05},
+    "stats.significance": {"method": "welch", "alpha": 0.05, "incomplete_pairs": "error"},
+    "stats.multiple": {"method": "holm", "alpha": 0.05, "correction": "holm"},
+    "stats.regression": {
+        "validation_split": "random",
+        "residual_diagnostics": False,
+        "linear_trend_ci": False,
+        "method": "linear",
+        "seed": 42,
+        "test_size": 0.2,
+        "degree": 2,
+        "alpha": 1.0,
+        "max_iter": 10000,
+        "overwrite": False,
+    },
+    "stats.predict": {
+        "validation_split": "random",
+        "residual_diagnostics": False,
+        "linear_trend_ci": False,
+        "method": "random_forest",
+        "seed": 42,
+        "test_size": 0.2,
+        "n_estimators": 100,
+        "C": 10,
+        "epsilon": 0.1,
+        "kernel": "rbf",
+        "overwrite": False,
+    },
+    "stats.evaluate": {
+        "validation_split": "random",
+        "residual_diagnostics": False,
+        "linear_trend_ci": False,
+        "method": "holdout",
+        "model_method": "linear",
+        "seed": 42,
+        "test_size": 0.2,
+        "folds": 5,
+        "degree": 2,
+        "alpha": 1.0,
+        "max_iter": 10000,
+        "n_estimators": 100,
+        "C": 10,
+        "epsilon": 0.1,
+        "kernel": "rbf",
+        "overwrite": False,
+    },
+    "viz.spectra": {"offset": 0},
+    "lit.sources": {"overwrite": False},
+}
+
+
+def _safe_defaults(key, original, actual):
+    defaults = _LEGACY_DEFAULTS.get(key, {})
+
+    def additions(before, after, prefix=""):
+        for name, value in after.items():
+            path = prefix + name
+            if name not in before:
+                yield path, value
+            elif isinstance(value, dict) and isinstance(before[name], dict):
+                yield from additions(before[name], value, path + ".")
+
+    for name, value in additions(original, actual):
+        if name not in defaults or not _same({"path": name}, defaults[name], value):
+            return False
+    return True
+
 
 def _at(config, path):
     value = config
@@ -115,16 +251,25 @@ def _same(spec, expected, actual):
             return False
     # Native integer/float conversion may change Python's numeric representation,
     # but may never equate an explicit boolean with a numeric zero or one.
-    if type(expected) is bool and type(actual) is not bool:
+    if (type(expected) is bool) != (type(actual) is bool):
         return False
     if isinstance(expected, dict):
         return isinstance(actual, dict) and all(
             key in actual and _same({"path": key}, value, actual[key]) for key, value in expected.items()
         )
+    if isinstance(expected, list):
+        return (
+            isinstance(actual, list)
+            and len(expected) == len(actual)
+            and all(
+                _same({"path": spec["path"] + "[]"}, first, second)
+                for first, second in zip(expected, actual, strict=True)
+            )
+        )
     return expected == actual
 
 
-def config_to_form(key, config, *, task=None):
+def config_to_form(key, config, *, task=None, strict=False, diagnostics=None):
     """Return native ``Component.set`` values, or exact legacy JSON on ambiguity.
 
     Additional active form defaults are allowed; every explicitly provided value
@@ -132,12 +277,22 @@ def config_to_form(key, config, *, task=None):
     manifest inference when the model arrives through a connected upstream report.
     Unknown keys, inactive settings and lossy control conversions retain JSON mode.
     This helper does not discard output directories or any other algorithm key.
+    ``strict=True`` additionally permits only reviewed algorithm-equivalent
+    defaults, for opt-in legacy migration (UI defaults alone are insufficient).
     """
     original = deepcopy(config)
     encoded = json.dumps(original, ensure_ascii=False, allow_nan=False)
     fallback = {"ui_mode": "json", "config_json": encoded}
-    if not isinstance(config, dict):
+
+    def failed(reason, fields=(), detail=None):
+        if diagnostics is not None:
+            diagnostics.update(reason=reason, fields=list(fields))
+            if detail:
+                diagnostics["detail"] = detail
         return fallback
+
+    if not isinstance(config, dict):
+        return failed("config_not_object")
     try:
         node = component_class(key)()
         specs = fields_for(key)
@@ -168,10 +323,15 @@ def config_to_form(key, config, *, task=None):
             provided.append((spec, value))
             _consume(unconsumed, spec["path"])
         if unconsumed:
-            return fallback
+            return failed("unknown_parameters", unconsumed)
         result = form_config(node.set(**values), key, validate=False)
-        if not all(_same(spec, value, _at(result, spec["path"])) for spec, value in provided):
-            return fallback
+        lost = [spec["path"] for spec, value in provided if not _same(spec, value, _at(result, spec["path"]))]
+        if lost:
+            return failed("inactive_or_lossy_parameters", lost)
+        if strict and not _safe_defaults(key, config, result):
+            return failed(
+                "changed_or_unverified_algorithm_defaults", [name for name in result if name not in config]
+            )
         return values
-    except (KeyError, TypeError, ValueError):
-        return fallback
+    except (KeyError, OverflowError, TypeError, ValueError) as exc:
+        return failed("invalid_native_parameter", detail=str(exc))

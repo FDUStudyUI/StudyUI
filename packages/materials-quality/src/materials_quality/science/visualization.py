@@ -184,7 +184,113 @@ def _ordered_curve(block, x, y):
 @plot_operation
 def spectra(table=None, *, config=None, data=None, tables=None):
     c = config or {}
-    method = _method(c, {"line", "overlay", "difference"}, "overlay")
+    method = _method(c, {"line", "overlay", "difference", "band"}, "overlay")
+    if method == "band":
+        from scipy import stats
+
+        x, y, identity = c.get("x"), c.get("y"), c.get("curve_id", "curve_id")
+        frame = require_table(table, [x, y, identity], min_rows=2)
+        numeric_matrix(frame, [x, y])
+        if frame[identity].isna().any() or frame[identity].astype(str).str.strip().eq("").any():
+            raise ValueError("whole curve identities must be nonmissing and nonempty")
+        group = c.get("group")
+        if group:
+            require_table(frame, [group])
+            if frame[group].isna().any() or frame.groupby(identity, sort=False)[group].nunique().ne(1).any():
+                raise ValueError("whole curve identity must belong to exactly one nonmissing group")
+        unit_column = c.get("unit_column")
+        if unit_column:
+            require_table(frame, [unit_column])
+            if frame[unit_column].isna().any() or frame[unit_column].nunique() != 1:
+                raise ValueError("spectral bands require consistent intensity units across complete curves")
+            declared = c.get("units", {}).get(y)
+            if declared is not None and _unit(declared) != _unit(frame[unit_column].iloc[0]):
+                raise ValueError("intensity unit column conflicts with declared intensity unit")
+            c = {**c, "units": {**c.get("units", {}), y: str(frame[unit_column].iloc[0])}}
+        band = c.get("band", "iqr")
+        if band not in {"iqr", "sd", "ci95"}:
+            raise ValueError("band must be iqr, sd or ci95")
+        fig, ax = _figure(c)
+        bands = []
+        for label, block in _grouped(frame, c):
+            measured = [
+                (curve, *_ordered_curve(b, x, y))
+                for curve, b in block.groupby(identity, sort=False, observed=True)
+            ]
+            if len(measured) < 2:
+                raise ValueError("spectral bands require at least two independent complete curves per group")
+            grids = [row[1] for row in measured]
+            equal = all(len(g) == len(grids[0]) and np.array_equal(g, grids[0]) for g in grids[1:])
+            explicit = c.get("grid")
+            if explicit is not None:
+                xx = np.asarray(explicit, dtype=float)
+                if xx.ndim != 1 or len(xx) < 2 or not np.isfinite(xx).all() or np.any(np.diff(xx) <= 0):
+                    raise ValueError("explicit spectral grid must be finite and strictly increasing")
+                if xx.min() < max(g.min() for g in grids) or xx.max() > min(g.max() for g in grids):
+                    raise ValueError(
+                        "spectral grid must stay within every curve shared range; no extrapolation"
+                    )
+                matrix = np.stack([np.interp(xx, g, v) for _, g, v in measured])
+            elif equal:
+                xx = grids[0]
+                matrix = np.stack([row[2] for row in measured])
+            else:
+                raise ValueError("unequal spectral grids require an explicit grid within the shared range")
+            mean = matrix.mean(axis=0)
+            if band == "iqr":
+                lower, upper = np.quantile(matrix, [0.25, 0.75], axis=0)
+            else:
+                deviation = matrix.std(axis=0, ddof=1)
+                if band == "ci95":
+                    deviation = deviation / np.sqrt(len(matrix)) * stats.t.ppf(0.975, len(matrix) - 1)
+                lower, upper = mean - deviation, mean + deviation
+            style = styled_series(label, c)
+            ax.plot(
+                xx,
+                mean,
+                label=f"{label} (n={len(matrix)} curves)",
+                color=style["color"],
+                linestyle=style["linestyle"],
+            )
+            ax.fill_between(xx, lower, upper, color=style["color"], alpha=0.22, linewidth=0)
+            bands.append(
+                {
+                    "label": label,
+                    "x": xx.tolist(),
+                    "mean": mean.tolist(),
+                    "lower": lower.tolist(),
+                    "upper": upper.tolist(),
+                    "n_curves": len(matrix),
+                    "curve_ids": [str(row[0]) for row in measured],
+                    "band": band,
+                    "interpolated": explicit is not None,
+                }
+            )
+        definitions = {
+            "iqr": "Mean curve with pointwise observed 25th-75th percentiles across complete curves.",
+            "sd": "Mean plus/minus one pointwise sample standard deviation (ddof=1) across complete curves.",
+            "ci95": "Pointwise 95% Student t interval for the mean across independent complete curves; "
+            "not a simultaneous band.",
+        }
+        labels = {"x": _label(x, c), "y": c.get("y_label") or _label(y, c)}
+        ax.set(xlabel=labels["x"], ylabel=labels["y"], title=str(c.get("title", "Spectral mean and band")))
+        legend(ax)
+        return _finish(
+            fig,
+            c,
+            "spectra-band",
+            {
+                "method": "band",
+                "labels": labels,
+                "plot_data": {"bands": bands},
+                "statistical_definition": definitions[band],
+                "assumptions": [
+                    "Each curve is one independent experimental replicate; "
+                    "repeated x across curves are not flattened.",
+                    "Interpolation is linear inside the shared measured range only.",
+                ],
+            },
+        )
     x = c.get("x")
     columns = c.get("columns") or [c.get("y")]
     frame = require_table(table, [x, *columns], min_rows=2)

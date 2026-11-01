@@ -62,42 +62,12 @@ def _groups(table, c, minimum=2):
 
 
 def grouped(table=None, *, config=None, data=None, tables=None):
-    c = config or {}
-    group, columns = c.get("group"), c.get("columns")
-    if not columns:
-        columns = [c.get("column")]
-    frame = require_table(table, [group, *columns])
-    numeric_matrix(frame, columns)
-    if frame[group].isna().any():
-        raise ValueError("group labels cannot be missing")
-    rows = []
-    for label, block in frame.groupby(group, sort=False, observed=True):
-        for col in columns:
-            v = block[col].to_numpy(dtype=float)
-            rows.append(
-                {
-                    group: label,
-                    "variable": col,
-                    "count": len(v),
-                    "mean": float(v.mean()),
-                    "std": _finite(v.std(ddof=1)) if len(v) > 1 else None,
-                    "median": float(np.median(v)),
-                    "q25": float(np.quantile(v, 0.25)),
-                    "q75": float(np.quantile(v, 0.75)),
-                    "min": float(v.min()),
-                    "max": float(v.max()),
-                }
-            )
-    warnings = (
-        ["Sample standard deviation is undefined for singleton groups."]
-        if any(r["count"] == 1 for r in rows)
-        else []
-    )
-    return NodeResult(
-        pd.DataFrame(rows),
-        {"method": "grouped_descriptive", "ddof": 1, "parameters": c, "units": c.get("units", {})},
-        warnings=warnings,
-    )
+    from .grouped_stats import grouped_summary
+    from .preprocessing import table_units
+
+    frame = require_table(table)
+    frame.attrs["units"] = table_units(frame, data)
+    return grouped_summary(frame, config)
 
 
 @plot_operation
@@ -434,9 +404,15 @@ def predict(table=None, *, config=None, data=None, tables=None):
 
 
 def evaluate(table=None, *, config=None, data=None, tables=None):
-    from .stats_models import evaluate_model
+    from .stats_models import evaluate_model, has_saved_model
 
-    return evaluate_model(table, config or {}, data or {})
+    config, data = config or {}, data or {}
+    provided = ("y_true" in data and "y_pred" in data) or (config.get("y_true") and config.get("y_pred"))
+    if config.get("models") and not provided and not has_saved_model(config, data):
+        from .model_comparison import compare_models
+
+        return compare_models(table, config)
+    return evaluate_model(table, config, data)
 
 
 _ENTRIES = [

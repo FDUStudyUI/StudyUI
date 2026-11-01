@@ -6,7 +6,7 @@
 **Architecture:** Declarative per-operation field/port contracts feed native Langflow controls and one validated
 configuration composer. Keep legacy JSON loading explicit and preserve numerical and provenance contracts.
 **Tech Stack:** Python 3.10, LFX/Langflow 1.13.0, existing scientific dependencies, pytest, Playwright.
-**Spec:** `docs/node-ui-design.md`.
+**Spec:** `docs/development/node-ui-design.md`.
 
 ## Global constraints
 

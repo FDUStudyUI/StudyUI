@@ -25,6 +25,14 @@ _QUALITY_FILES = {
 }
 _VISUAL_FIELDS = ("minimized", "pinned", "frozen", "tool_mode")
 _MARKER = "materials_quality_ui_migration"
+_RETIRED_EMPTY_PORTS = {
+    "input_data",
+    "input_table",
+    "input_tables",
+    "reports",
+    "source_file",
+    "quality_context",
+}
 
 
 class MigrationError(ValueError):
@@ -81,6 +89,8 @@ def _nonempty(value):
 
 
 def _handle(edge, which):
+    if not isinstance(edge, dict) or not isinstance(edge.get("data", {}), dict):
+        raise MigrationError("Every flow edge and its data must be objects.")
     key = which + "Handle"
     nested = edge.get("data", {}).get(key)
     value = nested if nested is not None else edge.get(key)
@@ -163,7 +173,116 @@ def _validate_edges(graph, upgraded_ids):
     return len(graph.get("edges", []))
 
 
-def migrate(payload):
+def _saved_values(template):
+    return {
+        key: deepcopy(value["value"])
+        for key, value in template.items()
+        if key != "code" and isinstance(value, dict) and "value" in value
+    }
+
+
+def _inferred_task(vertex, graph, key, config):
+    if key not in {"stats.predict", "stats.evaluate"}:
+        return None, None
+    producers = {node["id"]: node for node in graph["nodes"]}
+    incoming = [
+        edge
+        for edge in graph.get("edges", [])
+        if edge.get("target") == vertex["id"] and _handle(edge, "target").get("fieldName") == "input_data"
+    ]
+    declared = "train"
+    if config.get("model_path") or config.get("manifest_path"):
+        declared = "saved"
+    if key == "stats.evaluate" and config.get("y_true") and config.get("y_pred"):
+        declared = "predictions"
+    if not incoming:
+        literal = vertex["data"]["node"].get("template", {}).get("input_data", {}).get("value")
+        if _nonempty(literal):
+            if isinstance(literal, dict) and isinstance(literal.get("data"), dict):
+                literal = literal["data"]
+            if not isinstance(literal, dict):
+                return None, "ambiguous_upstream_model_task"
+            if key == "stats.evaluate" and "y_true" in literal and "y_pred" in literal:
+                if config.get("y_true") or config.get("y_pred"):
+                    return None, "upstream_predictions_override_config_columns"
+                return "predictions", None
+            if literal.get("model_path") or literal.get("manifest_path"):
+                return (declared if declared != "train" else "saved"), None
+            return None, "ambiguous_upstream_model_task"
+        return declared, None
+    catalog = {item["class_name"]: item for item in entries()}
+    registry = json.loads(
+        Path(__file__).with_name("legacy_component_hashes.json").read_text(encoding="utf-8")
+    )
+    model_sources = []
+    for edge in incoming:
+        source = producers.get(edge.get("source"), {})
+        source_type = source.get("data", {}).get("type")
+        source_code = source.get("data", {}).get("node", {}).get("template", {}).get("code", {}).get("value")
+        if (
+            source_type not in {"ScienceStatsRegression", "ScienceStatsPredict"}
+            or _handle(edge, "source").get("name") != "report"
+            or not isinstance(source_code, str)
+        ):
+            return None, "ambiguous_upstream_model_task"
+        digest = source_hash(source_code)
+        if digest not in registry["classes"].get(source_type, []) and digest != _current_hash(
+            source_type, catalog
+        ):
+            return None, "ambiguous_upstream_model_task"
+        model_sources.append(source_type)
+    if model_sources:
+        return (declared if declared != "train" else "saved"), None
+    return None, "ambiguous_upstream_model_task"
+
+
+def _form_values(component, vertex, graph, catalog):
+    saved = _saved_values(vertex["data"]["node"].get("template", {}))
+    name = vertex["data"]["type"]
+    if name not in catalog:
+        from materials_quality.quality_form_import import quality_to_form
+
+        values, reason = quality_to_form(component, saved)
+        return values, reason, []
+    from .ui_config_import import config_to_form
+    from .ui_schema import contract_for
+
+    raw = saved.get("config_json", "{}")
+    try:
+        config = json.loads(raw) if isinstance(raw, str) else deepcopy(raw)
+        json.dumps(config, allow_nan=False)
+    except (TypeError, ValueError):
+        return {"ui_mode": "json"}, "malformed_config_json", []
+    if not isinstance(config, dict):
+        return {"ui_mode": "json"}, "config_json_not_object", []
+    key = catalog[name]["key"]
+    task, reason = _inferred_task(vertex, graph, key, config)
+    if reason:
+        return {"ui_mode": "json"}, reason, []
+    normalized = []
+    # The original example builder attached its output directory to every node.
+    # Operations with no artifact capability never consume this setting. Retain
+    # its exact raw JSON in the template and migration metadata for recovery.
+    if "output_dir" in config and (
+        not contract_for(key)["artifacts_output"]
+        or key in {"stats.predict", "stats.evaluate"}
+        and task in {"saved", "predictions"}
+    ):
+        config.pop("output_dir")
+        normalized.append("ignored_output_dir_on_operation_without_artifacts")
+    diagnostics = {}
+    values = config_to_form(key, config, task=task, strict=True, diagnostics=diagnostics)
+    if values["ui_mode"] != "form":
+        reason = diagnostics.get("reason", "unrepresentable_parameters")
+        if diagnostics.get("fields"):
+            reason += ": " + ", ".join(diagnostics["fields"])
+        if diagnostics.get("detail"):
+            reason += ": " + diagnostics["detail"]
+        return {"ui_mode": "json"}, reason, []
+    return values, None, normalized
+
+
+def migrate(payload, prefer_forms=False):
     """Return ``(deep_copied_payload, report)``; never mutate or run the old flow.
 
     Known class names with modified Python or unknown nonempty parameters are
@@ -172,6 +291,29 @@ def migrate(payload):
     """
     updated = deepcopy(payload)
     graph = _graph(updated)
+    node_ids = set()
+    for vertex in graph["nodes"]:
+        if (
+            not isinstance(vertex, dict)
+            or not isinstance(vertex.get("data"), dict)
+            or not isinstance(vertex["data"].get("node", {}), dict)
+            or not isinstance(vertex["data"].get("node", {}).get("template", {}), dict)
+        ):
+            raise MigrationError("Every flow node must contain an id, data, node and template object.")
+        node_id = vertex.get("id")
+        if not isinstance(node_id, str) or not node_id or node_id in node_ids:
+            raise MigrationError(f"Missing or duplicate node ID: {node_id!r}.")
+        node_ids.add(node_id)
+        if not isinstance(vertex["data"].get("type"), str):
+            raise MigrationError("Every flow node must contain a string component type.")
+        template = vertex["data"].get("node", {}).get("template", {})
+        if any(key in template and not isinstance(template[key], dict) for key in ("code", "ui_mode")):
+            raise MigrationError("Source and mode template descriptors must be objects.")
+    if any(
+        not isinstance(edge, dict) or not isinstance(edge.get("data", {}), dict)
+        for edge in graph.get("edges", [])
+    ):
+        raise MigrationError("Every flow edge and its data must be objects.")
     registry = json.loads(
         Path(__file__).with_name("legacy_component_hashes.json").read_text(encoding="utf-8")
     )
@@ -182,6 +324,8 @@ def migrate(payload):
         "upgraded": [],
         "skipped": [],
         "unchanged": [],
+        "forms": [],
+        "fallbacks": [],
         "edges_validated": 0,
     }
     upgraded_ids = set()
@@ -202,10 +346,20 @@ def migrate(payload):
             continue
         digest = source_hash(code)
         is_current = digest == _current_hash(name, catalog)
-        if is_current and ("ui_mode" in old_template or _MARKER in data):
+        already_native = old_template.get("ui_mode", {}).get("value") == "form"
+        if already_native and (is_current or digest in registry["classes"][name]):
+            report["unchanged"].append(
+                {**identity, "reason": "already_current" if is_current else "native_form_preserved"}
+            )
+            continue
+        if (
+            is_current
+            and ("ui_mode" in old_template or _MARKER in data)
+            and (not prefer_forms or already_native or "ui_mode" not in old_template)
+        ):
             report["unchanged"].append({**identity, "reason": "already_current"})
             continue
-        if digest not in registry["classes"][name]:
+        if not is_current and digest not in registry["classes"][name]:
             report["skipped"].append({**identity, "reason": "custom_code", "source_sha256": digest})
             continue
         component = _current_class(name, catalog)()
@@ -215,20 +369,53 @@ def migrate(payload):
             if "config_json" in old_template:
                 values["config_json"] = deepcopy(old_template["config_json"].get("value"))
             component.set(**values)
+        form_values, fallback_reason, normalizations = {}, None, []
+        if prefer_forms:
+            form_values, fallback_reason, normalizations = _form_values(component, vertex, graph, catalog)
+            component.set(**({"ui_mode": "json"} if fallback_reason else form_values))
         new_node = component.to_frontend_node()["data"]["node"]
         new_template = new_node["template"]
         unsupported = [
             key
             for key, descriptor in old_template.items()
-            if key not in new_template and isinstance(descriptor, dict) and _nonempty(descriptor.get("value"))
+            if key not in new_template
+            and isinstance(descriptor, dict)
+            and (
+                _nonempty(descriptor.get("value"))
+                or prefer_forms
+                and key not in _RETIRED_EMPTY_PORTS
+                and "value" in descriptor
+            )
         ]
         if unsupported:
             report["skipped"].append({**identity, "reason": "unsupported_parameter", "fields": unsupported})
             continue
+        if prefer_forms and form_values.get("ui_mode") == "form":
+            connected = {
+                _handle(edge, "source").get("name")
+                for edge in graph.get("edges", [])
+                if edge.get("source") == vertex["id"]
+            }
+            available = {output["name"] for output in new_node.get("outputs", [])}
+            if connected - available:
+                fallback_reason = "connected_output_unavailable_in_form"
+                form_values = {"ui_mode": "json"}
+                component.set(ui_mode="json")
+                new_node = component.to_frontend_node()["data"]["node"]
+                new_template = new_node["template"]
         preserved = []
+        native_fields = set()
+        if form_values.get("ui_mode") == "form":
+            if name in catalog:
+                native_fields = {key for key in new_template if key.startswith("cfg_")}
+            else:
+                from materials_quality.quality_ui import CHECK_FIELDS
+
+                native_fields = set().union(*CHECK_FIELDS.values()) | {"enabled_checks"}
         for key, descriptor in old_template.items():
             if (
                 key != "code"
+                and key not in native_fields
                 and key in new_template
                 and isinstance(descriptor, dict)
                 and "value" in descriptor
@@ -236,13 +423,35 @@ def migrate(payload):
                 new_template[key]["value"] = deepcopy(descriptor["value"])
                 preserved.append(key)
         if "ui_mode" in new_template:
-            new_template["ui_mode"]["value"] = "json"
-            component.update_build_config(new_template, "json", "ui_mode")
+            for key, value in form_values.items():
+                if key in new_template:
+                    new_template[key]["value"] = deepcopy(value)
+            mode = form_values.get("ui_mode", "json")
+            new_template["ui_mode"]["value"] = mode
+            component.update_build_config(new_template, mode, "ui_mode")
         for key in _VISUAL_FIELDS:
             if key in old_node:
                 new_node[key] = deepcopy(old_node[key])
         data["node"] = new_node
-        data[_MARKER] = {"version": 1, "source_sha256": digest, "baseline": registry["baseline"]}
+        previous = data.get(_MARKER, {}) if is_current else {}
+        data[_MARKER] = {
+            "version": 1,
+            "source_sha256": previous.get("source_sha256", digest),
+            "baseline": registry["baseline"],
+        }
+        if prefer_forms:
+            if fallback_reason:
+                report["fallbacks"].append({**identity, "reason": fallback_reason})
+            else:
+                report["forms"].append({**identity, "normalizations": normalizations})
+                data[_MARKER]["original_json"] = {
+                    key: value for key, value in _saved_values(old_template).items() if key.endswith("_json")
+                }
+                data[_MARKER]["original_form_inputs"] = {
+                    key: value for key, value in _saved_values(old_template).items() if key in native_fields
+                }
+                if normalizations:
+                    data[_MARKER]["normalizations"] = normalizations
         upgraded_ids.add(vertex["id"])
         report["upgraded"].append({**identity, "preserved_fields": preserved})
     report["edges_validated"] = _validate_edges(graph, upgraded_ids)

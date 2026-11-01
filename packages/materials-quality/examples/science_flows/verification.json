@@ -19,7 +19,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 66914,
+          "bytes": 68671,
           "format": ".html"
         },
         {
@@ -115,7 +115,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 313672,
+          "bytes": 316752,
           "format": ".html"
         },
         {
@@ -170,7 +170,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 215276,
+          "bytes": 217127,
           "format": ".html"
         },
         {
@@ -266,7 +266,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 330681,
+          "bytes": 332063,
           "format": ".html"
         },
         {
@@ -380,7 +380,7 @@
       "artifacts_read_back": [
         {
           "name": "analysis-report.html",
-          "bytes": 143190,
+          "bytes": 144411,
           "format": ".html"
         },
         {
@@ -390,7 +390,7 @@
         },
         {
           "name": "model-manifest.json",
-          "bytes": 4546,
+          "bytes": 4579,
           "format": ".json"
         },
         {

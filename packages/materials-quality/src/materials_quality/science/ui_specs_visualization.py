@@ -118,15 +118,16 @@ SPECS = {
             "光谱/衍射图型",
             "choice",
             default="overlay",
-            choices=["line", "overlay", "difference"],
-            info="line 不偏移折线；overlay 允许逐条偏移；difference 计算第一条强度列减第二条。",
+            choices=["line", "overlay", "difference", "band"],
+            info="line 不偏移折线；overlay 允许逐条偏移；difference 计算第一条强度列减第二条；"
+            "band 使用长表完整独立曲线计算均值与真实填充带。",
         ),
         field(
             "x",
             "光谱横坐标列",
             default="x",
             required=True,
-            info="至少两个点，横坐标必须严格递增且唯一；不同采样网格应先在上游明确重采样。",
+            info="每条曲线至少两个递增且唯一的坐标点；band 的不同网格须显式指定公共插值网格。",
         ),
         field(
             "columns",
@@ -134,7 +135,49 @@ SPECS = {
             "list",
             default=["intensity"],
             required=True,
+            when={"method": ["line", "overlay", "difference"]},
             info="填写一列或多列实际列名；difference 必须恰好两列，顺序决定相减方向。所有列使用同一横坐标。",
+        ),
+        field(
+            "y",
+            "长表强度列",
+            default="intensity",
+            required=True,
+            when={"method": ["band"]},
+            info="长格式数据中每行一个实测坐标点的有限数值强度列。",
+        ),
+        field(
+            "curve_id",
+            "完整曲线 ID 列",
+            default="curve_id",
+            required=True,
+            when={"method": ["band"]},
+            info="一条完整曲线代表一个独立实验重复；每条曲线至少两个递增且不重复的横坐标。",
+        ),
+        field(
+            "group", "曲线分组列（可选）", when={"method": ["band"]}, info="同一曲线 ID 必须始终属于同一组。"
+        ),
+        field(
+            "band",
+            "均值周围填充带",
+            "choice",
+            choices=["iqr", "sd", "ci95"],
+            default="iqr",
+            when={"method": ["band"]},
+            info="IQR 为逐点25%–75%观测分位带；SD 为样本标准差；ci95 为独立曲线均值逐点t区间，非同时置信带。",
+        ),
+        field(
+            "grid",
+            "显式公共插值网格",
+            "list",
+            when={"method": ["band"]},
+            info="网格相同可留空；不同网格必须填写严格递增数值列表，范围在所有曲线交集内，仅线性内插。",
+        ),
+        field(
+            "unit_column",
+            "强度单位列（长表可选）",
+            when={"method": ["band"]},
+            info="如每行另有 unit 列，可选择以核对；所有被汇总曲线必须单位一致，不自动换算。",
         ),
         field(
             "offset",
@@ -148,6 +191,7 @@ SPECS = {
             "peaks",
             "峰位注释",
             "table",
+            when={"method": ["line", "overlay", "difference"]},
             table_schema=[
                 {"name": "x", "display_name": "峰位置", "type": "float"},
                 {"name": "label", "display_name": "注释", "type": "str"},

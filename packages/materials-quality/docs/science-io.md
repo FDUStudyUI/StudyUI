@@ -1,4 +1,4 @@
-# 数据接入与内容提取：可运行方法和边界
+# 数据接入与内容提取
 
 表格导入默认保留 `001`、`01` 等文本编号以及 Excel 中的字面值 `NA`；
 可用 `id_columns:["sample_id"]` 和 `dtype:{"batch":"string"}` 明确声明字段。
@@ -17,9 +17,9 @@ python examples/science/io/run_examples.py --output-dir artifacts/io-demo
 python -m pytest tests/test_science_io.py tests/test_science_extract.py -q --basetemp artifacts/pytest-io-local
 ```
 
-`artifacts` 目录应已存在，或先运行 `New-Item -ItemType Directory -Force artifacts`。Langflow 节点中的 JSON 配置可直接采用 `examples/science/io/configs.json`，将其中的文件路径改成本机绝对路径；截图坐标和坐标轴标定必须对应自己的原图。CSV、Excel 和原始图片不会被结果覆盖；即使 `overwrite=true`，与当前原始输入路径冲突时也会另建文件名。
+`artifacts` 目录应已存在，或先运行 `New-Item -ItemType Directory -Force artifacts`。普通任务使用[表单控件](node-usability.md)。高级 `json` 模式可参考 `examples/science/io/configs.json`，将其中的文件路径改成本机绝对路径；截图坐标和坐标轴标定必须对应自己的原图。CSV、Excel 和原始图片不会被结果覆盖；即使 `overwrite=true`，与当前原始输入路径冲突时也会另建文件名。
 
-## 方法与验收对应表
+## 方法、配置与验证
 
 测试文件简称 IO=`tests/test_science_io.py`，EX=`tests/test_science_extract.py`。
 
@@ -38,7 +38,7 @@ python -m pytest tests/test_science_io.py tests/test_science_extract.py -q --bas
 | `extract.chart_digitize`：标定坐标；识别曲线；数字化 | 必填 `calibration.x/y=[[pixel,value],[pixel,value]]`，可用 `x_scale/y_scale=log`；RGB `color/color_tolerance` 识别指定曲线；`region/pixel_step` 控制区域/采样；每像素列取匹配曲线中位 y，并返回原始 pixel 坐标、匹配数量、厚度及歧义警告 | EX `test_calibrated_curve_digitization_known_pixels`、`test_logarithmic_calibration_and_region` |
 | `extract.convert_file`：解析源格式；转 CSV、TXT、PNG | 根据原格式真正调用表格/仪器/PDF/图像解析器；CSV、UTF-8 TXT 或 Pillow PNG 输出。PDF→PNG 渲染各页；图像→PNG 保留解码像素；表→PNG 绘制表格。`target/filename/output_dir`，表输入可直接导出 | EX 三种格式读回、原文件冲突保护、带上游表时的原路径保护、PDF 文本/PNG、图片像素读回 |
 
-## 常用配置
+## 高级 JSON 配置
 
 文件导入：
 
@@ -78,7 +78,7 @@ REST 示例先另开终端运行 `python examples/science/io/demo_rest.py`，再
 
 像素 y 方向向下，数值 y 方向由两个校准点决定。合成示例恢复 `y=10*x` 的 101 点。黑白图也可选黑色，但应通过 `region` 排除坐标轴和文字；同色多曲线、交叠、粗线、倾斜坐标轴需要更细选择或人工复核。本实现为标准二维直角坐标标定，不宣称支持透视畸变自动校正。
 
-## 真实依赖、限制与当前验证
+## 依赖与适用条件
 
 - 表格需要 pandas/openpyxl；旧 XLS 使用 xlrd。ODS 需用户另外安装 pandas 的 odf 引擎；主要验收覆盖 CSV 和 XLSX。
 - PDF 需要 PyMuPDF；OCR 需要 `rapidocr-onnxruntime==1.4.4`、ONNX Runtime、OpenCV，以及该包附带的检测/方向分类/识别 ONNX 模型。默认在本地 CPU 单线程推理；可用 `ocr_config_path` 指定其他本地模型配置。测试已实际执行模型推理，不用 OCR mock。网络服务和 API key 不是 OCR 运行条件。
@@ -87,6 +87,7 @@ REST 示例先另开终端运行 `python examples/science/io/demo_rest.py`，再
 - SQLAlchemy 实际本地 SQLite 已测；PostgreSQL/MySQL/MariaDB 路径执行真实只读事务，但需要对应驱动、服务器、凭据，尚未对外部生产服务器执行连通测试。其他方言明确拒绝，避免虚假只读保证。SQL 过滤保守，不接受多条语句或含写操作词的查询。
 - REST 测试使用本地真实 HTTP 服务覆盖分页、偏移、next、单次及截断。未对任意公网服务保证兼容；接口字段名和认证由使用者明确提供。
 
-开发验证记录：首轮 28 个真实测试先失败于未实现的节点模块，随后全部通过；输入隔离与路径保护回归先复现原始文件被覆盖，再修复。后续补充跳转凭据、标头重名、旧转换文件、样品编号、整数精度与布尔类型回归。真实 OCR、PDF/图片、SQLite、SQLAlchemy、HTTP 服务、标定曲线及输出回读均纳入最终全套 415 项测试；原生图、独立 wheel 和真实网页验证见[整体验收](full-suite-acceptance.md)。
+原生图、独立 wheel 和网页验证见[0.3.0 整体验收](full-suite-acceptance.md)；
+开发测试的历史记录见[验证归档](development/domain-validation.md)。
 
 API 实现依据：[PyMuPDF Page API](https://pymupdf.readthedocs.io/en/latest/page.html)、[SQLite URI 只读模式](https://www.sqlite.org/uri.html)、[SQLAlchemy SQLite URI](https://docs.sqlalchemy.org/en/20/dialects/sqlite.html#uri-connections)、[RapidOCR 上游项目](https://github.com/RapidAI/RapidOCR)。本地直接检查 RapidOCR 1.4.4 的 `__call__`、`get_final_res`、`CalRecBoxes` 返回结构后实现字符/词框读取。

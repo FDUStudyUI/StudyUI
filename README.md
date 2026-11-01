@@ -2,7 +2,7 @@
 
 基于 Langflow 的可视化科研 Agent 工作流。
 
-材料科学组件包对应《工作流节点.md》的八类、50 项功能，包含 52 个 Langflow 原生节点，
+材料科学组件包对应《工作流节点.md》的八类、50 项功能，并增加批量科研任务，包含 60 个 Langflow 原生节点，
 以及测试、依赖清单和可导入示例。覆盖文件与数据库接入、OCR、质量与预处理、专业材料分析、
 统计建模、绘图报告和文献证据。计算默认在部署 Langflow 的电脑或服务器运行，原始数据保留。
 
@@ -10,8 +10,9 @@
 人工修订后三份模拟教学数据和工作流，展示分组检查、合理重复测量、来源与规则追溯。
 
 完整说明：[packages/materials-quality/README.md](packages/materials-quality/README.md)。
-新手可先看[表单操作与优化清单](packages/materials-quality/docs/node-usability.md)，
+新手可先看[表单操作指南](packages/materials-quality/docs/node-usability.md)，
 再导入[上传、力学绘图、共享规则练习](packages/materials-quality/examples/form_flows/README.md)。
+多份试样或上千条光谱可使用[批量分析指南](packages/materials-quality/docs/batch-processing.md)，无需复制每份样品的节点。
 
 ## 开始使用
 
