@@ -50,3 +50,8 @@ Existing direct-execution preference applies; no new design/merge approval is re
   five original plus nine science graphs. After final server restart, browser four form cases,
   nine science flows and three original quality cases all passed. Machine evidence and screenshots saved.
 - Independent closure review found no actionable remaining issues. GitHub push/PR and exact-head CI pending.
+- PR #4 submitted. First remote run passed core tests (549 passed; optional UI modules/CJK font skipped),
+  science rebuilds, wheel, original quality UI and all nine science UI flows. New-form upload selection exposed
+  an asynchronous auto-select/toggle race in the acceptance harness, reproduced deterministically and fixed.
+- After the fix, all four real native-form cases passed again and the full local suite passed556tests in156.22s.
+  Production components remain unchanged by this harness fix; final remote checks run against the updated PR head.

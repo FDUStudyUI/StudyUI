@@ -36,4 +36,7 @@ configuration composer. Keep legacy JSON loading explicit and preserve numerical
 - [x] Parent: IO/extraction/preprocessing specs, generator output and catalog contracts; migration tool,
   regenerated examples, native integration and old-flow reproductions.
 - [x] Fresh independent review; fix reproducible issues. Full pytest, Ruff, wheel and real browser tests.
-- [ ] Document usability inventory and limitations; push branch/create PR; verify exact-head remote checks.
+- [x] Document usability inventory and limitations; push branch/create PR.
+
+Completion gate: verify both remote jobs for the final head of PR #4. The live GitHub Checks and final handoff
+record that outcome; this plan is a pre-CI implementation snapshot.

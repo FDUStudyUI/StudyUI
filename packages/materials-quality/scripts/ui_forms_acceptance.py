@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import expect, sync_playwright
 
 from scripts.ui_acceptance import _home, _output_dialog, _write_json
@@ -70,8 +71,18 @@ def _source_upload(page, node, path):
     # handler ignores them until progress disappears and file actions appear.
     item.locator('[data-testid^="context-menu-button-"]').wait_for(state="visible", timeout=60000)
     checkbox = item.get_by_role("checkbox")
-    if checkbox.get_attribute("aria-checked") != "true":
-        item.click()
+    # The upload Promise auto-selects separately from the saved-row refresh.
+    # If that continuation lands between check()'s state read and its click,
+    # the click toggles the new selection off and Playwright reports it. Set
+    # the desired state again through the checkbox, with a strict retry bound.
+    for attempt in range(3):
+        try:
+            checkbox.check(timeout=10000)
+            break
+        except PlaywrightError as error:
+            if attempt == 2 or "Clicking the checkbox did not change its state" not in str(error):
+                raise
+            print("Upload auto-selection raced the click; rechecking the visible file checkbox", flush=True)
     expect(checkbox).to_be_checked()
     dialog.get_by_test_id("select-files-modal-button").click()
     expect(dialog).not_to_be_visible(timeout=30000)

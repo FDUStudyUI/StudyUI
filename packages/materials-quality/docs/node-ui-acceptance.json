@@ -1,5 +1,5 @@
 {
-  "utc": "2026-11-01T03:09:16.444599+00:00",
+  "utc": "2026-11-01T03:23:24.247351+00:00",
   "version": "0.4.0",
   "base_commit": "0262f0d54f4e63ee6a8a4a6931e49c23a25e2723",
   "environment": {
@@ -9,13 +9,13 @@
     "os": "Windows"
   },
   "pytest": {
-    "passed": 555,
+    "passed": 556,
     "warnings": 7,
-    "elapsed_seconds": 162.71
+    "elapsed_seconds": 156.22
   },
   "ruff": "passed",
   "native_form_browser": {
-    "utc": "2026-11-01T03:05:43.834209+00:00",
+    "utc": "2026-11-01T03:21:05.906973+00:00",
     "base_url": "http://127.0.0.1:7871",
     "application": "Real Langflow native forms, fresh headless browser context",
     "cases": {
@@ -310,6 +310,12 @@
   "wheel_science_flows": 9,
   "wheel_sha256": "0d5768153158a11a7829960c5a6385ffd216922b85bd05e2832b5ea5e1daddb3",
   "independent_review": "No actionable findings after fixes; scoped routing/ports/compatibility closure.",
+  "upload_selection_regression": {
+    "cause": "Saved row can precede asynchronous upload auto-selection; a subsequent toggle could deselect it.",
+    "test": "test_source_upload_recovers_when_late_autoselect_races_the_first_click",
+    "reproduced_red_and_passed_green": true,
+    "scope": "Browser acceptance harness; production components unchanged."
+  },
   "source_sha256_lf": {
     "src/materials_quality/__init__.py": "e03804adf0ef20f111f108e01451334bb4d06151b302ab483d40713e4f522cc5",
     "src/materials_quality/aggregate.py": "38a21b0480a758a1445b6e79bb3a50dee0f0d22a8ccc4128e072259040cfaec1",
