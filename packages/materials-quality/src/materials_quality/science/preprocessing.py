@@ -1,5 +1,6 @@
 """Explicit, auditable table transformations; inputs are never mutated."""
 
+import ast
 from copy import deepcopy
 
 import numpy as np
@@ -62,6 +63,11 @@ def table_units(frame, data=None, declared=None):
     """Combine explicit column labels without assuming that equal dimensions imply equal units."""
     units = {}
     upstream = data.get("units", {}) if isinstance(data, dict) else {}
+    if not isinstance(upstream, dict):
+        raise ValueError("upstream units must be a mapping")
+    # Reports can describe the preceding schema. Unknown old fields carry no
+    # unit information about new columns; explicit declarations stay strict.
+    upstream = {key: value for key, value in upstream.items() if key in frame.columns}
     for mapping in (frame.attrs.get("units", {}), upstream, {} if declared is None else declared):
         if not isinstance(mapping, dict) or set(mapping) - set(frame.columns):
             raise ValueError("unit declarations must map existing columns to nonempty unit labels")
@@ -80,9 +86,135 @@ def table_units(frame, data=None, declared=None):
     return units
 
 
+def _formula(expression, frame, units):
+    """Interpret a small arithmetic AST. No Python evaluation or object access."""
+    if not isinstance(expression, str) or len(expression) > 1000:
+        raise ValueError("formula must be a string of at most 1000 characters")
+    try:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError as exc:
+        raise ValueError("invalid formula syntax") from exc
+    if sum(1 for _ in ast.walk(tree)) > 100:
+        raise ValueError("formula is too complex")
+
+    def same_unit(a, b):
+        if a == b:
+            return a
+        if a is None or b is None:
+            return None
+        if _unit(a) != _unit(b):
+            raise ValueError("formula addition/comparison requires identical units; convert units first")
+        return a
+
+    def combine(a, b, divide=False):
+        if b == "dimensionless":
+            return a, False
+        if a == "dimensionless" and not divide:
+            return b, False
+        if a is None or b is None:
+            return None, True
+        return str(_unit(a) / _unit(b) if divide else _unit(a) * _unit(b)), True
+
+    def visit(node, depth=0):
+        if depth > 20:
+            raise ValueError("formula nesting is too deep")
+        if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+            if not np.isfinite(node.value):
+                raise ValueError("formula constants must be finite")
+            return float(node.value), "dimensionless", False
+        if isinstance(node, ast.Name) and node.id in frame.columns and not node.id.startswith("__"):
+            return numeric_matrix(frame, [node.id])[:, 0], units.get(node.id), False
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            v, u, explicit = visit(node.operand, depth + 1)
+            return (v if isinstance(node.op, ast.UAdd) else -v), u, explicit
+        if isinstance(node, ast.BinOp):
+            left, lu, le = visit(node.left, depth + 1)
+            right, ru, re = visit(node.right, depth + 1)
+            if isinstance(node.op, (ast.Add, ast.Sub)):
+                unit = same_unit(lu, ru)
+                value = left + right if isinstance(node.op, ast.Add) else left - right
+                return value, unit, le or re
+            if isinstance(node.op, (ast.Mult, ast.Div)):
+                unit, explicit = combine(lu, ru, isinstance(node.op, ast.Div))
+                value = left * right if isinstance(node.op, ast.Mult) else left / right
+                return value, unit, explicit or le or re
+            if isinstance(node.op, ast.Pow):
+                if not np.isscalar(right) or abs(right) > 32 or ru != "dimensionless":
+                    raise ValueError(
+                        "formula power must be a scalar dimensionless exponent with absolute value <=32"
+                    )
+                return np.power(left, right), str(_unit(lu) ** right) if lu is not None else None, True
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and not node.keywords:
+            name = node.func.id
+            arity = {"abs": 1, "sqrt": 1, "log": 1, "log10": 1, "exp": 1, "minimum": 2, "maximum": 2}
+            if name not in arity or len(node.args) != arity[name]:
+                raise ValueError("formula uses an unapproved function or argument count")
+            args = [visit(arg, depth + 1) for arg in node.args]
+            value, unit, explicit = args[0]
+            if name == "abs":
+                return np.abs(value), unit, explicit
+            if name == "sqrt":
+                return np.sqrt(value), str(_unit(unit) ** 0.5) if unit is not None else None, True
+            if name in {"minimum", "maximum"}:
+                other, other_unit, other_explicit = args[1]
+                unit = same_unit(unit, other_unit)
+                return getattr(np, name)(value, other), unit, explicit or other_explicit
+            if unit is None or not _unit(unit).dimensionless:
+                raise ValueError("formula logarithm/exponential requires explicitly dimensionless inputs")
+            value = _REGISTRY.Quantity(value, _unit(unit)).to("dimensionless").magnitude
+            return getattr(np, name)(value), "dimensionless", explicit
+        raise ValueError(
+            "formula supports only numeric arithmetic, named columns, and approved numeric functions"
+        )
+
+    try:
+        with np.errstate(all="raise"):
+            return visit(tree.body)
+    except (ArithmeticError, TypeError, OverflowError) as exc:
+        raise ValueError("formula produced invalid numeric values") from exc
+
+
+def _derive_columns(frame, rules, units):
+    if not isinstance(rules, list):
+        raise ValueError("derived_columns must be a formula rule table")
+    records = []
+    for rule in rules:
+        column = rule.get("column")
+        if not isinstance(column, str) or not column.strip() or column in frame:
+            raise ValueError("formula output column must be a new nonempty name")
+        values, inferred, needs_unit = _formula(rule.get("expression"), frame, units)
+        declared = rule.get("unit") or None
+        if declared is not None and (not isinstance(declared, str) or not declared.strip()):
+            raise ValueError("formula unit must be a nonempty label")
+        if (needs_unit or inferred is None) and not declared:
+            raise ValueError("formula requires an explicit output unit for compound/undeclared input units")
+        if declared and inferred is not None and _unit(declared) != _unit(inferred):
+            raise ValueError("formula output unit does not match arithmetic units; convert units explicitly")
+        values = np.asarray(values, dtype=float)
+        if values.ndim == 0:
+            values = np.full(len(frame), values.item())
+        if values.shape != (len(frame),) or not np.isfinite(values).all():
+            raise ValueError("formula must produce one finite number per row")
+        frame[column] = values
+        units[column] = declared or inferred
+        records.append(
+            {
+                "column": column,
+                "expression": rule["expression"],
+                "unit": units[column],
+                "unit_verified": inferred is not None,
+            }
+        )
+    return records
+
+
 def filter_rows(table=None, *, config=None, data=None, tables=None):
     config = config or {}
     frame = require_table(table, min_rows=0)
+    original = frame.copy(deep=True)
+    source_units = table_units(frame, data)
+    derived = _derive_columns(frame, config.get("derived_columns", []), source_units)
+    frame.attrs["units"] = source_units
     logic = config.get("logic", "and")
     if logic not in {"and", "or"}:
         raise ValueError("logic must be and or or")
@@ -126,19 +258,18 @@ def filter_rows(table=None, *, config=None, data=None, tables=None):
     rename = config.get("rename", {})
     if not isinstance(rename, dict) or rename.keys() - set(output.columns):
         raise ValueError("rename must map existing selected columns to new names")
-    units = {
-        rename.get(col, col): unit for col, unit in table_units(frame, data).items() if col in output.columns
-    }
+    units = {rename.get(col, col): unit for col, unit in source_units.items() if col in output.columns}
     output = output.rename(columns=rename)
     output.attrs["units"] = units
     return _result(
-        frame,
+        original,
         output,
         "filter",
         config,
         removed_positions=np.flatnonzero(~mask).tolist(),
         retained_positions=np.flatnonzero(mask).tolist(),
         renamed_columns=rename,
+        derived_columns=derived,
         units=units,
     )
 
@@ -456,7 +587,28 @@ def merge_tables(table=None, *, config=None, data=None, tables=None):
         details["matches"] = matches
     else:
         raise ValueError("merge method must be join, asof or append")
-    return _result(frames[0], output, method, config, input_table_rows=[len(t) for t in frames], **details)
+    from materials_quality.context import table_fingerprint
+
+    sources = [
+        {
+            "table_position": i,
+            "source_name": t.attrs.get("source_name"),
+            "source_sha256": t.attrs.get("source_sha256"),
+            "table_sha256": table_fingerprint(t),
+            "rows": len(t),
+            "columns": list(t.columns),
+        }
+        for i, t in enumerate(frames)
+    ]
+    return _result(
+        frames[0],
+        output,
+        method,
+        config,
+        input_table_rows=[len(t) for t in frames],
+        sources=sources,
+        **details,
+    )
 
 
 def _coordinate_distance(first, second):
@@ -476,28 +628,36 @@ def normalize_table(table=None, *, config=None, data=None, tables=None):
     values = numeric_matrix(frame, selected)
     output = frame.copy(deep=True)
     parameters, warnings = {}, []
-    for j, column in enumerate(selected):
-        series = values[:, j]
-        if method == "minmax":
-            center, scale = float(series.min()), float(series.max() - series.min())
-        elif method == "zscore":
-            center, scale = float(np.mean(series)), float(np.std(series, ddof=0))
-        else:
-            q1, q3 = np.quantile(series, [0.25, 0.75])
-            center, scale = float(np.median(series)), float(q3 - q1)
-        if not np.isfinite([center, scale]).all():
-            raise ValueError("normalization baseline overflowed")
-        if scale == 0 and method == "robust" and series.min() != series.max():
-            raise ValueError(f"{column}: nonconstant series has zero IQR; choose a different scaling method")
-        if scale == 0:
-            warnings.append(f"{column}: constant/zero-spread baseline; mapped to zero")
-            normalized = np.zeros(len(series))
-        else:
-            normalized = (series - center) / scale
-        if not np.isfinite(normalized).all():
-            raise ValueError("normalization results are not finite")
-        output[column] = normalized
-        parameters[column] = {"center": center, "scale": scale, "ddof": 0 if method == "zscore" else None}
+    group_by = config.get("group_by") or []
+    if isinstance(group_by, str):
+        group_by = [group_by]
+    if group_by:
+        _complete_keys(frame, group_by)
+    by_group = []
+    # Allocate numeric destination columns before positional group assignment.
+    for column in selected:
+        output[column] = output[column].astype(float)
+    for group, positions in groups(frame, group_by):
+        local_parameters = {}
+        for j, column in enumerate(selected):
+            series = values[positions, j]
+            center, scale = _normalization_baseline(series, method, column)
+            if scale == 0:
+                warnings.append(f"{column}, group {group}: constant/zero-spread baseline; mapped to zero")
+                normalized = np.zeros(len(series))
+            else:
+                normalized = (series - center) / scale
+            if not np.isfinite(normalized).all():
+                raise ValueError("normalization results are not finite")
+            output.iloc[positions, output.columns.get_loc(column)] = normalized
+            local_parameters[column] = {
+                "center": center,
+                "scale": scale,
+                "ddof": 0 if method == "zscore" else None,
+            }
+        by_group.append({"group": group, "parameters": local_parameters, "count": len(positions)})
+        if not group_by:
+            parameters = local_parameters
     units = {**table_units(frame, data), **dict.fromkeys(selected, "dimensionless")}
     output.attrs["units"] = units
     return _result(
@@ -508,8 +668,25 @@ def normalize_table(table=None, *, config=None, data=None, tables=None):
         warnings,
         units=units,
         fit_parameters=parameters,
+        fit_parameters_by_group=by_group,
+        group_by=group_by,
         changes=_changes(frame, output),
     )
+
+
+def _normalization_baseline(series, method, column):
+    if method == "minmax":
+        center, scale = float(series.min()), float(series.max() - series.min())
+    elif method == "zscore":
+        center, scale = float(np.mean(series)), float(np.std(series, ddof=0))
+    else:
+        q1, q3 = np.quantile(series, [0.25, 0.75])
+        center, scale = float(np.median(series)), float(q3 - q1)
+    if not np.isfinite([center, scale]).all():
+        raise ValueError("normalization baseline overflowed")
+    if scale == 0 and method == "robust" and series.min() != series.max():
+        raise ValueError(f"{column}: nonconstant series has zero IQR; choose a different scaling method")
+    return center, scale
 
 
 CATALOG = [

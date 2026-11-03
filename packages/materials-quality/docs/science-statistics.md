@@ -1,6 +1,6 @@
 # Statistics and modeling nodes
 
-Progress: implemented all eight source entries and every listed method. Initial implementation passed 41 tests, the next design/security cycle passed 56, and independent review added 14 regression cases: 70 tests now pass. All 30 synthetic statistics/demo runs executed successfully. Integrated full-suite verification belongs to the parent task; this document claims the domain verification below.
+Eight statistics and modeling operations cover descriptive statistics, distributions, correlations, significance tests, group comparisons, model training, prediction and evaluation.
 
 All operations have `fn(table=None, *, config=None, data=None, tables=None) -> NodeResult`. Tables are pandas DataFrames; config and data are JSON objects. Import the operations from `materials_quality.science.statistics`. Each operation has its own CATALOG entry and native adapter. Run the package with the `science` extra installed; this domain uses NumPy, pandas, SciPy, statsmodels, scikit-learn, skops, matplotlib and Pillow. No API account, network access or proprietary reference database is required.
 
@@ -11,6 +11,8 @@ Selected numeric columns must be finite and contain no missing or Boolean values
 Rows must represent experimental units. Supply `subject` to independent-group significance tests to check that specimen IDs are unique. Repeated IDs are rejected; aggregate technical replicates before testing. A declared `pair_id` requires the `paired_t` method. Paired tests join by ID and group, reject duplicate ID/group measurements, require two groups and at least two complete pairs. Missing partners cause an error unless `incomplete_pairs: "drop"` is explicitly selected; dropped pair counts and retained pair IDs are returned. Algorithms cannot infer experimental independence from a table that omits identity information.
 
 ## Complete method reference
+
+Use [native forms](node-usability.md) for ordinary workflows. The configuration keys below also apply to advanced JSON and Python API calls.
 
 | Operation | Required config and selector | Behavior and evidence | Verification |
 | --- | --- | --- | --- |
@@ -65,10 +67,8 @@ python -m pytest tests/test_science_stats.py tests/test_science_viz.py --basetem
 
 The demo uses the checked-in synthetic `groups.csv` and `paired.csv`, generates an exact 60-row `y=2x+3` modeling fixture, runs every required selector, and writes a JSON manifest containing actual configs/results/warnings/artifacts. The two distribution PNGs, all seven serialized fitted models, and manifest contents are read back. All data are demonstrations, not materials experiments.
 
-Tested dependencies for this domain: Python 3.10, SciPy 1.15.3, scikit-learn 1.7.2, statsmodels 0.14.6, skops 0.13.0, matplotlib 3.10.9, pandas 2.x, NumPy 2.x and Pillow. The package science extra owns installation; this domain does not modify the environment. Scientific assumptions are exposed, not automatically certified by a normality p-value. Regression uncertainty intervals and mixed-effects/repeated-measures ANOVA are outside the requested methods.
+Tested dependencies for this domain: Python 3.10, SciPy 1.15.3, scikit-learn 1.7.2, statsmodels 0.14.6, skops 0.13.0, matplotlib 3.10.9, pandas 2.x, NumPy 2.x and Pillow. Install these dependencies through the package `science` extra. Scientific assumptions are exposed, not automatically certified by a normality p-value. Regression uncertainty intervals and mixed-effects/repeated-measures ANOVA are outside the requested methods.
 
 Primary API references: [SciPy Shapiro](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.shapiro.html), [SciPy Tukey HSD](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.tukey_hsd.html), [statsmodels multiple testing](https://www.statsmodels.org/stable/generated/statsmodels.stats.multitest.multipletests.html), [sklearn leakage prevention](https://scikit-learn.org/stable/common_pitfalls.html), [skops persistence](https://skops.readthedocs.io/en/stable/persistence.html). Dunn uses the conventional pooled-rank normal contrast with explicit tie correction; the two-group tied-rank test verifies the implemented formula independently.
 
-## Executed evidence
-
-Review-cycle final command: `python -m pytest tests/test_science_stats.py tests/test_science_viz.py --basetemp artifacts/pytest-stats-review-final -q`, with `PYTHONUTF8=1`, `MPLBACKEND=Agg` and `OMP_NUM_THREADS=MKL_NUM_THREADS=OPENBLAS_NUM_THREADS=1`: **70 passed in 12.21 s**. The preceding RED run reproduced nine failures (61 passed) across manifest dispatch, Excel text typing, CSV schema preservation and mechanics ordering/resampling. All owned modules, tests and example scripts pass Ruff. `examples/science/statistics/run_demo.py` completed and wrote `artifacts/science-statistics-review-demo/statistics-demo.json` with 30 operation runs. It includes all eight descriptors, histogram/Q-Q/Shapiro, three correlations, six significance methods, four comparison/correction methods, seven model families, reloaded prediction, config/upstream manifest-only prediction/evaluation, holdout/CV and explicit-vector evaluation. Model files are reloaded and their predictions checked inside every fitted-model run.
+Historical domain test results are retained in the [development archive](development/domain-validation.md).

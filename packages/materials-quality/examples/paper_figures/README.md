@@ -25,7 +25,7 @@ python -m scripts.render_paper_gallery --output artifacts/paper-figures
 ```
 
 各图可以从 CSV 与配置重绘。精确浮点回读可使用 `pd.read_csv(path, float_precision="round_trip")`；
-源单位由 `gallery.json` 中的配置恢复。项目代码不依赖个人 Skill 路径。
+源单位由 `gallery.json` 中的配置恢复。
 
-Langflow 节点的配置增加 `"profile":"paper"` 即可使用同一规格。
+在 Langflow 绘图表单中选择论文模式即可使用同一规格；高级 JSON 对应 `"profile":"paper"`。
 [详细参数与检查边界](../../docs/publication-plots.md)。

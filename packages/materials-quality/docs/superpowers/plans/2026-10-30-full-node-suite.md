@@ -28,7 +28,7 @@
 
 ### Task 1: Shared contracts and requirement ledger
 
-Files: science/contracts.py, tests/test_science_contracts.py, docs/requirements-matrix.json, docs/full-suite-progress.md.
+Files: science/contracts.py, tests/test_science_contracts.py, docs/requirements-matrix.json, docs/development/full-suite-progress.md.
 Interfaces: NodeResult, require_table, numeric_matrix, artifact_path, read_path as in spec.
 - [x] Write/observe failing contract tests, then implement utilities.
 - [x] Generate fifty-entry matrix preserving source subrequirements and assign all operation keys.

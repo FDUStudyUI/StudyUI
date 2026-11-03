@@ -181,6 +181,67 @@ def _saved_model():
     ]
 
 
+def _validation_fields(*, cv=False):
+    choices = ("random", "chronological_split", "blocked_cv") if cv else ("random", "chronological_split")
+    return [
+        field(
+            "validation_split",
+            "验证拆分策略",
+            "choice",
+            default="random",
+            choices=choices,
+            info=(
+                "random 保留原随机/按试样分组拆分；chronological_split 按时间留出后段；"
+                "blocked_cv 需选择 cv，逐块只用过去训练。"
+            ),
+        ),
+        field(
+            "time_column",
+            "时间或测量顺序列",
+            required=True,
+            when={"validation_split": [value for value in choices if value != "random"]},
+            info="选择有限数值或有效日期时间列；按时间稳定排序，同一时间不跨训练/测试。试样分组跨边界时明确报错。",
+        ),
+    ]
+
+
+def _diagnostic_fields(*, residual=True):
+    controls = (
+        [
+            field(
+                "residual_diagnostics",
+                "输出残差诊断",
+                "bool",
+                default=False,
+                info="报告留出残差的均值、离散和顺序相关摘要；不能证明模型假设成立。",
+            )
+        ]
+        if residual
+        else []
+    )
+    return [
+        *controls,
+        field(
+            "linear_trend_ci",
+            "单变量线性均值置信带",
+            "bool",
+            default=False,
+            info=(
+                "仅非正则化单变量 OLS；限训练特征范围内的均值区间，非个体预测或未来外推区间。"
+                "检出异方差时不输出经典置信带。"
+            ),
+        ),
+        field(
+            "confidence_level",
+            "均值置信水平",
+            "float",
+            default=0.95,
+            when={"linear_trend_ci": [True]},
+            info="0 与 1 之间；有限样本 t 区间仍需线性、独立、正态误差和方差齐性假设。",
+        ),
+    ]
+
+
 def _for_task(controller, task, controls):
     """Keep method conditions and task visibility conjunctive."""
     return [{**control, "when": {**control.get("when", {}), controller: [task]}} for control in controls]
@@ -189,6 +250,22 @@ def _for_task(controller, task, controls):
 SPECS = {
     "stats.grouped": [
         field("group", "分组列", default="group", required=True, info="输入自定义分组列名；标签不能缺失。"),
+        field("group_by", "多级分组列", "list", info="可选，优先于单个分组列；例如条件、样品、曲线。"),
+        field(
+            "normalize_by_group",
+            "各组先除以自身均值",
+            "bool",
+            default=False,
+            info="分别对每组每个数值列归一化；零均值时报错。",
+        ),
+        field(
+            "output_format",
+            "输出布局",
+            "choice",
+            default="long",
+            choices=("long", "wide"),
+            info="long 每个变量一行；wide 将变量与统计量展开为列。",
+        ),
         field(
             "columns",
             "统计数值列",
@@ -328,6 +405,8 @@ SPECS = {
             info="先拆分训练/测试集，再拟合缩放器；输出测试集结果、模型及清单。",
         ),
         *_dataset(required=True),
+        *_validation_fields(),
+        *_diagnostic_fields(),
         field(
             "test_size", "测试集比例", "float", default=0.2, info="0 与 1 之间；训练和测试各需至少两个样本。"
         ),
@@ -358,6 +437,8 @@ SPECS = {
                     info="无已有模型输入时训练；同一试样重复测量应填写独立样本分组列。",
                 ),
                 *_dataset(),
+                *_validation_fields(),
+                *_diagnostic_fields(),
                 field(
                     "test_size",
                     "训练时的测试集比例",
@@ -379,6 +460,14 @@ SPECS = {
             choices=("train", "saved", "predictions"),
             ui_only=True,
             info="train 训练评估；saved 读取已有模型清单；predictions 计算已有真实值和预测值的指标。",
+        ),
+        field(
+            "residual_diagnostics",
+            "输出残差诊断",
+            "bool",
+            default=False,
+            when={"evaluation_task": ["train"]},
+            info="对留出集或每折预测报告残差摘要；只描述已观察到的误差。",
         ),
         *_for_task("evaluation_task", "saved", _saved_model()),
         *_for_task(
@@ -417,7 +506,16 @@ SPECS = {
                     choices=(*_REGRESSORS, *_PREDICTORS),
                     info="交叉验证每折独立拟合预处理，holdout 仅在训练集拟合。",
                 ),
+                field(
+                    "models",
+                    "比较多个候选模型（可选）",
+                    "list",
+                    suggestions=[*_REGRESSORS, *_PREDICTORS],
+                    info="留空使用单个训练模型；选多个时用完全一致的留出/验证折比较，输出分数表，不自动重训或保存胜出者。",
+                ),
                 *_dataset(),
+                *_validation_fields(cv=True),
+                *_diagnostic_fields(residual=False),
                 field(
                     "folds",
                     "交叉验证折数",

@@ -64,6 +64,16 @@ SPECS = {
             "dict",
             info="原列名到新列名的映射；原列须位于保留列内，重命名后列名须唯一。",
         ),
+        field(
+            "derived_columns",
+            "公式派生列（筛选前计算）",
+            "table",
+            table_schema=_schema(
+                ("column", "新列名", "str"), ("expression", "数值公式", "str"), ("unit", "输出单位", "str")
+            ),
+            info="仅支持标识符列名、+ - * / **、abs/sqrt/log/log10/exp/minimum/maximum；"
+            "禁止对象访问与代码执行。缩放/同单位加减保留单位；乘除/开方/幂等须声明实际输出单位，数值不自动换算。",
+        ),
     ],
     "preprocess.missing": [
         field(
@@ -291,6 +301,12 @@ SPECS = {
             "常量列映射为零并提示。",
         ),
         _columns(),
+        field(
+            "group_by",
+            "独立归一化分组列",
+            "list",
+            info="选择 curve_id、sample_id 或实验组列；每组分别拟合中心/尺度并保留参数。留空按全表归一化。",
+        ),
     ],
 }
 

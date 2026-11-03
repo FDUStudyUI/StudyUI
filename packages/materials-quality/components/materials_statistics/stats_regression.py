@@ -7,6 +7,7 @@ from materials_quality.science.langflow_adapter import (
     node_inputs,
     node_outputs,
     output_artifacts,
+    output_features,
     output_report,
     output_summary,
     output_table,
@@ -34,6 +35,9 @@ class ScienceStatsRegression(ScienceFormMixin, Component):
 
     def build_report(self) -> Data:
         return output_report(self, "stats.regression")
+
+    def build_features(self) -> DataFrame:
+        return output_features(self, "stats.regression")
 
     def build_artifacts(self) -> DataFrame:
         return output_artifacts(self, "stats.regression")

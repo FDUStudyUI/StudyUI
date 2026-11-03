@@ -216,7 +216,16 @@ def _grid_fields(when=None):
 
 
 SPECS = {
-    "io.table_import": [_path(), *_table_fields()],
+    "io.table_import": [
+        _path(),
+        *[
+            {
+                **control,
+                **({"kind": "choice", "choices": [], "combobox": True} if control["path"] == "sheet" else {}),
+            }
+            for control in _table_fields()
+        ],
+    ],
     "io.text_import": [
         _path(),
         field(
@@ -283,11 +292,132 @@ SPECS = {
             "format",
             "仪器数据格式",
             "choice",
-            choices=["xy", "xye", "csv", "txt", "dat", "jdx", "dx", "jcamp", "brml", "raw"],
+            choices=[
+                "xy",
+                "xye",
+                "csv",
+                "txt",
+                "dat",
+                "jdx",
+                "dx",
+                "jcamp",
+                "brml",
+                "raw",
+                "h5",
+                "hdf5",
+                "nc",
+                "netcdf",
+                "zarr",
+            ],
             info="留空按扩展名识别；XY 须是无文字表头的数值行，JCAMP 只直接支持未压缩数据。"
             "BRML 请显式选择格式并填写通道，RAW 须另配插件/转换器。",
         ),
         _encoding(),
+        field(
+            "mode",
+            "数组读取模式",
+            "choice",
+            default="read",
+            choices=["read", "browse"],
+            info="HDF5/NetCDF/Zarr 可先 browse 查看实际路径、维度、类型和属性，"
+            "再 read 明确选择数组；其他格式用 read。",
+        ),
+        field(
+            "dataset_path",
+            "信号数据集路径",
+            "choice",
+            choices=[],
+            combobox=True,
+            info="从 browse 结果复制实际路径，如 /measurement/intensity；不自动选择或合并数据集。",
+        ),
+        field(
+            "x_axis_path",
+            "光谱坐标轴路径",
+            "choice",
+            choices=[],
+            combobox=True,
+            info="明确选择一维坐标数组路径；长度须匹配指定光谱轴，不自动猜测坐标。",
+        ),
+        field(
+            "group_axis_path",
+            "逐曲线标识轴路径",
+            "choice",
+            choices=[],
+            combobox=True,
+            info="二维信号必须选择另一维对应的一维唯一曲线标识；输出 curve_id 保留前导零。",
+        ),
+        field(
+            "spectrum_axis",
+            "二维数组的光谱轴索引",
+            "int",
+            default=None,
+            info="二维数据必须显式启用并填写 0 或 1；不会按数组长度自动转置。一维数据不需要。",
+        ),
+        field(
+            "background_path",
+            "背景数据集路径",
+            "choice",
+            choices=[],
+            combobox=True,
+            info="可选一维背景或与信号同形数组；只在明确指定后执行 signal-background。",
+        ),
+        field(
+            "reference_path",
+            "参考数据集路径",
+            "choice",
+            choices=[],
+            combobox=True,
+            info="可选一维参考或同形数组；按 (signal-background)/(reference-background) 计算，"
+            "非正分母标记缺失。",
+        ),
+        field(
+            "reference_floor",
+            "最小有效参考分母",
+            "float",
+            default=0.0,
+            advanced=True,
+            info="强度单位下的非负阈值；参考减背景小于等于该值的通道标记无效，不返回无穷大。",
+        ),
+        field(
+            "noise_range",
+            "声明的噪声坐标区间",
+            "range",
+            advanced=True,
+            info="可选源坐标单位下的区间，至少两个观测点；SNR=最大绝对信号/该区间样本标准差，区间内真实峰会造成偏差。",
+        ),
+        field(
+            "decode_cf",
+            "解码 NetCDF 缺失值与缩放属性",
+            "bool",
+            default=True,
+            advanced=True,
+            info="NetCDF 使用 _FillValue/missing_value 和 scale_factor/add_offset；"
+            "关闭时保留未缩放数值并仍标记缺失。",
+        ),
+        field(
+            "max_rows",
+            "数组最多输出测量点数",
+            "int",
+            default=2_000_000,
+            advanced=True,
+            info="读取数组前检查元素数；超限拒绝，需先在仪器软件或可信本地工具中导出子集。",
+        ),
+        field(
+            "max_bytes",
+            "数组与输出估算内存上限（字节）",
+            "int",
+            default=268_435_456,
+            advanced=True,
+            info="在数组分配和解压前检查数组、块及长表估算大小；默认 256 MiB。",
+        ),
+        field(
+            "max_nodes",
+            "数组树最多节点数",
+            "int",
+            default=2000,
+            advanced=True,
+            info="仅浏览有限数量的本地组和数据集；超限明确报错，不静默省略剩余节点。",
+        ),
         field(
             "x_index",
             "BRML 横坐标通道索引",
@@ -674,7 +804,9 @@ CONTRACTS = {
     "io.text_import": _contract(True, False, ["txt", "csv", "tsv", "dat", "log"], "FileText"),
     "io.pdf_import": _contract(False, True, ["pdf"], "FileText"),
     "io.image_import": _contract(False, False, _RASTER_TYPES, "Image"),
-    "io.instrument_import": _contract(True, True, _INSTRUMENT_TYPES, "Activity"),
+    "io.instrument_import": _contract(
+        True, True, [*_INSTRUMENT_TYPES, "h5", "hdf5", "nc", "netcdf", "nc4"], "Activity"
+    ),
     "io.database_import": _contract(True, False, ["db", "sqlite", "sqlite3"], "Database"),
     "extract.pdf_text": _contract(True, True, ["pdf"], "ScanText"),
     "extract.pdf_tables": _contract(True, True, ["pdf"], "Table"),

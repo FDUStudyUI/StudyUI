@@ -5,9 +5,11 @@ contradictory declarations fail before writing. Excel rejects numeric integers e
 15-digit precision. Export these as declared text identifiers or use CSV when exact large integers
 are required. Integer readback comparisons are exact.
 
-Progress: all six source entries and all listed submethods implemented; the shared statistics/visualization suite now passes 70 synthetic numerical/roundtrip/security tests, including independent review regressions. Every figure carries its actual plot coordinates/aggregates in JSON-safe `NodeResult.data.plot_data`; consumers can inspect what was drawn. The module is `materials_quality.science.visualization`, with six independent CATALOG entries.
+Six visualization and export operations are available from `materials_quality.science.visualization`. Every figure exposes its actual plot coordinates and aggregates in JSON-safe `NodeResult.data.plot_data`.
 
 ## Complete method reference
+
+Use [native forms](node-usability.md) for ordinary workflows. The configuration keys below also apply to advanced JSON and Python API calls.
 
 | Operation | Config | Result and verification |
 | --- | --- | --- |
@@ -59,10 +61,6 @@ python examples/science/visualization/run_demo.py --output-dir artifacts/science
 
 Open the generated `export_report-html/analysis-report.html` in a browser. Every plot, CSV, Excel and both report formats also have a separate operation directory; `visualization-demo.json` records all actual inputs/configs/outputs/warnings. Checked-in `spectra.csv` and `mechanics.csv` and the generated small performance/prediction tables are synthetic. No installation credentials, external database, browser account or network service is needed. matplotlib uses its headless Agg backend. Excel requires openpyxl, image verification Pillow; figure PDF test rendering uses PyMuPDF. Fonts containing requested non-Latin glyphs must be installed to display those glyphs; numeric/default-English examples do not require a Chinese font.
 
-Primary implementation references: [matplotlib violinplot](https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.violinplot.html), [openpyxl formula behavior](https://openpyxl.readthedocs.io/en/stable/simple_formulae.html), and the statistics references in `science-statistics.md`.
+Primary implementation references: [matplotlib violinplot](https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.violinplot.html), [openpyxl formula behavior](https://openpyxl.readthedocs.io/en/stable/simple_formulae.html), and the [statistics references](science-statistics.md).
 
-## Executed evidence
-
-Review-cycle final domain tests: **70 passed in 12.21 s**, including all numerical plot/roundtrip/security assertions, with thread limits set to one. The preceding RED run reproduced the reported header/unit formula typing, undeclared CSV text and mechanics grid/ordering failures. New tests cover the actual on-disk Excel cell types, applying the CSV metadata schema to leading-zero text, explicit-grid interpolation on matching measured coordinates, rejected extrapolation and rejected loading/unloading reordering. Ruff passes all owned source, tests and examples. `examples/science/visualization/run_demo.py` completed 20 operation runs and wrote `artifacts/science-visualization-review-demo/visualization-demo.json`. It produced 14 PNG figures (13 figure types plus an explicit-grid mechanics example), normal/text-schema CSV and genuine XLSX/formula-text safety fixtures with readback, and self-contained HTML and Markdown reports.
-
-The updated HTML report was opened through Playwright in installed headless Microsoft Edge: its actual title matched, all **14 embedded images** decoded (`complete && naturalWidth > 0`), and a screenshot was saved at `artifacts/science-visualization-review-demo/report-preview.png`. The original 13 figure previews were assembled into `artifacts/science-visualization-demo/figure-contact-sheet.png` and visually inspected; the standalone specimen-mean/error-band PNG was also inspected. Default bundled Playwright Chromium was absent; the installed Edge channel worked, with no downloads/environment changes. Integrated native Langflow/browser workflow checks remain owned by the parent task.
+Historical domain test results are retained in the [development archive](development/domain-validation.md).

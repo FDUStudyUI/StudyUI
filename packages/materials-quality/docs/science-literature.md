@@ -27,6 +27,8 @@ data = {'documents': [{'source_id': 'paper-a-page-2', 'text': 'ZnO strength is 1
 
 ## 方法与参数
 
+普通任务使用[原生表单](node-usability.md)。以下配置键供高级 JSON 或 Python API 使用。
+
 | 节点 | 配置与行为 | 验证 |
 | --- | --- | --- |
 | `lit.search` | `provider=local/crossref`；`method=keyword/boolean/author/doi`；`query`。本地读取 `data.records` 或 `data.documents`；关键词为各词均出现，作者为无大小写子串。 | 本地关键词、作者、DOI、组合布尔及非法表达式；真实本地 HTTP 请求参数。 |
@@ -71,4 +73,4 @@ python -m pytest tests/test_science_literature.py tests/test_science_literature_
 python -m ruff check src/materials_quality/science/literature.py src/materials_quality/science/lit_evidence.py tests/test_science_literature*.py
 ```
 
-开发执行记录：首先确认 5 个本地测试、3 个 HTTP 测试因缺实现而失败，再实现；小数分句和多声明来源串联各有先失败再修复的回归验证。公网结果与离线测试明确分开。
+开发测试的历史记录见[验证归档](development/domain-validation.md)。

@@ -7,6 +7,7 @@ from materials_quality.science.langflow_adapter import (
     node_inputs,
     node_outputs,
     output_artifacts,
+    output_features,
     output_report,
     output_summary,
     output_table,
@@ -21,7 +22,7 @@ class ScienceIoTableImport(ScienceFormMixin, Component):
     icon = "FileSpreadsheet"
     ui_contract_version = 2
     ui_operation_key = "io.table_import"
-    inputs = node_inputs("io.table_import", {"path": "", "header": 0})
+    inputs = node_inputs("io.table_import", {"path": "", "header": 0, "delimiter": "auto"})
     outputs = node_outputs("io.table_import")
 
     def update_build_config(self, build_config, field_value, field_name=None):
@@ -32,6 +33,9 @@ class ScienceIoTableImport(ScienceFormMixin, Component):
 
     def build_report(self) -> Data:
         return output_report(self, "io.table_import")
+
+    def build_features(self) -> DataFrame:
+        return output_features(self, "io.table_import")
 
     def build_artifacts(self) -> DataFrame:
         return output_artifacts(self, "io.table_import")
