@@ -51,9 +51,16 @@ def inspect_skill(path):
     if not description.strip() or len(description) > 1024:
         raise ValueError("skill description must contain 1–1024 characters")
     version = re.search(r"^  version: (\S+)$", match[1], re.M)
-    return {"name": name, "description": description, "instructions": text,
-            "resources": files, "sha256": digest(files), "executable": False,
-            "review_required": True, "version": version[1] if version else "unversioned"}
+    return {
+        "name": name,
+        "description": description,
+        "instructions": text,
+        "resources": files,
+        "sha256": digest(files),
+        "executable": False,
+        "review_required": True,
+        "version": version[1] if version else "unversioned",
+    }
 
 
 def load_skill(task):
@@ -67,5 +74,7 @@ def load_skill(task):
 
 
 def list_skills():
-    return [{k: skill[k] for k in ("task", "name", "title", "description", "sha256", "version")}
-            for skill in map(load_skill, SKILLS)]
+    return [
+        {k: skill[k] for k in ("task", "name", "title", "description", "sha256", "version")}
+        for skill in map(load_skill, SKILLS)
+    ]

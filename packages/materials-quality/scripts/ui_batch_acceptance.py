@@ -168,7 +168,7 @@ def accept_ui(base_url, output, executable=None):
                     "verified_moduli": 20,
                 }
             assert not results["page_errors"] and not results["http_errors"], results
-            assert results["discovery"].get("component_count") == 60, results["discovery"]
+            assert results["discovery"].get("component_count") == 62, results["discovery"]
             results["passed"] = True
         except Exception as error:
             results["error"] = str(error)

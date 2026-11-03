@@ -1,6 +1,6 @@
 # 材料科学工作流：Langflow 自定义节点
 
-对应《工作流节点.md》的八类、50 项要求，提供 **60 个原生节点**：原有 52 个节点及 8 个批量科研任务节点。
+对应《工作流节点.md》的八类、50 项要求，提供 **62 个原生节点**：原有 52 个节点、8 个批量科研任务节点及 2 个科研技能节点。
 按 Langflow `Component` / `DataFrame` / `Data` / `Message` 接口实现；数据处理与科学计算在运行
 Langflow 的电脑或服务器执行。所有处理输出新结果，保留原始数据。日常分析无需云端大模型；
 选择大模型文献抽取时才配置兼容服务与环境变量密钥。
@@ -10,6 +10,8 @@ Langflow 的电脑或服务器执行。所有处理输出新结果，保留原�
 [可导入工作流](examples/science_flows/README.md)提供带合成数据的连线示例。
 首次使用请先看[表单操作指南](docs/node-usability.md)：普通任务通过下拉框、列选择、数值框和规则表配置。
 多文件、按样品分组、逐曲线光谱、时间动态、组间研究和批量显微图见[批量分析指南](docs/batch-processing.md)。
+内置光谱、力学、组间研究三个 Skill，采用“任务规划 → 分析执行”，提供步骤预览、参数校验、图表和追溯。
+见[科研技能指南](docs/research-skills.md)与[三节点教学示例](examples/skill_flows/README.md)。
 [0.5.0 验收范围与复跑方法](docs/batch-acceptance.md)记录批量、特征连接及安装包验证。
 0.4.0 的界面与兼容验证见[表单验收记录](docs/node-ui-acceptance.md)。
 绘图已统一采用科研图规范：[六例画廊与四格式文件](examples/paper_figures/README.md)、
@@ -34,6 +36,9 @@ XRD 匹配需要参考谱库，图像量化需要标尺，断裂判定需要实�
 - 已完成真实 Langflow 1.13.0 / Chrome 的画布验收，见[界面验收记录](docs/ui-acceptance.md)。
 
 ## 安装与运行测试
+
+首次演示可使用仓库根目录的 `start_demo.bat` / `start_demo.sh`，详见[启动器说明](../../docs/demo-launcher.md)。
+参赛定位、实测依据与材料草案见[参赛对齐](docs/contest-readiness.md)和[提交材料目录](../../submission/README.md)。
 
 在组件包根目录执行（团队仓库中先 `cd packages/materials-quality`，PowerShell）：
 

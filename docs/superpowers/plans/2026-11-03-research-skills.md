@@ -1,6 +1,6 @@
 # Research Skills Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Deliver three bundled research skills with validated plans, deterministic execution, native Langflow forms, optional model suggestions and reproducible examples.
 
@@ -31,9 +31,9 @@
 
 **Interfaces:** `list_skills()`, `load_skill(id)`, `inspect_skill(path)`; `make_plan(table, task, request, parameters, proposal)`, `validate_plan(table, plan)`.
 
-- [ ] Test missing metadata, unsafe paths, ambiguous mappings, required units and data/plan tampering; watch failures.
-- [ ] Implement bundled registry, schema proposals, explicit validation and signed-content fingerprints.
-- [ ] Verify tests, then commit.
+- [x] Test missing metadata, unsafe paths, ambiguous mappings, required units and data/plan tampering; watch failures.
+- [x] Implement bundled registry, schema proposals, explicit validation and content fingerprints.
+- [x] Verify tests, then commit.
 
 ### Task 2: Scientific execution and deliverables
 
@@ -41,9 +41,9 @@
 
 **Interfaces:** `execute_plan(table, plan, output_dir=None)` returns result object with table/features/curves/groups/report/artifacts/summary.
 
-- [ ] Test 8 spectra (16 peaks, candidate means 715/755), mechanics E=200000 and yield≈202.01, technical replicate aggregation and raw preservation.
-- [ ] Implement task dispatch through existing functions, figures, self-contained HTML, CSV and manifest; preserve failure rows.
-- [ ] Test missing candidates, degenerate studies and plot warnings; commit after green.
+- [x] Test 8 spectra (16 peaks, candidate means 715/755), mechanics E=200000 and yield≈202.01, technical replicate aggregation and raw preservation.
+- [x] Implement task dispatch through existing functions, figures, self-contained HTML, CSV and manifest; preserve failure rows.
+- [x] Test missing candidates, degenerate studies and plot warnings; commit after green.
 
 ### Task 3: Optional model and CLI
 
@@ -51,9 +51,9 @@
 
 **Interfaces:** `suggest_plan(table, request, ...)` feeds strict model proposals to `make_plan`; CLI lists/previews/plans/runs.
 
-- [ ] Test local fake HTTP service, payload contains schema/summary only, response limits, failure handling and no-key mode.
-- [ ] Implement bounded requests and CLI without automatic installs or arbitrary actions.
-- [ ] Verify CLI execution and safe errors; commit.
+- [x] Test local fake HTTP service, payload contains schema/summary only, response limits, failure handling and no-key mode.
+- [x] Implement bounded requests and CLI without automatic installs or arbitrary actions.
+- [x] Verify CLI execution and safe errors; commit.
 
 ### Task 4: Native components and examples
 
@@ -61,14 +61,19 @@
 
 **Interfaces:** Planner emits Data plan + Message; executor accepts plan and table, emits result/features/curves/groups/report/artifacts/summary.
 
-- [ ] Test native code loading, form field visibility, cache changes, graph JSON roundtrip and all three runnable examples.
-- [ ] Implement task-specific native fields and portable workflows; update discovery checks and documentation.
-- [ ] Verify with real browser and ordinary wheel; commit.
+- [x] Test native code loading, form field visibility, cache changes, graph JSON roundtrip and all three runnable examples.
+- [x] Implement task-specific native fields and portable workflows; update discovery checks and documentation.
+- [x] Verify with real browser and ordinary wheel; commit.
 
 ### Task 5: Full verification and review
 
 **Files:** Chinese guide, source/compatibility records, CI additions and skill evaluation cases.
 
-- [ ] Run full regression, Ruff, executable examples, wheel discovery and real UI acceptance.
-- [ ] Fresh whole-branch review; fix important findings and rerun relevant verification.
+- [x] Run full regression, Ruff, executable examples, wheel discovery and real UI acceptance.
+- [x] Fresh whole-branch review; fix important findings and rerun relevant verification.
 - [ ] Push feature branch, create PR, verify exact-head CI and report scope accurately.
+
+
+## Accepted review extension (2026-11-03)
+
+Gemini sections 1–3 were evaluated against the implementation and actual hardware. Add a project-isolated demo launcher, honest track/evidence documentation and submission Markdown drafts. Keep unmeasured Intel acceleration and arbitrary sixty-tool agent planning outside current claims. The launcher has independent tests and a real isolated Windows startup/API preload check. Formal PDF/video need team metadata and recording acceptance.

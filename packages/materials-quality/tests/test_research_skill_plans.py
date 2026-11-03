@@ -33,7 +33,9 @@ def test_registry_bundles_three_real_skills_and_rejects_resource_escape(tmp_path
         load_skill("../../other")
     external = tmp_path / "external"
     external.mkdir()
-    (external / "SKILL.md").write_text("---\nname: external\ndescription: External analysis\n---\nDo work", "utf-8")
+    (external / "SKILL.md").write_text(
+        "---\nname: external\ndescription: External analysis\n---\nDo work", "utf-8"
+    )
     preview = inspect_skill(external)
     assert preview["executable"] is False
     assert preview["name"] == "external"
@@ -97,20 +99,33 @@ def test_invalid_windows_block_before_execution(bounds):
 
 def test_mechanics_needs_units_fit_interval_and_explicit_sample_identity():
     make, _ = api()
-    f = pd.DataFrame({"strain": [0, .0004, .0008], "stress": [0, 80, 160]})
+    f = pd.DataFrame({"strain": [0, 0.0004, 0.0008], "stress": [0, 80, 160]})
     p = make(f, task="mechanics")
     assert not p["ready"]
     assert {i["field"] for i in p["issues"]} >= {"strain_unit", "stress_unit", "fit_range", "sample_id"}
-    p = make(f, task="mechanics", parameters={
-        "single_sample": True, "strain_unit": "fraction", "stress_unit": "MPa", "fit_range": [0, .0008]
-    })
+    p = make(
+        f,
+        task="mechanics",
+        parameters={
+            "single_sample": True,
+            "strain_unit": "fraction",
+            "stress_unit": "MPa",
+            "fit_range": [0, 0.0008],
+        },
+    )
     assert p["ready"], p["issues"]
 
 
 def test_contrast_requires_design_and_unit_not_guessed_from_sample_id():
     make, _ = api()
-    f = pd.DataFrame({"group": ["A", "A", "B", "B"], "value": [1., 2., 3., 4.],
-                      "sample_id": ["a", "b", "c", "d"], "variable": ["peak"] * 4})
+    f = pd.DataFrame(
+        {
+            "group": ["A", "A", "B", "B"],
+            "value": [1.0, 2.0, 3.0, 4.0],
+            "sample_id": ["a", "b", "c", "d"],
+            "variable": ["peak"] * 4,
+        }
+    )
     p = make(f, task="contrast")
     assert not p["ready"]
     assert {i["field"] for i in p["issues"]} >= {"design", "experimental_unit", "value_unit"}
@@ -134,3 +149,16 @@ def test_conflicting_unit_metadata_blocks_plan():
     f = spectra()
     f.attrs["units"] = {"wavelength_nm": "um"}
     assert not make(f, task="spectra", parameters=options())["ready"]
+
+
+def test_domain_task_wins_over_statistics_word_without_guessing_between_domains():
+    make, _ = api()
+    assert make(spectra(), request="光谱候选峰的组间比较", parameters=options())["task"] == "spectra"
+    assert not make(spectra(), request="同时分析光谱和拉伸模量")["ready"]
+
+
+@pytest.mark.parametrize("key,value", [("baseline", []), ("data_kind", {}), ("band", [])])
+def test_bad_typed_proposals_return_blocking_issues(key, value):
+    make, _ = api()
+    p = make(spectra(), task="spectra", parameters={**options(), key: value})
+    assert not p["ready"]

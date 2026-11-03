@@ -4,8 +4,8 @@
   "references": [
     {"url": "https://agentskills.io/specification", "use": "SKILL.md structure and progressive resource disclosure"},
     {"url": "https://docs.langflow.org/agents-tools", "use": "native tools and Run Flow integration"},
-    {"url": "https://github.com/K-Dense-AI/scientific-agent-skills/blob/main/skills/statistical-analysis/SKILL.md", "blob_sha": "advisory-source-not-vendored", "use": "experimental units, estimates and uncertainty; no dependency commands reused"},
-    {"url": "https://github.com/K-Dense-AI/scientific-agent-skills/blob/main/skills/scientific-visualization/SKILL.md", "use": "uncertainty labels, scientific figure integrity; original StudyUI plotting implementation"},
+    {"url": "https://github.com/K-Dense-AI/scientific-agent-skills/blob/main/skills/statistical-analysis/SKILL.md", "blob_sha": "4ea7453a12e63f0dbc31d7a47ed41fe3ff4c4c1a", "use": "experimental units, estimates and uncertainty; no dependency commands reused"},
+    {"url": "https://github.com/K-Dense-AI/scientific-agent-skills/blob/main/skills/scientific-visualization/SKILL.md", "blob_sha": "44ea38c24fb5015535254bfd9b5ae9a856195408", "use": "uncertainty labels, scientific figure integrity; original StudyUI plotting implementation"},
     {"url": "https://doi.org/10.1021/acs.nanolett.3c01016", "use": "lambda10 coupled-mode interpretation; no claim of full experimental reproduction"},
     {"url": "https://github.com/derb12/pybaselines", "use": "candidate for future method extension; not installed or used by these tasks"},
     {"url": "https://github.com/lmfit/lmfit-py", "use": "candidate for future fitting extension; not installed or used by these tasks"}

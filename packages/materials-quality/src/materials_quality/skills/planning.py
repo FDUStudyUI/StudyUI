@@ -23,32 +23,93 @@ ALIASES = {
 }
 COMMON = {"data_kind", "band"}
 FIELDS = {
-    "spectra": {"curve_id", "x", "y", "group", "x_unit", "y_unit", "peak_window", "baseline",
-                "baseline_value", "smooth", "smooth_window", "smooth_order", "prominence"} | COMMON,
-    "mechanics": {"sample_id", "strain", "stress", "group", "single_sample", "strain_unit",
-                  "stress_unit", "fit_range", "yield_offset"} | COMMON,
-    "contrast": {"group", "variable", "value", "sample_id", "experimental_unit", "design",
-                 "strategy", "correction", "value_unit", "alpha"} | COMMON,
+    "spectra": {
+        "curve_id",
+        "x",
+        "y",
+        "group",
+        "x_unit",
+        "y_unit",
+        "peak_window",
+        "baseline",
+        "baseline_value",
+        "smooth",
+        "smooth_window",
+        "smooth_order",
+        "prominence",
+    }
+    | COMMON,
+    "mechanics": {
+        "sample_id",
+        "strain",
+        "stress",
+        "group",
+        "single_sample",
+        "strain_unit",
+        "stress_unit",
+        "fit_range",
+        "yield_offset",
+    }
+    | COMMON,
+    "contrast": {
+        "group",
+        "variable",
+        "value",
+        "sample_id",
+        "experimental_unit",
+        "design",
+        "strategy",
+        "correction",
+        "value_unit",
+        "alpha",
+    }
+    | COMMON,
 }
 STEPS = {
-    "spectra": ["核对曲线与单位", "逐曲线基线和平滑", "窗口候选峰与完整特征", "分组描述与均值带", "导出与追溯"],
-    "mechanics": ["核对样品与单位", "逐样品弹性区间拟合", "偏移法规定塑性延伸强度", "曲线与指标汇总", "导出与追溯"],
-    "contrast": ["确认试验设计", "按独立试验单位聚合技术重复", "组间检验和效应量", "Holm/FDR 校正", "绘图与追溯"],
+    "spectra": [
+        "核对曲线与单位",
+        "逐曲线基线和平滑",
+        "窗口候选峰与完整特征",
+        "分组描述与均值带",
+        "导出与追溯",
+    ],
+    "mechanics": [
+        "核对样品与单位",
+        "逐样品弹性区间拟合",
+        "偏移法规定塑性延伸强度",
+        "曲线与指标汇总",
+        "导出与追溯",
+    ],
+    "contrast": [
+        "确认试验设计",
+        "按独立试验单位聚合技术重复",
+        "组间检验和效应量",
+        "Holm/FDR 校正",
+        "绘图与追溯",
+    ],
 }
 
 
 def input_identity(table):
     require_table(table)
-    return {"sha256": digest([table_fingerprint(table), table.attrs.get("units", {})]),
-            "rows": len(table), "columns": list(table.columns)}
+    return {
+        "sha256": digest([table_fingerprint(table), table.attrs.get("units", {})]),
+        "rows": len(table),
+        "columns": list(table.columns),
+    }
 
 
 def _route(request):
     words = str(request).lower()
-    cues = {"spectra": ("光谱", "spectr", "raman", "拉曼", "暗场", "候选峰"),
-            "mechanics": ("力学", "拉伸", "模量", "应力", "mechanic", "tensile"),
-            "contrast": ("组间", "显著性", "效应量", "对照研究", "contrast", "anova")}
+    cues = {
+        "spectra": ("光谱", "spectr", "raman", "拉曼", "暗场", "候选峰"),
+        "mechanics": ("力学", "拉伸", "模量", "应力", "mechanic", "tensile"),
+        "contrast": ("组间", "显著性", "效应量", "对照研究", "contrast", "anova"),
+    }
     matched = [task for task, keys in cues.items() if any(k in words for k in keys)]
+    domains = [t for t in matched if t != "contrast"]
+    if len(domains) == 1:
+        return domains[0]
     return matched[0] if len(matched) == 1 else None
 
 
@@ -61,8 +122,12 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
     if not isinstance(supplied, dict):
         raise ValueError("parameters must be an object")
     if proposal is not None:
-        if (not isinstance(proposal, dict) or set(proposal) != {"task", "parameters"}
-                or proposal["task"] not in SKILLS or not isinstance(proposal["parameters"], dict)):
+        if (
+            not isinstance(proposal, dict)
+            or set(proposal) != {"task", "parameters"}
+            or proposal["task"] not in SKILLS
+            or not isinstance(proposal["parameters"], dict)
+        ):
             raise ValueError("model proposal must contain only registered task and parameters")
         if task not in {"auto", proposal["task"]}:
             raise ValueError("proposal conflicts with the explicitly selected task")
@@ -85,9 +150,15 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
         skill, p = load_skill(task), supplied
         p.setdefault("data_kind", "unspecified")
         p.setdefault("band", "iqr")
-        if p["data_kind"] not in {"unspecified", "synthetic", "measured", "simulated", "derived"}:
+        if not isinstance(p["data_kind"], str) or p["data_kind"] not in {
+            "unspecified",
+            "synthetic",
+            "measured",
+            "simulated",
+            "derived",
+        }:
             issue("data_kind", "数据性质必须为已支持的选项。")
-        if p["band"] not in {"iqr", "sd", "ci95"}:
+        if not isinstance(p["band"], str) or p["band"] not in {"iqr", "sd", "ci95"}:
             issue("band", "误差带必须选择 iqr、sd 或 ci95。")
 
         def column(key, required=True):
@@ -103,22 +174,29 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
                 issue(key, f"输入中不存在列：{p[key]}")
 
         def choice(key, values):
-            if p.get(key) not in values:
-                issue(key, f"请明确 {key}：{', '.join(values)}。")
+            if not isinstance(p.get(key), str) or p.get(key) not in values:
+                issue(key, f"请明确 {key}：{', '.join(sorted(values))}。")
 
         def number(key, default=None, positive=False, integer=False):
             p.setdefault(key, default)
             v = p[key]
-            if (type(v) not in (int, float) or not isfinite(v) or (positive and v <= 0)
-                    or (integer and type(v) is not int)):
+            if (
+                type(v) not in (int, float)
+                or not isfinite(v)
+                or (positive and v <= 0)
+                or (integer and type(v) is not int)
+            ):
                 issue(key, f"{key} 必须为{'正' if positive else '有限'}数值。")
                 p[key] = None
 
         def interval(key):
             v = p.get(key)
-            if (not isinstance(v, (list, tuple)) or len(v) != 2
-                    or any(type(n) not in (int, float) or not isfinite(n) for n in v)
-                    or v[0] >= v[1]):
+            if (
+                not isinstance(v, (list, tuple))
+                or len(v) != 2
+                or any(type(n) not in (int, float) or not isfinite(n) for n in v)
+                or v[0] >= v[1]
+            ):
                 issue(key, f"请明确 {key} 的下限和上限，下限必须小于上限。")
                 p[key] = None
             else:
@@ -157,7 +235,7 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
             choice("strain_unit", {"fraction", "%"})
             choice("stress_unit", {"Pa", "kPa", "MPa", "GPa"})
             interval("fit_range")
-            number("yield_offset", .002, positive=True)
+            number("yield_offset", 0.002, positive=True)
             warnings.append("偏移量按应变分数输入；弹性区间须由试验依据确定。")
         else:
             for key in ("group", "variable", "value", "sample_id", "experimental_unit"):
@@ -169,7 +247,7 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
             choice("correction", {"holm", "fdr_bh"})
             if not isinstance(p.get("value_unit"), str) or not p["value_unit"].strip():
                 issue("value_unit", "请明确测量值单位，可使用 dimensionless。")
-            number("alpha", .05, positive=True)
+            number("alpha", 0.05, positive=True)
             if p["alpha"] is not None and p["alpha"] >= 1:
                 issue("alpha", "显著性水平必须介于 0 和 1。")
             warnings.append("先按独立试验单位平均技术重复，再进行预先指定的组间检验。")
@@ -177,18 +255,28 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
         selected = [p[k] for k in ALIASES if k in p and isinstance(p[k], str) and p[k] in table]
         if len(selected) != len(set(selected)):
             issue("columns", "不同含义的字段必须选择不同的数据列。")
-    plan = {"schema_version": "research-plan/1", "task": task, "request": request,
-            "parameters": p, "input": identity,
-            "skill": {k: skill[k] for k in ("name", "version", "sha256")} if skill else None,
-            "steps": STEPS.get(task, []), "issues": issues, "warnings": warnings, "ready": not issues}
+    plan = {
+        "schema_version": "research-plan/1",
+        "task": task,
+        "request": request,
+        "parameters": p,
+        "input": identity,
+        "skill": {k: skill[k] for k in ("name", "version", "sha256")} if skill else None,
+        "steps": STEPS.get(task, []),
+        "issues": issues,
+        "warnings": warnings,
+        "ready": not issues,
+    }
     plan["plan_sha256"] = digest(plan)
     return plan
 
 
 def _units(table, task, p, issue):
-    pairs = {"spectra": [("x", "x_unit"), ("y", "y_unit")],
-             "mechanics": [("strain", "strain_unit"), ("stress", "stress_unit")],
-             "contrast": [("value", "value_unit")]}[task]
+    pairs = {
+        "spectra": [("x", "x_unit"), ("y", "y_unit")],
+        "mechanics": [("strain", "strain_unit"), ("stress", "stress_unit")],
+        "contrast": [("value", "value_unit")],
+    }[task]
     for column, key in pairs:
         unit = p.get(key)
         if not unit:
@@ -212,8 +300,23 @@ def validate_plan(table, plan):
         raise ValueError("计划内容已修改 / plan fingerprint mismatch，请重新生成。")
     if input_identity(table) != plan.get("input"):
         raise ValueError("输入数据或单位已改变 / stale input，请重新规划。")
-    fresh = make_plan(table, task=plan.get("task"), request=plan.get("request", ""),
-                      parameters=plan.get("parameters"))
+    if not plan.get("ready"):
+        raise ValueError("计划需要补充信息：" + "; ".join(i["message"] for i in plan.get("issues", [])))
+    fresh = make_plan(
+        table, task=plan.get("task"), request=plan.get("request", ""), parameters=plan.get("parameters")
+    )
+    if "model_assistance" in plan:
+        assistance = plan["model_assistance"]
+        if (
+            not isinstance(assistance, dict)
+            or set(assistance) != {"provider", "model", "raw_rows_sent"}
+            or assistance["provider"] != "chat-completions"
+            or assistance["raw_rows_sent"] is not False
+            or not isinstance(assistance["model"], str)
+        ):
+            raise ValueError("invalid model provenance")
+        fresh["model_assistance"] = deepcopy(assistance)
+        fresh["plan_sha256"] = digest({k: v for k, v in fresh.items() if k != "plan_sha256"})
     if fresh != plan:
         raise ValueError("计划与当前技能或校验规则不一致，请重新规划。")
     if not fresh["ready"]:
