@@ -12,6 +12,7 @@ import pandas as pd
 
 from materials_quality.common import validate_table
 from materials_quality.context import _typed
+from materials_quality.science.table_contract import attach_contract, make_contract, read_contract
 
 SCHEMA = "materials-batch/1"
 TABLE_SCHEMA = "materials-batch-table/1"
@@ -171,6 +172,9 @@ def pack_table(frame):
         "attrs": _typed(frame.attrs),
         "data": [[_typed(v) for v in row] for row in frame.itertuples(index=False, name=None)],
     }
+    contract = read_contract(frame)
+    if contract is not None:
+        result["contract"] = contract
     json.dumps(result, allow_nan=False)
     return result
 
@@ -201,6 +205,12 @@ def unpack_table(payload):
     if not isinstance(attrs, dict):
         raise ValueError("table attrs must be a dictionary")
     result.attrs = attrs
+    cached_contract = read_contract(result)
+    if "contract" in payload:
+        explicit = payload["contract"]
+        result = attach_contract(result, explicit)
+        if cached_contract is not None and cached_contract != explicit:
+            raise ValueError("table contract mismatch between attrs and transport")
     return result
 
 
@@ -339,6 +349,33 @@ def combined_table(packet):
     if not frames:
         return None
     result = pd.concat(frames, ignore_index=True, sort=False)
+    # pandas may inherit attrs from the first frame. A concat is a new table and
+    # must never silently retain one source's declarations or independence.
+    result.attrs.pop("contract", None)
     if units:
         result.attrs["units"] = units
+    contracts = [read_contract(frame) for frame in frames]
+    if any(contract is not None for contract in contracts):
+        fields = ("granularity", "roles", "experimental_design", "aggregation", "units_state")
+        first = contracts[0]
+        compatible = first is not None and all(
+            contract is not None and all(contract[field] == first[field] for field in fields)
+            for contract in contracts
+        )
+        provenance = [{"operation": "concat", "contract_sha256": contract["contract_sha256"]}
+                      for contract in contracts if contract is not None]
+        if compatible:
+            try:
+                result = attach_contract(result, make_contract(
+                    result, granularity=first["granularity"], roles=first["roles"],
+                    experimental_design=first["experimental_design"], aggregation=first["aggregation"],
+                    derived_from=provenance, units_state=first["units_state"],
+                ))
+            except ValueError:
+                compatible = False
+        if not compatible:
+            result.attrs["contract_provenance"] = provenance
+            result.attrs["contract_warnings"] = [
+                "Contract cleared: concatenated tables have conflicting or undeclared semantics."
+            ]
     return result

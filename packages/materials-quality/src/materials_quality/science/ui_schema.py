@@ -215,6 +215,8 @@ def _number(value):
 
 
 def _convert(value, spec):
+    if "value_map" in spec:
+        value = spec["value_map"].get(value, value)
     if spec["kind"] == "bool":
         return _boolean(value)
     converter = spec.get("converter")
@@ -340,6 +342,8 @@ def form_config(component, key, *, validate=True):
         _put(config, spec["path"], value)
     for spec in specs:
         if spec.get("ui_only"):
+            config.pop(spec["path"], None)
+        if _get(config, spec["path"]) in spec.get("omit_values", []):
             config.pop(spec["path"], None)
     return config
 
@@ -545,7 +549,7 @@ def science_outputs(key, config=None):
     if contract["artifacts_output"]:
         definitions.append(("artifacts", "生成文件", "build_artifacts"))
     return [
-        Output(name=name, display_name=label, method=method, group_outputs=True)
+        Output(name=name, display_name=label, method=method, group_outputs=True, cache=False)
         for name, label, method in definitions
     ]
 

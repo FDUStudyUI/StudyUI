@@ -12,6 +12,17 @@ COLUMNS = {
     "value_column": "测量值列",
     "unit_column": "独立试验单位/配对编号列",
 }
+SELECTION_RULES = {"突出度最大候选": "highest_prominence", "最红端候选": "redmost"}
+THRESHOLD_MODES = {
+    "旧版全谱相对阈值": "legacy_relative",
+    "指定突出度阈值": "absolute",
+    "参考噪声窗口": "noise_reference",
+}
+UNIT_MODES = {
+    "仅描述曲线（未声明独立单位）": "descriptive",
+    "每条曲线是独立单位": "curve",
+    "按样品汇总后比较": "sample",
+}
 VISIBLE = {
     "spectra": {
         "curve_column",
@@ -29,6 +40,19 @@ VISIBLE = {
         "smooth_window",
         "smooth_order",
         "band",
+        "selection_rule",
+        "prominence_mode",
+        "prominence",
+        "noise_confirmed",
+        "noise_low",
+        "noise_high",
+        "noise_multiplier",
+        "distance_enabled",
+        "peak_distance_x",
+        "unit_mode",
+        "unit_confirmed",
+        "unit_column",
+        "small_sample_policy",
     },
     "mechanics": {
         "x_column",
@@ -54,6 +78,7 @@ VISIBLE = {
         "correction",
         "alpha",
         "value_unit",
+        "small_sample_policy",
     },
 }
 
@@ -104,6 +129,51 @@ def planner_inputs():
         BoolInput(name="window_confirmed", display_name="确认采用下方候选窗口", value=False),
         FloatInput(name="window_low", display_name="候选窗口下限（nm）", value=650),
         FloatInput(name="window_high", display_name="候选窗口上限（nm）", value=850),
+        DropdownInput(
+            name="selection_rule",
+            display_name="窗口候选选择规则",
+            options=list(SELECTION_RULES),
+            value="突出度最大候选",
+            info="候选规则不确认物理模式；多候选仍保留歧义。",
+        ),
+        DropdownInput(
+            name="prominence_mode",
+            display_name="寻峰阈值来源",
+            options=list(THRESHOLD_MODES),
+            value="旧版全谱相对阈值",
+            real_time_refresh=True,
+            info="旧版使用全谱极差5%，可能受窗口外强峰影响；可指定阈值或已确认的噪声区间。",
+        ),
+        FloatInput(name="prominence", display_name="指定突出度（信号单位）", value=0.5),
+        BoolInput(name="noise_confirmed", display_name="确认下方区间适合估计背景噪声", value=False),
+        FloatInput(name="noise_low", display_name="噪声区间下限（输入波长单位）", value=400),
+        FloatInput(name="noise_high", display_name="噪声区间上限（输入波长单位）", value=480),
+        FloatInput(name="noise_multiplier", display_name="噪声阈值倍数", value=5),
+        BoolInput(
+            name="distance_enabled", display_name="指定物理峰间距", value=False, real_time_refresh=True
+        ),
+        FloatInput(name="peak_distance_x", display_name="最小峰间距（输入波长单位）", value=1),
+        DropdownInput(
+            name="unit_mode",
+            display_name="统计单位与比较方式",
+            options=list(UNIT_MODES),
+            value="仅描述曲线（未声明独立单位）",
+            real_time_refresh=True,
+        ),
+        BoolInput(
+            name="unit_confirmed",
+            display_name="确认所选单位在组间独立，技术重复按单位汇总",
+            value=False,
+            info="同一样品的多个颗粒不自动成为独立样品；配对设计请使用组间研究任务。",
+        ),
+        DropdownInput(
+            name="small_sample_policy",
+            display_name="小样本处理",
+            options=["默认仅描述", "显式模型推断（需检查假设）"],
+            value="默认仅描述",
+            advanced=True,
+            info="每组独立单位少于3时默认不做推断；达到3也不自动保证可靠。",
+        ),
         DropdownInput(
             name="baseline",
             display_name="基线方法",
@@ -199,6 +269,24 @@ def parameters_from(node, task):
         value = getattr(node, field)
         if value is not None and value != "":
             p[key] = value
+    if task == "spectra":
+        p["selection_rule"] = SELECTION_RULES.get(node.selection_rule, node.selection_rule)
+        p["prominence_mode"] = THRESHOLD_MODES.get(node.prominence_mode, node.prominence_mode)
+        if p["prominence_mode"] == "absolute":
+            p["prominence"] = node.prominence
+        if p["prominence_mode"] == "noise_reference" and node.noise_confirmed:
+            p["noise_window"] = [node.noise_low, node.noise_high]
+            p["noise_multiplier"] = node.noise_multiplier
+        if node.distance_enabled:
+            p["peak_distance_x"] = node.peak_distance_x
+        p["unit_mode"] = UNIT_MODES.get(node.unit_mode, node.unit_mode)
+        p["unit_confirmed"] = node.unit_confirmed
+        if p["unit_mode"] == "sample" and node.unit_column:
+            p["experimental_unit"] = node.unit_column
+    if task in {"spectra", "contrast"}:
+        p["small_sample_policy"] = (
+            "model_based" if node.small_sample_policy == "显式模型推断（需检查假设）" else "descriptive"
+        )
     if task == "spectra" and node.window_confirmed:
         p["peak_window"] = [node.window_low, node.window_high]
     if task == "mechanics" and node.fit_confirmed:

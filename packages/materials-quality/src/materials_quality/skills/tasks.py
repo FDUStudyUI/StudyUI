@@ -9,6 +9,8 @@ from materials_quality.science import materials, visualization
 from materials_quality.science.contrast_study import contrast_study
 from materials_quality.science.spectrum_batch import _identifiers, analyze_spectra
 
+from .spectral_study import band_frame, study
+
 
 @dataclass
 class TaskOutput:
@@ -61,7 +63,8 @@ def spectral_task(table, p, output):
         "x_unit": p["x_unit"],
         "intensity_unit": p["y_unit"],
         "lambda10_window_nm": p["peak_window"],
-        "lambda10_selection": "highest_prominence",
+        "lambda10_selection": p["selection_rule"],
+        "prominence_mode": p["prominence_mode"],
         "on_error": "continue",
         "baseline": {"method": p["baseline"], "value": p["baseline_value"]},
         "smooth_window": p["smooth_window"] if p["smooth"] else 0,
@@ -69,6 +72,9 @@ def spectral_task(table, p, output):
     }
     if "prominence" in p:
         c["prominence"] = p["prominence"]
+    for key in ("noise_window", "noise_multiplier", "peak_distance_x"):
+        if key in p:
+            c[key] = p[key]
     source = table.copy(deep=True)
     source.attrs = deepcopy(table.attrs)
     # Planning has checked equivalence; harmonize synonyms only on the analysis copy.
@@ -76,9 +82,14 @@ def spectral_task(table, p, output):
         source.attrs.setdefault("units", {})[column] = unit
     r = analyze_spectra(source, c)
     summary = pd.DataFrame(r.data["curve_summary"])
-    summary.attrs["units"] = {"lambda10_nm": "nm", "peak_position": p["x_unit"]}
-    groups = _describe(summary, ["lambda10_nm"])
-    groups.attrs["units"] = {"mean": "nm", "std": "nm"}
+    summary.attrs["units"] = {"lambda10_nm": "nm", "window_candidate_nm": "nm", "peak_position": p["x_unit"]}
+    groups, comparison = study(summary, source, p)
+    if "experimental_unit" in summary:
+        mapping = summary.set_index("curve_id")["experimental_unit"]
+        r.features["experimental_unit"] = r.features.curve_id.map(mapping)
+        if "curve_id" in r.table:
+            r.table["experimental_unit"] = r.table.curve_id.map(mapping)
+    r.data["group_inference"] = comparison
     result = TaskOutput(summary, r.features, r.table, groups, r.data, list(r.warnings))
     missing = sum(
         row.get("status") == "completed" and row.get("lambda10_nm") is None for row in r.data["curve_summary"]
@@ -99,7 +110,17 @@ def spectral_task(table, p, output):
     if p["group"]:
         plot_c["group"] = "group"
     if len(r.table):
-        _plot(result, visualization.spectra, r.table, plot_c)
+        plot_frame = r.table
+        if p["band"] == "ci95":
+            try:
+                plot_frame = band_frame(r.table, source, p)
+                plot_c.update(independence_confirmed=True, small_sample_policy=p["small_sample_policy"])
+            except ValueError as exc:
+                result.warnings.append(f"未生成置信带：{exc} 数值结果保留，可改用描述带。")
+                result.data["confidence_band_status"] = "unavailable_unit_or_sample_conditions"
+                plot_frame = None
+        if plot_frame is not None:
+            _plot(result, visualization.spectra, plot_frame, plot_c)
     return result
 
 
@@ -200,6 +221,7 @@ def contrast_task(table, p, output):
             "strategy",
             "correction",
             "alpha",
+            "small_sample_policy",
         )
     }
     source = table.copy(deep=True)
@@ -209,16 +231,30 @@ def contrast_task(table, p, output):
         r.table, r.features, pd.DataFrame(), pd.DataFrame(r.data["descriptives"]), r.data, list(r.warnings)
     )
     undefined = int(r.features["p_adjusted"].isna().sum())
+    descriptive = int(r.features["status"].eq("descriptive_only_small_n").sum())
     result.data.update(
-        execution_status="needs_review" if undefined else "completed",
+        execution_status="descriptive_only"
+        if descriptive == len(r.features)
+        else ("needs_review" if undefined else "completed"),
         counts={
             "total": len(r.features),
             "completed": len(r.features) - undefined,
-            "failed": undefined,
+            "failed": undefined - descriptive,
             "skipped": 0,
+            "descriptive": descriptive,
         },
     )
     result.table.attrs["units"] = {p["value"]: p["value_unit"]}
+    result.features.attrs["units"] = {
+        key: p["value_unit"]
+        for key in ("mean_difference", "mean_difference_ci_low", "mean_difference_ci_high")
+        if key in result.features
+    }
+    result.groups.attrs["units"] = {
+        key: p["value_unit"]
+        for key in ("mean", "std", "median", "q25", "q75", "min", "max")
+        if key in result.groups
+    }
     for index, (_, block) in enumerate(r.table.groupby(p["variable"], sort=False, observed=True)):
         _plot(
             result,

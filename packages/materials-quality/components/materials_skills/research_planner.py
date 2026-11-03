@@ -5,7 +5,14 @@ from lfx.io import Output
 from lfx.schema import Data, Message
 
 from materials_quality.batch.native import prepare_form
-from materials_quality.skills.native import COLUMNS, VISIBLE, parameters_from, planner_inputs
+from materials_quality.skills.native import (
+    COLUMNS,
+    THRESHOLD_MODES,
+    UNIT_MODES,
+    VISIBLE,
+    parameters_from,
+    planner_inputs,
+)
 from materials_quality.skills.planning import _route, input_identity, make_plan
 from materials_quality.skills.registry import digest, list_skills, load_skill
 
@@ -76,6 +83,10 @@ class ResearchSkillPlanner(Component):
             "strain_unit": "应变单位",
             "stress_unit": "应力单位",
             "value_unit": "测量值单位",
+            "selection_rule": "候选选择规则",
+            "prominence_mode": "阈值来源",
+            "unit_mode": "统计单位方式",
+            "small_sample_policy": "小样本政策",
         }
         lines.extend(f"{labels[k]}：{v}" for k, v in p["parameters"].items() if k in labels and v is not None)
         lines.extend("提示：" + w for w in p["warnings"])
@@ -101,6 +112,18 @@ class ResearchSkillPlanner(Component):
             for name in ("smooth_window", "smooth_order"):
                 build_config[name]["show"] = bool(build_config["smooth"].get("value", self.smooth))
             build_config["baseline_value"]["show"] = build_config["baseline"].get("value") == "constant"
+            threshold = THRESHOLD_MODES.get(
+                build_config["prominence_mode"].get("value"), build_config["prominence_mode"].get("value")
+            )
+            build_config["prominence"]["show"] = threshold == "absolute"
+            for name in ("noise_confirmed", "noise_low", "noise_high", "noise_multiplier"):
+                build_config[name]["show"] = threshold == "noise_reference"
+            build_config["peak_distance_x"]["show"] = bool(build_config["distance_enabled"].get("value"))
+            unit = UNIT_MODES.get(
+                build_config["unit_mode"].get("value"), build_config["unit_mode"].get("value")
+            )
+            build_config["unit_column"]["show"] = unit == "sample"
+            build_config["unit_confirmed"]["show"] = unit != "descriptive"
         if field_name == "input_table" and hasattr(field_value, "columns"):
             for name in COLUMNS:
                 build_config[name]["options"] = ["", *field_value.columns.tolist()]

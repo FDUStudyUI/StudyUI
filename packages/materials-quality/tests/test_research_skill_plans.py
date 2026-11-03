@@ -137,7 +137,8 @@ def test_schema_auto_routing_and_model_proposals_share_validation():
     p = make(spectra(), request="帮我处理这些数据")
     assert not p["ready"]
     proposal = {"task": "spectra", "parameters": options()}
-    assert make(spectra(), proposal=proposal)["ready"]
+    assert not make(spectra(), proposal=proposal)["ready"]
+    assert make(spectra(), proposal=proposal, parameters=options())["ready"]
     with pytest.raises(ValueError):
         make(spectra(), proposal={**proposal, "code": "import os"})
     with pytest.raises(ValueError):

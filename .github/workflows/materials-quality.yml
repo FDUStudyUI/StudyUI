@@ -40,6 +40,9 @@ jobs:
       - run: python -m scripts.build_batch_examples
       - run: python -m scripts.build_research_examples
       - run: python -m scripts.build_skill_examples
+      - run: python -m scripts.build_reliability_examples
+      - run: python -m scripts.evaluate_reliability --output artifacts/reliability-evaluation
+      - run: python -m scripts.evaluate_design --output artifacts/design-evaluation
       - run: python -m scripts.render_paper_gallery --output artifacts/paper-figures
       - run: python -m scripts.qa_paper_gallery
       - run: python -m scripts.run_example examples/dirty_quality_flow.json --output artifacts/dirty_report.json
@@ -56,9 +59,11 @@ jobs:
             packages/materials-quality/artifacts/paper-figures/
             packages/materials-quality/artifacts/paper-qa/
             packages/materials-quality/dist/*.whl
+            packages/materials-quality/artifacts/reliability-evaluation/
+            packages/materials-quality/artifacts/design-evaluation/
   ui:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       PYTHONUTF8: '1'
       LANGFLOW_AUTO_LOGIN: 'true'
@@ -101,6 +106,7 @@ jobs:
       - run: python -m scripts.ui_batch_acceptance --base-url http://127.0.0.1:7867
       - run: python -m scripts.ui_research_acceptance --base-url http://127.0.0.1:7867
       - run: python -m scripts.ui_skill_acceptance --base-url http://127.0.0.1:7867
+      - run: python -m scripts.ui_reliability_acceptance --base-url http://127.0.0.1:7867
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -112,5 +118,6 @@ jobs:
             packages/materials-quality/artifacts/ui-batch-acceptance/
             packages/materials-quality/artifacts/ui-research-acceptance/
             packages/materials-quality/artifacts/ui-skill-acceptance/
+            packages/materials-quality/artifacts/ui-reliability-acceptance/
             packages/materials-quality/artifacts/ui-server.log
             packages/materials-quality/artifacts/ui-acceptance.log

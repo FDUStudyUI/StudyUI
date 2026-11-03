@@ -56,6 +56,57 @@ def _watch_writes(page):
     return state
 
 
+def _saved_planner_fields(flow):
+    nodes = flow.get("data", {}).get("nodes", [])
+    planner = next(node for node in nodes if node.get("data", {}).get("type") == "ResearchSkillPlanner")
+    return {
+        name: field.get("value")
+        for name, field in planner["data"]["node"]["template"].items()
+        if isinstance(field, dict)
+    }
+
+
+def _save_native_controls(page, writes, expected):
+    """Save through the native shortcut and verify persisted controls before reload.
+
+    A completed component run does not imply a saved flow: Langflow dispatches
+    its autosave about five seconds after an edit. Network quiet alone can land
+    before that request exists. GET is read-only; all writes remain real UI work.
+    """
+    parsed = urlparse(page.url)
+    flow_id = parsed.path.rstrip("/").split("/")[-1]
+    endpoint = f"{parsed.scheme}://{parsed.netloc}/api/v1/flows/{flow_id}"
+    started = monotonic()
+    writes["last"] = monotonic()
+    page.keyboard.press("Control+s")
+    deadline = monotonic() + 40
+    mismatches = {}
+    while True:
+        response = page.request.get(endpoint)
+        assert response.ok, f"Saved flow readback failed: HTTP {response.status}"
+        saved = _saved_planner_fields(response.json())
+        mismatches = {
+            name: {"expected": value, "saved": saved.get(name)}
+            for name, value in expected.items()
+            if saved.get(name) != value
+        }
+        if not mismatches and not writes["pending"] and monotonic() - writes["last"] >= 1.5:
+            break
+        if monotonic() > deadline:
+            raise AssertionError(f"Native flow save did not persist expected controls: {mismatches}")
+        page.wait_for_timeout(150)
+    writes.setdefault("saved_checkpoints", []).append(
+        {
+            "flow_id": flow_id,
+            "fields": expected.copy(),
+            "saved_fields": {k: saved[k] for k in expected},
+            "elapsed_seconds": monotonic() - started,
+            "write_method": "native Control+s",
+            "readback_http": response.status,
+        }
+    )
+
+
 def _saved_reopen(page, writes, expected_window):
     """Cross a save/reopen boundary before editing/running the next component.
 
@@ -63,12 +114,7 @@ def _saved_reopen(page, writes, expected_window):
     its editor is still saving. Reopening a settled flow also verifies that the
     confirmed parameters and all three connections survived persistence.
     """
-    writes["last"] = monotonic()
-    deadline = monotonic() + 30
-    while writes["pending"] or monotonic() - writes["last"] < 1.5:
-        if monotonic() > deadline:
-            raise AssertionError("Flow writes did not settle before reopen")
-        page.wait_for_timeout(100)
+    _save_native_controls(page, writes, {"window_confirmed": True, "window_low": expected_window})
     page.reload(wait_until="domcontentloaded")
     expect(page.locator(".react-flow__node")).to_have_count(3)
     expect(page.locator(".react-flow__edge")).to_have_count(3)
@@ -195,6 +241,7 @@ def accept_ui(base_url, output, executable=None):
             (output / "failure.txt").write_text(page.locator("body").inner_text(), "utf-8")
             raise
         finally:
+            results["saved_checkpoints"] = writes.get("saved_checkpoints", [])
             _write_json(output / "acceptance.json", results)
             browser.close()
     return results

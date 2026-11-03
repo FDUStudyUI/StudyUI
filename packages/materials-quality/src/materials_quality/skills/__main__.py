@@ -45,16 +45,28 @@ def main(argv=None):
             "baseline",
             "data-kind",
             "band",
+            "selection-rule",
+            "prominence-mode",
+            "unit-mode",
+            "small-sample-policy",
         ):
             p.add_argument("--" + field)
-        for field in ("peak-window", "fit-range"):
+        for field in ("peak-window", "fit-range", "noise-window"):
             p.add_argument("--" + field, type=float, nargs=2)
-        for field in ("baseline-value", "prominence", "yield-offset", "alpha"):
+        for field in (
+            "baseline-value",
+            "prominence",
+            "yield-offset",
+            "alpha",
+            "noise-multiplier",
+            "peak-distance-x",
+        ):
             p.add_argument("--" + field, type=float)
         for field in ("smooth-window", "smooth-order"):
             p.add_argument("--" + field, type=int)
         p.add_argument("--single-sample", action="store_true", default=None)
         p.add_argument("--smooth", action="store_true", default=None)
+        p.add_argument("--unit-confirmed", action="store_true", default=None)
     args = vars(parser.parse_args(argv))
     command = args.pop("command")
     try:

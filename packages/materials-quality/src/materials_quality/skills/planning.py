@@ -5,9 +5,11 @@ from math import isfinite
 
 from materials_quality.context import table_fingerprint
 from materials_quality.science.contracts import require_table
+from materials_quality.science.table_contract import contract_identity, read_contract
 from materials_quality.units import _unit
 
 from .registry import SKILLS, digest, load_skill
+from .semantics import analysis_contract
 
 ALIASES = {
     "curve_id": ["curve_id", "particle_id", "颗粒编号", "曲线编号"],
@@ -22,6 +24,20 @@ ALIASES = {
     "experimental_unit": ["experimental_unit", "unit_id", "独立试验单位"],
 }
 COMMON = {"data_kind", "band"}
+CONFIRMATIONS = {
+    "spectra": {
+        "x_unit",
+        "y_unit",
+        "peak_window",
+        "unit_mode",
+        "unit_confirmed",
+        "experimental_unit",
+        "noise_window",
+        "small_sample_policy",
+    },
+    "mechanics": {"strain_unit", "stress_unit", "fit_range", "single_sample"},
+    "contrast": {"experimental_unit", "design", "value_unit", "small_sample_policy"},
+}
 FIELDS = {
     "spectra": {
         "curve_id",
@@ -37,6 +53,15 @@ FIELDS = {
         "smooth_window",
         "smooth_order",
         "prominence",
+        "selection_rule",
+        "prominence_mode",
+        "noise_window",
+        "noise_multiplier",
+        "peak_distance_x",
+        "unit_mode",
+        "unit_confirmed",
+        "experimental_unit",
+        "small_sample_policy",
     }
     | COMMON,
     "mechanics": {
@@ -62,6 +87,7 @@ FIELDS = {
         "correction",
         "value_unit",
         "alpha",
+        "small_sample_policy",
     }
     | COMMON,
 }
@@ -96,6 +122,7 @@ def input_identity(table):
         "sha256": digest([table_fingerprint(table), table.attrs.get("units", {})]),
         "rows": len(table),
         "columns": list(table.columns),
+        "contract_sha256": contract_identity(table),
     }
 
 
@@ -119,6 +146,7 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
     if not isinstance(request, str) or len(request) > 8000:
         raise ValueError("request must be text up to 8000 characters")
     supplied = deepcopy(parameters or {})
+    explicit_fields = set(supplied)
     if not isinstance(supplied, dict):
         raise ValueError("parameters must be an object")
     if proposal is not None:
@@ -138,6 +166,10 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
 
     def issue(field, message):
         issues.append({"field": field, "message": message})
+
+    if proposal is not None and task in CONFIRMATIONS:
+        for field in sorted(CONFIRMATIONS[task] & proposal["parameters"].keys() - explicit_fields):
+            issue(field, f"请通过表单或显式参数确认模型建议的 {field}。")
 
     if task is None:
         issue("task", "请选择光谱、力学或组间研究，或具体描述分析目标。")
@@ -223,6 +255,30 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
                     issue("smooth_window", "平滑窗口必须为奇数，且大于多项式阶数。")
             if "prominence" in p:
                 number("prominence", positive=True)
+            p.setdefault("selection_rule", "highest_prominence")
+            choice("selection_rule", {"highest_prominence", "redmost"})
+            p.setdefault("prominence_mode", "absolute" if "prominence" in p else "legacy_relative")
+            choice("prominence_mode", {"legacy_relative", "absolute", "noise_reference"})
+            if p["prominence_mode"] == "absolute" and "prominence" not in p:
+                issue("prominence", "请输入正的突出度阈值，单位与处理后的信号相同。")
+            if p["prominence_mode"] != "absolute" and "prominence" in p:
+                issue("prominence_mode", "指定阈值与阈值模式冲突，请选择一种来源。")
+            if p["prominence_mode"] == "noise_reference":
+                interval("noise_window")
+                number("noise_multiplier", 5, positive=True)
+            if "peak_distance_x" in p:
+                number("peak_distance_x", positive=True)
+            p.setdefault("unit_mode", "descriptive")
+            choice("unit_mode", {"descriptive", "curve", "sample"})
+            p.setdefault("unit_confirmed", False)
+            if type(p["unit_confirmed"]) is not bool:
+                issue("unit_confirmed", "独立单位确认必须为勾选项。")
+            if p["unit_mode"] != "descriptive" and p["unit_confirmed"] is not True:
+                issue("unit_confirmed", "请确认独立试验单位及处理条件的施加层级；未确认时仅做描述。")
+            if p["band"] == "ci95" and (p["unit_mode"] == "descriptive" or p["unit_confirmed"] is not True):
+                issue("band", "均值置信带需确认独立单位；未确认时请选择四分位或标准差描述带。")
+            if p["unit_mode"] == "sample":
+                column("experimental_unit")
             warnings.append("窗口候选峰不等同于确认的物理模式；组内光谱带是描述统计。")
         elif task == "mechanics":
             for key in ("strain", "stress"):
@@ -251,12 +307,21 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
             if p["alpha"] is not None and p["alpha"] >= 1:
                 issue("alpha", "显著性水平必须介于 0 和 1。")
             warnings.append("先按独立试验单位平均技术重复，再进行预先指定的组间检验。")
+        if task in {"spectra", "contrast"}:
+            p.setdefault("small_sample_policy", "descriptive")
+            choice("small_sample_policy", {"descriptive", "model_based"})
         _units(table, task, p, issue)
-        selected = [p[k] for k in ALIASES if k in p and isinstance(p[k], str) and p[k] in table]
-        if len(selected) != len(set(selected)):
-            issue("columns", "不同含义的字段必须选择不同的数据列。")
+        selected = {k: p[k] for k in ALIASES if k in p and isinstance(p[k], str) and p[k] in table}
+        for name in set(selected.values()):
+            sharing = {k for k, v in selected.items() if v == name}
+            if len(sharing) > 1 and not sharing <= {"sample_id", "experimental_unit", "curve_id"}:
+                issue("columns", "不同测量含义的字段必须选择不同的数据列。")
+    semantic = None
+    if task is not None and not issues:
+        semantic, semantic_issues = analysis_contract(table, task, p)
+        issues.extend(semantic_issues)
     plan = {
-        "schema_version": "research-plan/1",
+        "schema_version": "research-plan/2",
         "task": task,
         "request": request,
         "parameters": p,
@@ -266,12 +331,18 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
         "issues": issues,
         "warnings": warnings,
         "ready": not issues,
+        "analysis_contract": semantic,
     }
     plan["plan_sha256"] = digest(plan)
     return plan
 
 
 def _units(table, task, p, issue):
+    contract = read_contract(table)
+    semantic_units = contract["units_state"].get("units", {}) if contract else {}
+    if not isinstance(semantic_units, dict):
+        issue("contract", "数据契约的单位声明必须为列名到单位的映射。")
+        return
     pairs = {
         "spectra": [("x", "x_unit"), ("y", "y_unit")],
         "mechanics": [("strain", "strain_unit"), ("stress", "stress_unit")],
@@ -283,9 +354,12 @@ def _units(table, task, p, issue):
             continue
         try:
             actual = _unit("dimensionless" if unit == "fraction" else unit)
-            stored = table.attrs.get("units", {}).get(p.get(column))
-            if stored is not None and _unit(stored) != actual:
-                issue(key, f"声明单位与上游单位冲突：{stored} / {unit}。")
+            for stored in (
+                table.attrs.get("units", {}).get(p.get(column)),
+                semantic_units.get(p.get(column)),
+            ):
+                if stored is not None and _unit(stored) != actual:
+                    issue(key, f"声明单位与上游单位冲突：{stored} / {unit}。")
             if task == "spectra" and key == "x_unit" and not actual.is_compatible_with(_unit("nm")):
                 issue(key, "候选波长窗口要求长度单位。")
         except Exception:
@@ -293,8 +367,8 @@ def _units(table, task, p, issue):
 
 
 def validate_plan(table, plan):
-    if not isinstance(plan, dict) or plan.get("schema_version") != "research-plan/1":
-        raise ValueError("unsupported research plan / 计划版本")
+    if not isinstance(plan, dict) or plan.get("schema_version") != "research-plan/2":
+        raise ValueError("unsupported research plan / 计划版本已更新，请重新运行规划节点。")
     content = {k: v for k, v in plan.items() if k != "plan_sha256"}
     if digest(content) != plan.get("plan_sha256"):
         raise ValueError("计划内容已修改 / plan fingerprint mismatch，请重新生成。")

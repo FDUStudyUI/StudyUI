@@ -1,5 +1,10 @@
 # StudyUI
 
+0.7.0 增加窗口候选规则与阈值表单、独立试验单位与小样本政策、可传递数据契约及独立评测。
+参见[可靠性操作指南](packages/materials-quality/docs/research-reliability.md)、
+[四个可导入示例](packages/materials-quality/examples/reliability_flows/README.md)与
+[独立评测说明](packages/materials-quality/docs/evaluation-reliability.md)。
+
 基于 Langflow 的可视化科研 Agent 工作流。
 
 材料科学组件包对应《工作流节点.md》的八类、50 项功能，并增加批量科研任务与内置科研技能，包含 62 个 Langflow 原生节点，

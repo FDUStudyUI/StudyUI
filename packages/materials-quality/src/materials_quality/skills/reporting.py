@@ -6,6 +6,8 @@ import html
 import json
 from pathlib import Path
 
+import pandas as pd
+
 from materials_quality.common import json_value
 
 
@@ -36,6 +38,39 @@ def deliver(result, report, output, summary):
             f"<h2>{label}（{len(table)} 行，预览前 20 行）</h2>"
             + table.head(20).to_html(index=False, escape=True, border=0)
         )
+    comparison = report.get("data", {}).get("group_inference", {})
+    if comparison:
+        sections.append(
+            "<h2>独立单位与组间比较</h2><p>"
+            + html.escape(str(comparison.get("status", "descriptive")))
+            + "；候选均值以检出子集为条件，统计区间与参数敏感性分别解释。</p>"
+        )
+        for name, key, label in (
+            ("independent_units", "units", "独立试验单位汇总"),
+            ("comparisons", "pairwise", "组间差值与区间"),
+        ):
+            frame = pd.DataFrame(comparison.get(key, []))
+            if len(frame.columns):
+                path = output / f"{name}.csv"
+                frame.to_csv(path, index=False, encoding="utf-8-sig")
+                paths.append(str(path))
+                sections.append(
+                    f"<h3>{label}（{len(frame)} 行）</h3>"
+                    + frame.head(20).to_html(index=False, escape=True, border=0)
+                )
+    contracts = {name: data.get("contract") for name, data in report.get("tables", {}).items()}
+    path = output / "table_contracts.json"
+    write_json(
+        path,
+        {
+            "schema_version": "research-table-contracts/1",
+            "tables": contracts,
+            "fingerprints": {
+                name: data.get("fingerprint") for name, data in report.get("tables", {}).items()
+            },
+        },
+    )
+    paths.append(str(path))
     images = []
     for path in result.artifacts:
         if Path(path).suffix == ".png":

@@ -122,13 +122,108 @@ def integrate_ranges(x, y, config):
     ]
 
 
-def peak_records(x, y, config):
-    prominence = config.get("prominence", max(float(np.ptp(y)) * 0.05, np.finfo(float).eps))
-    prominence = positive(prominence, "prominence")
+def peak_detection_settings(x, y, config):
+    """Resolve reproducible thresholds in processed-signal/native-coordinate units.
+
+    Noise-reference MAD uses only an explicitly declared measured window. Its
+    normal scaling is an assumption, not a calibration of false-positive rates;
+    contamination, drift and correlated noise require external validation.
+
+    Modes are ``legacy_relative`` (5% of full processed range), ``absolute``
+    (positive ``prominence``), or ``noise_reference`` (positive
+    ``noise_multiplier`` times normal-scaled MAD in ``noise_window=[lo, hi]``).
+    A legacy prominence-only config selects absolute mode. Noise windows and
+    ``peak_distance_x`` use native x units. Returned ``effective_prominence``
+    uses processed response units; ``peak_distance`` retains sample units.
+    """
+    mode = config.get("prominence_mode", "absolute" if "prominence" in config else "legacy_relative")
+    if mode not in {"legacy_relative", "absolute", "noise_reference"}:
+        raise ValueError("prominence_mode must be legacy_relative, absolute, or noise_reference")
+    settings = {"prominence_mode": mode, "signal": "baseline-corrected smoothed before normalization"}
+    if mode == "absolute":
+        prominence = positive(config.get("prominence"), "prominence")
+        settings["threshold_source"] = "explicit absolute prominence"
+    elif mode == "legacy_relative":
+        if "prominence" in config:
+            raise ValueError(
+                "explicit prominence conflicts with prominence_mode=legacy_relative; use absolute"
+            )
+        prominence = max(float(np.ptp(y)) * 0.05, np.finfo(float).eps)
+        settings.update({"threshold_source": "5% of full processed-signal range", "relative_fraction": 0.05})
+    else:
+        if "prominence" in config:
+            raise ValueError(
+                "explicit prominence conflicts with prominence_mode=noise_reference; use absolute"
+            )
+        try:
+            bounds = np.asarray(config.get("noise_window"), dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("noise_window must be two finite increasing native coordinates") from exc
+        if (
+            bounds.shape != (2,)
+            or not np.isfinite(bounds).all()
+            or not x[0] <= bounds[0] < bounds[1] <= x[-1]
+        ):
+            raise ValueError(
+                "noise_window must be two finite increasing native coordinates inside the measured range"
+            )
+        selected = y[(x >= bounds[0]) & (x <= bounds[1])]
+        if len(selected) < 5:
+            raise ValueError("noise_window requires at least five measured points")
+        multiplier = positive(config.get("noise_multiplier", 3), "noise_multiplier")
+        noise = float(np.median(np.abs(selected - np.median(selected))) * 1.482602218505602)
+        if not np.isfinite(noise) or noise <= 0:
+            raise ValueError(
+                "noise_window has no positive MAD noise estimate; "
+                "declare another window or absolute threshold"
+            )
+        prominence = multiplier * noise
+        settings.update(
+            {
+                "threshold_source": "declared noise window MAD times noise_multiplier",
+                "noise_window": bounds.tolist(),
+                "noise_window_unit": config.get("x_unit", "native x unit"),
+                "noise_multiplier": multiplier,
+                "noise_estimate": noise,
+                "noise_sample_count": len(selected),
+                "noise_estimator": "median_absolute_deviation_normal_scaled",
+                "noise_assumptions": (
+                    "normal-reference MAD scaling; window must represent background; "
+                    "drift, peaks and correlation are not corrected"
+                ),
+            }
+        )
+    settings["effective_prominence"] = positive(prominence, "prominence")
     distance = config.get("peak_distance", 1)
     if type(distance) is not int or distance < 1:
         raise ValueError("peak_distance must be an integer >=1 measured in samples")
-    indices, props = find_peaks(y, prominence=prominence, distance=distance)
+    settings["peak_distance"] = distance
+    settings["peak_distance_unit"] = "samples"
+    physical = config.get("peak_distance_x")
+    settings["peak_distance_x"] = positive(physical, "peak_distance_x") if physical is not None else None
+    settings["peak_distance_x_unit"] = config.get("x_unit", "native x unit")
+    settings["distance_method"] = (
+        "sample-distance selection then coordinate-distance greedy suppression by descending height; "
+        "ties choose lower coordinate; no resampling"
+        if physical is not None
+        else "sample-distance selection"
+    )
+    return settings
+
+
+def peak_records(x, y, config):
+    settings = peak_detection_settings(x, y, config)
+    indices, props = find_peaks(
+        y, prominence=settings["effective_prominence"], distance=settings["peak_distance"]
+    )
+    if settings["peak_distance_x"] is not None:
+        accepted = []
+        for k in sorted(range(len(indices)), key=lambda k: (-y[indices[k]], x[indices[k]])):
+            if all(abs(x[indices[k]] - x[indices[j]]) >= settings["peak_distance_x"] for j in accepted):
+                accepted.append(k)
+        keep = sorted(accepted)
+        indices = indices[keep]
+        props = {name: values[keep] for name, values in props.items()}
     records = []
     for k, idx in enumerate(indices):
         half = y[idx] / 2
@@ -152,6 +247,7 @@ def peak_records(x, y, config):
                 "left_base_index": lb,
                 "right_base_index": rb,
                 "area_between_bases": float(trapezoid(y[lb : rb + 1], x[lb : rb + 1])),
+                "peak_detection": deepcopy(settings),
             }
         )
     return records

@@ -11,6 +11,7 @@ from .materials_curves import (
     integrate_ranges,
     interval,
     match_references,
+    peak_detection_settings,
     peak_records,
     positive,
     processed_curve,
@@ -44,6 +45,7 @@ def xrd(table=None, *, config=None, data=None, tables=None):
         table=frame,
         data={
             "peaks": peaks,
+            "peak_detection": peak_detection_settings(x, y, config),
             "matches": matches,
             "fit": fit,
             "x_unit": config.get("x_unit", "unspecified coordinate unit"),
@@ -85,6 +87,7 @@ def spectra(table=None, *, config=None, data=None, tables=None):
         table=frame,
         data={
             "peaks": peaks,
+            "peak_detection": peak_detection_settings(x, y, config),
             "areas": areas,
             "matches": matches,
             "area_signal": "baseline-corrected smoothed signal before normalization",

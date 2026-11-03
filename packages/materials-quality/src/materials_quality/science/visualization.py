@@ -183,6 +183,13 @@ def _ordered_curve(block, x, y):
 
 @plot_operation
 def spectra(table=None, *, config=None, data=None, tables=None):
+    """Plot spectra; CI95 requires an explicit independent-unit declaration.
+
+    Unlike descriptive IQR/SD, legacy CI95 configurations must now confirm
+    independence. The default product policy requires n>=3; model_based is an
+    explicit Student-t model opt-in for n=2. It never establishes independence
+    from curve count or overrides known repeated-unit/paired contracts.
+    """
     c = config or {}
     method = _method(c, {"line", "overlay", "difference", "band"}, "overlay")
     if method == "band":
@@ -210,15 +217,50 @@ def spectra(table=None, *, config=None, data=None, tables=None):
         band = c.get("band", "iqr")
         if band not in {"iqr", "sd", "ci95"}:
             raise ValueError("band must be iqr, sd or ci95")
-        fig, ax = _figure(c)
+        policy = c.get("small_sample_policy", "descriptive")
+        if band == "ci95":
+            from .table_contract import read_contract
+
+            if c.get("independence_confirmed") is not True:
+                raise ValueError(
+                    "ci95 requires independence_confirmed=True after validating one curve per "
+                    "independent experimental unit; IQR/SD remain descriptive alternatives"
+                )
+            if type(policy) is not str or policy not in {"descriptive", "model_based"}:
+                raise ValueError("small_sample_policy must be descriptive or model_based")
+            contract = read_contract(frame)
+            if contract is not None:
+                if contract["granularity"] != "point":
+                    raise ValueError("ci95 complete curves require a point-granularity input contract")
+                if contract["experimental_design"]["kind"] == "paired":
+                    raise ValueError(
+                        "paired experimental-unit designs require a paired analysis; "
+                        "independent-curve ci95 cannot override the declared design"
+                    )
+                unit = contract["roles"].get("experimental_unit")
+                if unit is not None:
+                    relationships = frame[[identity, unit]].drop_duplicates()
+                    if relationships[identity].duplicated().any() or relationships[unit].duplicated().any():
+                        raise ValueError(
+                            "ci95 requires one complete curve per experimental unit; "
+                            "aggregate repeated curves by the declared unit first, or use descriptive IQR/SD"
+                        )
         bands = []
+        interval_warnings = []
         for label, block in _grouped(frame, c):
             measured = [
                 (curve, *_ordered_curve(b, x, y))
                 for curve, b in block.groupby(identity, sort=False, observed=True)
             ]
             if len(measured) < 2:
-                raise ValueError("spectral bands require at least two independent complete curves per group")
+                raise ValueError(
+                    "spectral bands require at least two complete curves per group; ci95 unavailable at n=1"
+                )
+            if band == "ci95" and len(measured) < 3 and policy != "model_based":
+                raise ValueError(
+                    "ci95 default descriptive product policy requires at least three independent units; "
+                    "select IQR/SD, or explicitly opt into model_based assumptions for n=2"
+                )
             grids = [row[1] for row in measured]
             equal = all(len(g) == len(grids[0]) and np.array_equal(g, grids[0]) for g in grids[1:])
             explicit = c.get("grid")
@@ -237,6 +279,7 @@ def spectra(table=None, *, config=None, data=None, tables=None):
             else:
                 raise ValueError("unequal spectral grids require an explicit grid within the shared range")
             mean = matrix.mean(axis=0)
+            interval_metadata = {}
             if band == "iqr":
                 lower, upper = np.quantile(matrix, [0.25, 0.75], axis=0)
             else:
@@ -244,27 +287,81 @@ def spectra(table=None, *, config=None, data=None, tables=None):
                 if band == "ci95":
                     deviation = deviation / np.sqrt(len(matrix)) * stats.t.ppf(0.975, len(matrix) - 1)
                 lower, upper = mean - deviation, mean + deviation
-            style = styled_series(label, c)
-            ax.plot(
-                xx,
-                mean,
-                label=f"{label} (n={len(matrix)} curves)",
-                color=style["color"],
-                linestyle=style["linestyle"],
-            )
-            ax.fill_between(xx, lower, upper, color=style["color"], alpha=0.22, linewidth=0)
+                if band == "ci95":
+                    zero_variance = np.ptp(matrix, axis=0) == 0
+                    status = (
+                        "zero_between_unit_variance"
+                        if zero_variance.all()
+                        else "partially_estimable"
+                        if zero_variance.any()
+                        else "estimated"
+                    )
+                    interval_metadata = {
+                        "ci_status": status,
+                        "ci_reason": "between-unit variance is zero at these coordinates; "
+                        "no meaningful empirical precision estimate"
+                        if zero_variance.any()
+                        else "pointwise Student t interval under the declared independent normal model",
+                        "zero_variance_coordinates": int(zero_variance.sum()),
+                    }
+                    if zero_variance.any():
+                        interval_warnings.append(
+                            f"{label}: zero between-unit variance at {zero_variance.sum()} coordinates; "
+                            "confidence limits are unavailable there, not evidence of population precision."
+                        )
+                    lower = [
+                        None if unavailable else float(value)
+                        for value, unavailable in zip(lower, zero_variance, strict=True)
+                    ]
+                    upper = [
+                        None if unavailable else float(value)
+                        for value, unavailable in zip(upper, zero_variance, strict=True)
+                    ]
             bands.append(
                 {
                     "label": label,
                     "x": xx.tolist(),
                     "mean": mean.tolist(),
-                    "lower": lower.tolist(),
-                    "upper": upper.tolist(),
+                    "lower": lower if isinstance(lower, list) else lower.tolist(),
+                    "upper": upper if isinstance(upper, list) else upper.tolist(),
                     "n_curves": len(matrix),
                     "curve_ids": [str(row[0]) for row in measured],
                     "band": band,
                     "interpolated": explicit is not None,
+                    **(
+                        {
+                            "n_independent_units": len(matrix),
+                            "degrees_of_freedom": len(matrix) - 1,
+                            **interval_metadata,
+                            "ci_method": "pointwise_student_t",
+                            "confidence_level": 0.95,
+                            "small_sample_policy": policy,
+                            "independence_confirmed": True,
+                        }
+                        if band == "ci95"
+                        else {}
+                    ),
                 }
+            )
+        # Validate every group's design, sample count and coordinates before
+        # allocating a figure. plot_operation closes owned figures on all paths.
+        fig, ax = _figure(c)
+        for item in bands:
+            style = styled_series(item["label"], c)
+            ax.plot(
+                item["x"],
+                item["mean"],
+                label=f"{item['label']} (n={item['n_curves']} curves)",
+                color=style["color"],
+                linestyle=style["linestyle"],
+            )
+            ax.fill_between(
+                item["x"],
+                np.asarray(item["lower"], dtype=float),
+                np.asarray(item["upper"], dtype=float),
+                color=style["color"],
+                alpha=0.22,
+                linewidth=0,
             )
         definitions = {
             "iqr": "Mean curve with pointwise observed 25th-75th percentiles across complete curves.",
@@ -275,7 +372,7 @@ def spectra(table=None, *, config=None, data=None, tables=None):
         labels = {"x": _label(x, c), "y": c.get("y_label") or _label(y, c)}
         ax.set(xlabel=labels["x"], ylabel=labels["y"], title=str(c.get("title", "Spectral mean and band")))
         legend(ax)
-        return _finish(
+        result = _finish(
             fig,
             c,
             "spectra-band",
@@ -285,12 +382,25 @@ def spectra(table=None, *, config=None, data=None, tables=None):
                 "plot_data": {"bands": bands},
                 "statistical_definition": definitions[band],
                 "assumptions": [
-                    "Each curve is one independent experimental replicate; "
-                    "repeated x across curves are not flattened.",
+                    *(
+                        [
+                            "Independent experimental units explicitly confirmed by caller; "
+                            "one complete curve per unit.",
+                            "Pointwise iid normal-response model with estimated variance; "
+                            "small sample size cannot verify normality.",
+                        ]
+                        if band == "ci95"
+                        else [
+                            "Complete curves are retained as observations; "
+                            "curve count does not establish independence.",
+                        ]
+                    ),
                     "Interpolation is linear inside the shared measured range only.",
                 ],
             },
         )
+        result.warnings.extend(interval_warnings)
+        return result
     x = c.get("x")
     columns = c.get("columns") or [c.get("y")]
     frame = require_table(table, [x, *columns], min_rows=2)

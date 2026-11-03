@@ -19,6 +19,12 @@ from materials_quality.context import table_fingerprint
 
 from .catalog import get
 from .contracts import NodeResult
+from .table_contract import (
+    contract_identity,
+    propagate_contract,
+    read_contract,
+    restore_contract_units,
+)
 
 SECRET = re.compile(r"password|passwd|secret|token|api.?key|authorization|cookie|credential", re.I)
 
@@ -275,7 +281,7 @@ def _frame_value(table):
         return None
     if not isinstance(table, pd.DataFrame):
         raise ValueError("Connect a DataFrame output to the table input")
-    return table_fingerprint(table)
+    return {"table_sha256": table_fingerprint(table), "contract_sha256": contract_identity(table)}
 
 
 def _digest(value):
@@ -344,6 +350,67 @@ def _operation_config(component, key):
     return config
 
 
+def _restore_contract(table, upstream):
+    """Match a connected table to an explicit persistent result declaration."""
+    if table is None:
+        return table
+    cached = read_contract(table)
+    candidates = []
+    for field, preview_field in (
+        ("table_contract", "table_preview"), ("features_contract", "features_preview")
+    ):
+        if upstream.get(field) is not None:
+            metadata = upstream.get(preview_field) or {}
+            binding_field = "table_fingerprint" if field == "table_contract" else "features_fingerprint"
+            binding = upstream.get(binding_field)
+            candidates.append((upstream[field], metadata.get("columns"), metadata.get("units", {}), binding))
+    if upstream.get("schema_version") == "research-result/1":
+        for item in upstream.get("tables", {}).values():
+            if isinstance(item, dict) and item.get("contract") is not None:
+                candidates.append((item["contract"], item.get("columns"), item.get("units", {}),
+                                   item.get("fingerprint")))
+    if not candidates:
+        return table if cached is None else restore_contract_units(table, cached)
+    if cached is not None:
+        candidates = [(contract, columns, units, binding) for contract, columns, units, binding in candidates
+                      if cached == contract and (columns is None or columns == list(table.columns))]
+        if not candidates:
+            raise ValueError("input table contract mismatch with upstream result envelope")
+    matched = {}
+    errors = []
+    invalid_bindings = {}
+    for contract, columns, units, binding in candidates:
+        if columns is not None and list(table.columns) != columns:
+            continue
+        if not isinstance(binding, str) or re.fullmatch(r"[0-9a-f]{64}", binding) is None:
+            raise ValueError(
+                "upstream contract is missing its output fingerprint binding; "
+                "rerun the source node and reconnect its table and report outputs"
+            )
+        identity = contract.get("contract_sha256") if isinstance(contract, dict) else None
+        candidate_key = (identity, binding)
+        try:
+            restored = restore_contract_units(table, contract, units)
+            if table_fingerprint(restored) != binding:
+                raise ValueError("table fingerprint mismatch with upstream output binding")
+        except ValueError as exc:
+            errors.append(exc)
+            invalid_bindings[candidate_key] = exc
+            continue
+        matched[candidate_key] = restored
+    if len(matched) != 1:
+        if not matched and errors:
+            raise ValueError(f"upstream table contract mismatch: {errors[0]}") from errors[0]
+        raise ValueError(
+            "upstream table contracts are ambiguous or do not match this table; "
+            "connect its declared table output"
+        )
+    candidate_key, restored = next(iter(matched.items()))
+    if candidate_key in invalid_bindings:
+        raise ValueError(f"conflicting output unit/binding metadata: {invalid_bindings[candidate_key]}")
+    return restored
+
+
 def execute(component, key):
     from materials_quality.batch.packet import is_batch
 
@@ -373,6 +440,7 @@ def _execute_single(component, key, config_override=None):
     table = getattr(component, "input_table", None)
     if isinstance(table, str) and not table:
         table = None
+    table = _restore_contract(table, upstream)
     tables = getattr(component, "input_tables", None)
     if tables is None:
         tables = []
@@ -432,12 +500,30 @@ def _execute_single(component, key, config_override=None):
         ) from exc
     if not isinstance(result, NodeResult):
         raise TypeError(f"{key} returned an invalid operation result")
+    if result.table is not None and read_contract(table) is not None:
+        preserving = {
+            "preprocess.filter": "filter", "preprocess.normalize": "normalize",
+            "preprocess.units": "units", "stats.grouped": "grouped", "export.table": "identity",
+        }
+        # Explicit declarations made by the operation take precedence. Stale
+        # pandas attrs copied from its input must instead be transformed.
+        carried = result.table.attrs.get("contract")
+        if carried is None or carried == read_contract(table):
+            result.table = propagate_contract(table, result.table, preserving.get(key, key), config)
+            for warning in result.table.attrs.get("contract_warnings", []):
+                if warning not in result.warnings:
+                    result.warnings.append(warning)
     if key in {"materials.spectra", "materials.xrd"}:
         from .features import features_for
 
         result.features = features_for(
             key, result, getattr(component, "batch_item_id", None), getattr(component, "batch_group", None)
         )
+    for field in ("table", "features"):
+        frame = getattr(result, field)
+        contract = read_contract(frame)
+        if contract is not None:
+            setattr(result, field, restore_contract_units(frame, contract))
     result_data = dict(result.data)
     if assets:
         result_data["asset_paths"] = assets
@@ -457,6 +543,11 @@ def _execute_single(component, key, config_override=None):
                 "operation": key,
                 "execution_status": "completed",
                 "data": result_data,
+                "table_contract": read_contract(result.table),
+                "features_contract": read_contract(result.features),
+                "table_fingerprint": None if result.table is None else table_fingerprint(result.table),
+                "features_fingerprint": None
+                if result.features is None else table_fingerprint(result.features),
                 "warnings": result.warnings,
                 "artifacts": result.artifacts,
                 "elapsed_seconds": perf_counter() - started,

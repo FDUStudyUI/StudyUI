@@ -11,10 +11,13 @@ import pandas as pd
 
 from materials_quality import __version__
 from materials_quality.common import json_value
+from materials_quality.context import table_fingerprint
+from materials_quality.science.table_contract import attach_contract, read_contract
 
 from .planning import input_identity, validate_plan
 from .registry import load_skill
 from .reporting import deliver
+from .semantics import output_contract
 from .tasks import TASKS
 
 
@@ -38,7 +41,14 @@ def execute_plan(table, plan, output_dir=None):
         output = Path(tempfile.mkdtemp(prefix="research-", dir=parent))
     else:
         output = Path(tempfile.mkdtemp(prefix="studyui-research-"))
-    result = TASKS[plan["task"]](table.copy(deep=True), plan["parameters"], output)
+    analysis_input = attach_contract(table, plan["analysis_contract"])
+    result = TASKS[plan["task"]](analysis_input, plan["parameters"], output)
+    for name in ("table", "features", "curves", "groups"):
+        frame = getattr(result, name)
+        contract = output_contract(frame, plan, name)
+        if contract is not None:
+            frame.attrs.pop("contract", None)
+            setattr(result, name, attach_contract(frame, contract))
     if input_identity(table) != plan["input"]:
         raise RuntimeError("input changed during execution")
     counts = result.data["counts"]
@@ -51,12 +61,19 @@ def execute_plan(table, plan, output_dir=None):
     if plan["task"] == "spectra":
         valid = sum(row.get("lambda10_nm") is not None for row in result.data["curve_summary"])
         summary += f" 检出 {valid} 条窗口候选；峰特征 {len(result.features)} 行。"
+        inference = result.data.get("group_inference", {})
+        if inference.get("status", "").startswith("descriptive"):
+            summary += " 分组结果仅作描述；未满足独立单位推断条件。"
+        else:
+            summary += f" 独立单位 {inference.get('n_units_with_candidates', 0)} 个，组间推断见比较表。"
     elif plan["task"] == "mechanics" and "elastic_modulus_MPa" in result.table:
         values = result.table["elastic_modulus_MPa"].dropna()
         if len(values):
             summary += f" 弹性模量范围 {values.min():.6g}–{values.max():.6g} MPa。"
     else:
         summary += " 统计单位为技术重复聚合后的独立试验单位。"
+        if status == "descriptive_only":
+            summary += " 小样本默认仅描述，未输出推断 p 值或区间。"
     warnings = list(dict.fromkeys([*plan["warnings"], *result.warnings]))
     report = json_value(
         {
@@ -72,6 +89,10 @@ def execute_plan(table, plan, output_dir=None):
                     "rows": len(getattr(result, name)),
                     "columns": list(getattr(result, name).columns),
                     "units": getattr(result, name).attrs.get("units", {}),
+                    "contract": read_contract(getattr(result, name)),
+                    "fingerprint": table_fingerprint(getattr(result, name))
+                    if len(getattr(result, name).columns)
+                    else None,
                     "available": bool(len(getattr(result, name).columns)),
                     "preview": getattr(result, name).head(20).to_dict("records"),
                 }
