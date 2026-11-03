@@ -388,21 +388,22 @@ import json, sys
 from pip._internal import configuration
 from pip._internal.commands import create_command
 configuration.get_configuration_files = lambda: {
-    configuration.kinds.GLOBAL: [sys.argv[1]],
-    configuration.kinds.USER: [sys.argv[1]],
-    configuration.kinds.SITE: [sys.argv[1]],
+    configuration.Kind('global'): [sys.argv[1]],
+    configuration.Kind('user'): [sys.argv[1]],
+    configuration.Kind('site'): [sys.argv[1]],
 }
 options, args = create_command('install').parse_args(['example-package'])
 print(json.dumps({'target': options.target_dir,
                   'prefix': options.prefix_path, 'user': options.use_user_site}))
 """
     completed = subprocess.run(
-        [sys.executable, "-I", "-B", "-c", code, str(configuration)],
+        [sys.executable, "-I", "-X", "utf8", "-B", "-c", code, str(configuration)],
         env=demo.runtime_environment(tmp_path / "runtime"),
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
     )
+    assert completed.returncode == 0, completed.stderr
     assert json.loads(completed.stdout) == {"target": None, "prefix": None, "user": None}
 
 
