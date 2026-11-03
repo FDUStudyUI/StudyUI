@@ -37,6 +37,47 @@ def _set_number(node, name, value):
     control.press("Tab")
 
 
+def _watch_writes(page):
+    state = {"pending": set(), "last": monotonic()}
+
+    def started(request):
+        if request.method in {"POST", "PATCH", "PUT", "DELETE"} and "/api/" in request.url:
+            state["pending"].add(request)
+            state["last"] = monotonic()
+
+    def finished(request):
+        if request in state["pending"]:
+            state["pending"].discard(request)
+            state["last"] = monotonic()
+
+    page.on("request", started)
+    page.on("requestfinished", finished)
+    page.on("requestfailed", finished)
+    return state
+
+
+def _saved_reopen(page, writes, expected_window):
+    """Cross a save/reopen boundary before editing/running the next component.
+
+    Langflow 1.13 can announce a newer flow revision after a component run while
+    its editor is still saving. Reopening a settled flow also verifies that the
+    confirmed parameters and all three connections survived persistence.
+    """
+    writes["last"] = monotonic()
+    deadline = monotonic() + 30
+    while writes["pending"] or monotonic() - writes["last"] < 1.5:
+        if monotonic() > deadline:
+            raise AssertionError("Flow writes did not settle before reopen")
+        page.wait_for_timeout(100)
+    page.reload(wait_until="domcontentloaded")
+    expect(page.locator(".react-flow__node")).to_have_count(3)
+    expect(page.locator(".react-flow__edge")).to_have_count(3)
+    planner = _node(page, "ResearchSkillPlanner")
+    expect(planner.get_by_test_id("toggle_bool_window_confirmed")).to_have_attribute("aria-checked", "true")
+    assert float(_field(planner, "window_low").input_value()) == expected_window
+    return planner, _node(page, "ResearchSkillExecutor")
+
+
 def accept_ui(base_url, output, executable=None):
     if urlparse(base_url).hostname not in {"localhost", "127.0.0.1", "::1"}:
         raise ValueError("UI acceptance requires an isolated loopback service")
@@ -52,6 +93,7 @@ def accept_ui(base_url, output, executable=None):
             viewport={"width": 1900, "height": 1550}, permissions=["clipboard-read", "clipboard-write"]
         )
         page = context.new_page()
+        writes = _watch_writes(page)
         page.set_default_timeout(60000)
         page.on("pageerror", lambda e: results["page_errors"].append(str(e)))
         page.on(
@@ -87,6 +129,7 @@ def accept_ui(base_url, output, executable=None):
                         "经校验的分析计划",
                         lambda p: p["ready"] and p["parameters"]["peak_window"] == [720, 850],
                     )
+                    planner, executor = _saved_reopen(page, writes, 720)
                     _run(executor)
                     changed = _report_when(
                         page,
@@ -96,6 +139,7 @@ def accept_ui(base_url, output, executable=None):
                         lambda r: r.get("plan", {}).get("parameters", {}).get("peak_window") == [720, 850],
                     )
                     assert changed["tables"]["groups"]["preview"][0]["mean"] == 725
+                    planner, executor = _saved_reopen(page, writes, 720)
                     _set_number(planner, "window_low", 650)
                     _run(planner)
                     _report_when(
@@ -105,6 +149,7 @@ def accept_ui(base_url, output, executable=None):
                         "经校验的分析计划",
                         lambda p: p["ready"] and p["parameters"]["peak_window"] == [650, 850],
                     )
+                    planner, executor = _saved_reopen(page, writes, 650)
                 _run(executor)
                 report = _report_when(
                     page,
