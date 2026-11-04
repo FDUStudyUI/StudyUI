@@ -61,3 +61,26 @@ def test_no_peak_result_has_stable_feature_columns_and_no_ghost_unit_attrs():
     assert features.empty
     assert {"curve_id", "group", "peak_position", "area", "fwhm"} <= set(features)
     assert set(features.attrs.get("units", {})) <= set(features)
+
+
+def test_xrd_declared_intensity_unit_propagates_to_feature_table():
+    from materials_quality.science.features import features_for
+
+    x = np.arange(7, dtype=float)
+    y = np.array([0, 1, 3, 9, 3, 1, 0], dtype=float)
+    result = xrd(
+        pd.DataFrame({"two_theta_deg": x, "intensity_counts": y}),
+        config={
+            "x": "two_theta_deg",
+            "y": "intensity_counts",
+            "x_unit": "deg",
+            "intensity_unit": "counts",
+            "prominence": 1,
+        },
+    )
+    features = features_for("materials.xrd", result)
+
+    assert len(features) == 1
+    assert features.attrs["units"]["height"] == "counts"
+    assert features.attrs["units"]["area"] == "counts*deg"
+    assert features.attrs["units"]["peak_position"] == "deg"

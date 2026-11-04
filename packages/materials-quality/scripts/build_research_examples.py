@@ -9,7 +9,7 @@ import numpy as np
 from lfx.graph import Graph
 
 from components.materials_batch.batch_spectrum_analyzer import BatchSpectrumAnalyzer
-from examples.science_flows.fixture_source import ScienceFixtureBundle
+from components.materials_sources.science_fixture_bundle import ScienceFixtureBundle
 from materials_quality.science.catalog import component_class
 
 ROOT = Path(__file__).resolve().parents[1]

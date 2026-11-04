@@ -5,6 +5,7 @@ are one-based. Engines are imported only when the corresponding node is run.
 """
 
 import csv
+import hashlib
 import importlib
 import io
 import json
@@ -49,6 +50,14 @@ def _decode(path, config):
     except ImportError:
         pass
     raise ValueError("cannot detect text encoding; provide config.encoding explicitly")
+
+
+def _source_identity(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return {"source_sha256": digest.hexdigest(), "source_bytes": path.stat().st_size}
 
 
 def _delimiter(text, config):
@@ -238,7 +247,12 @@ def table_import(table=None, *, config=None, data=None, tables=None):
     from materials_quality.common import json_value
 
     path = read_path(config, data)
-    metadata = {"file_path": str(path), "range": config.get("range"), "header": config.get("header", 0)}
+    metadata = {
+        "file_path": str(path),
+        "range": config.get("range"),
+        "header": config.get("header", 0),
+        **_source_identity(path),
+    }
     if path.suffix.lower() in {".xlsx", ".xls", ".xlsm", ".ods"}:
         sheet = config.get("sheet", 0)
         if not isinstance(sheet, (str, int)):
@@ -252,8 +266,9 @@ def table_import(table=None, *, config=None, data=None, tables=None):
     else:
         text, encoding = _decode(path, config)
         delimiter = _delimiter(text, config)
-        # csv.reader handles ragged note rows without silently shifting columns.
-        rows = list(csv.reader(io.StringIO(text), delimiter=delimiter))
+        # Preserve CSV's universal-newline handling for CRLF, LF and CR files.
+        # The published repository mixes line-ending styles across conditions.
+        rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
         frame = pd.DataFrame(rows)
         metadata.update(encoding=encoding, delimiter=delimiter)
     frame, schema = _headers(_rectangle(frame, config.get("range")), config)

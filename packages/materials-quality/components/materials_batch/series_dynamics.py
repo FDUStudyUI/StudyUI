@@ -128,11 +128,16 @@ class SeriesDynamics(Component):
 
     def build_report(self) -> Data:
         signature, r = self._result()
+        result_data = deepcopy(r.data)
+        input_table = getattr(self, "input_table", None)
+        asset_paths = getattr(input_table, "attrs", {}).get("asset_paths")
+        if isinstance(asset_paths, dict):
+            result_data["asset_paths"] = deepcopy(asset_paths)
         return Data(
             data={
                 "schema_version": "science-result/1",
                 "operation": "materials.series_dynamics",
-                "data": deepcopy(r.data),
+                "data": result_data,
                 "warnings": list(r.warnings),
                 "artifacts": [],
                 "provenance": {

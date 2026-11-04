@@ -12,11 +12,11 @@ from lfx.schema import Data, DataFrame
 
 
 class ScienceFixtureBundle(Component):
-    display_name = "合成样例数据包"
-    description = "读取流程内嵌的人工表格、文本和文件，核对 SHA-256 后写入本次运行的临时目录。"
+    display_name = "内嵌数据包"
+    description = "读取流程内嵌的表格、文件和来源信息，核对 SHA-256 后写入本次运行的临时目录。"
     name = "ScienceFixtureBundle"
     icon = "FlaskConical"
-    inputs = [MultilineInput(name="bundle_base64", display_name="内嵌合成样例（Base64 JSON）", value="e30=")]
+    inputs = [MultilineInput(name="bundle_base64", display_name="内嵌数据（Base64 JSON）", value="e30=")]
     outputs = [
         Output(name="table", display_name="样例表格", method="build_table", group_outputs=True),
         Output(name="data", display_name="文件与证据", method="build_data", group_outputs=True),
@@ -40,4 +40,10 @@ class ScienceFixtureBundle(Component):
             path = root / name
             path.write_bytes(raw)
             paths[name] = str(path)
-        return Data(data={**bundle.get("data", {}), "asset_paths": paths, "synthetic": True})
+        return Data(
+            data={
+                **bundle.get("data", {}),
+                "asset_paths": paths,
+                "synthetic": bool(bundle.get("synthetic", True)),
+            }
+        )

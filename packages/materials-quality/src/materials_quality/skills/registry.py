@@ -31,6 +31,8 @@ def inspect_skill(path):
             raise ValueError("skill symlink / 符号链接 is not allowed")
         if not entry.is_file():
             continue
+        if entry.name == "studyui-skill.json":
+            continue
         if not entry.resolve().is_relative_to(root):
             raise ValueError("skill resource escapes its directory")
         size += entry.stat().st_size

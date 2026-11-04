@@ -14,7 +14,7 @@ import pandas as pd
 from lfx.graph import Graph
 from PIL import Image
 
-from examples.science_flows.fixture_source import ScienceFixtureBundle
+from components.materials_sources.science_fixture_bundle import ScienceFixtureBundle
 from materials_quality.science.catalog import component_class, entries
 from materials_quality.science.ui_config_import import config_to_form
 from materials_quality.science.ui_schema import REPORT_COLLECTION_KEYS, contract_for, fields_for

@@ -283,6 +283,12 @@ SPECS = {
             default="deg",
             info="例如 2θ 对应 deg；须与参考库一致。峰宽是表观宽度，未扣仪器展宽。",
         ),
+        field(
+            "intensity_unit",
+            "衍射强度单位",
+            default="unspecified",
+            info="声明输入信号列的实测单位（例如 counts）；只传播单位标签，不换算数值。未知时保留 unspecified。",
+        ),
         *_reference_fields(),
         field(
             "whole_pattern",

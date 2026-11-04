@@ -49,7 +49,7 @@ def main():
             item.update(directory=directory, filename=filename, class_name=class_name)
             item.update(contract_for(item["key"]))
             item["context_input"] = not item["data_input"] and (item["table_input"] or item["tables_input"])
-            item["reports_input"] = item["key"] in REPORT_COLLECTION_KEYS
+            item["reports_input"] = item["key"] in REPORT_COLLECTION_KEYS or item["artifacts_output"]
             item["ui_version"] = 2
             item["features_output"] = item["key"] in FEATURE_OPERATIONS
             item["form_fields"] = fields_for(item["key"])

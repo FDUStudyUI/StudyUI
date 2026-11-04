@@ -1,60 +1,100 @@
-# 评委本地演示启动器
+# 安装、运行与排障
 
-需要 Python 3.10。默认服务地址为 <http://127.0.0.1:7880>，仅监听本机，不自动打开浏览器。首次安装需要联网，依赖下载时间取决于网络。Windows 支持中文和空格目录。
+## 环境要求
 
-在仓库根目录双击 `start_demo.bat`，或执行：
+当前启动器以 Python 3.10 验收。Windows 需要 Python Launcher (`py`) 或 `python` 命令；macOS/Linux 需要 `python3.10` 或 `python3`。依赖安装使用专用 `.demo-venv`，首次安装需联网下载 LFX、画布资源和科学计算包。
+
+服务只监听本机回环地址：StudyUI 主界面默认 `http://127.0.0.1:7880`，内部工作流画布默认 `http://127.0.0.1:7881`。若指定其他端口，两者必须不同且空闲。
+
+## 首次安装
+
+Windows，在仓库根目录：
 
 ```powershell
 .\start_demo.bat --setup
 ```
 
-启动器会明确显示安装目标 `.demo-venv`，安装当前 `packages/materials-quality[langflow,science,instruments]` 与 `langflow-base==1.13.0`。已有完整专用环境会直接复用。普通启动脚本无参数等同于 `--setup`，因此首次双击可完成安装并启动。终端显示 `Demo ready` 后，打开打印的地址。保持该终端运行，按 Ctrl+C 停止本次服务。
-
-Linux/macOS 使用 Python 3.10 执行：
+macOS/Linux：
 
 ```sh
 sh ./start_demo.sh --setup
 ```
 
-只检查已有环境（不会安装、建目录、启动服务或导入流程）：
+启动器只向仓库的 `.demo-venv` 安装 `packages/materials-quality[langflow,science,instruments]` 和 `langflow-base==1.13.0`。没有安装成功时，检查错误信息及 `.demo-runtime/logs/studyui-launcher.log`，修复网络或系统依赖后重试。
+
+## 正常启动与停止
+
+Windows：
+
+```powershell
+.\start_demo.bat
+```
+
+macOS/Linux：
+
+```sh
+sh ./start_demo.sh
+```
+
+浏览器打开 `http://127.0.0.1:7880`，在 StudyUI 左侧进入“工作流画布”。启动终端显示 `StudyUI ready` 后，保持终端开启；在该窗口按 `Ctrl+C` 停止这次启动的两个服务。启动器只停止自己创建的进程，不接管同端口的既有服务。
+
+## 检查环境
+
+Windows：
 
 ```powershell
 .\start_demo.bat --check
 ```
 
-也可从任意目录直接运行 Python 入口，所有默认目录均按仓库路径解析：
+macOS/Linux：
 
-```powershell
-py -3.10 -B "完整仓库路径\scripts\start_demo.py" --check
+```sh
+sh ./start_demo.sh --check
 ```
 
-`--check` 即使与 `--setup` 同时出现也始终只读。退出码 `0` 表示必需依赖与端口检查通过；`2` 表示缺失或不兼容、端口占用、参数/启动错误。`required_missing` 列出阻断启动的 Python/Langflow/科学核心依赖，`optional_missing` 列出可选的 h5py、netCDF4、zarr 仪器数组文件能力。可选缺失不阻断三个核心演示；使用相关数组文件功能前应完成 `--setup`。
+检查模式只读取 Python 版本、依赖和端口，不建目录、不安装包、不启动服务、不导入或修改工作流。`required_missing` 表示启动阻断项；`optional_missing` 表示 h5py、netCDF4 或 zarr 等可选仪器数据能力缺少依赖。
 
-复用已经安装依赖的 Python 3.10 解释器：
+## 配置模型
+
+启动后，在 StudyUI 右上角进入“设置 → 模型管理”，填写名称、API 地址、模型名和密钥，点击“保存模型”，再点“测试连接”。DeepSeek 可使用 `https://api.deepseek.com` 和 `deepseek-flash`。API 密钥保存到 Windows Credential Manager 或系统凭据库，不写入工作流文件、SQLite 会话库或 Git；可以留空以继续使用该配置中已保存的密钥。对外部模型服务的聊天和经过审批的 AI 分析会把相应消息/数据发送给该服务。
+
+可保存多个配置并切换。远程模型地址必须使用 HTTPS；HTTP 仅允许 `localhost`、`127.0.0.1` 或 `::1`。
+
+## 数据位置
+
+- 根目录 `workflows/`：每个项目工作流一个 JSON 文件；版本快照在 `.history/`，删除流程进入 `.trash/`。
+- 根目录 `workspace.json`：项目和排序信息。
+- `.demo-runtime/agent.sqlite3`：StudyUI 会话、审批与调用审计。
+- `.demo-runtime/studyui-settings.json`：非密钥模型配置和权限设置。
+- 系统凭据库：模型 API 密钥。
+- `.demo-runtime/skills/`：用户导入的 Skills、哈希信任状态与旧版本副本。
+
+启动器只会在 `workflows/` 没有 JSON 工作流时初始化仓库示例，不覆盖现有流程。当前示例 DNA Origami 工作流从论文公开的 Figure 3 CSV 源数据生成，保留逐文件 SHA-256 校验。根目录本机工作流和工作区均为运行数据，默认不会提交。
+
+## 常见问题
+
+| 现象 | 处理方式 |
+|---|---|
+| 找不到 Python 3.10 | 安装 Python 3.10，并确认 `py -3.10`（Windows）或 `python3.10`（macOS/Linux）可用。 |
+| `required_missing` 非空 | 在仓库根目录执行 `--setup`；若依赖安装中断，处理网络或编译依赖后重试。 |
+| `optional_missing` 非空 | 仅在需要相应仪器数组格式时执行 `--setup` 更新环境；普通科研示例不受影响。 |
+| 7880 或 7881 已占用 | 选择空闲端口，例如 `--port 7886 --langflow-port 7887`。启动器不会复用或终止该端口现有服务。 |
+| StudyUI 界面打开但模型不可用 | 检查设置中的 API 地址、模型名与凭据，然后使用“测试连接”；远端地址必须 HTTPS。 |
+| 含脚本 Skill 无法运行 | 选择“审核后沙箱 Skill”，对当前版本进行信任审批，并确保 Docker 已安装、镜像已预拉取。无 Docker 时会拒绝执行。 |
+| 内部画布打不开或工作流报错 | 查看 `.demo-runtime/logs/studyui-launcher.log` 与 `.demo-runtime/logs/studyui-server.log`；确认工作流节点都来自已安装 StudyUI 组件，并检查项目归属与输入文件路径。 |
+
+## 其他启动选项
+
+启动器默认目录均按仓库路径解析。可以更换运行目录和端口：
 
 ```powershell
-.\start_demo.bat --python "D:\已有环境\.venv\Scripts\python.exe" --check
-.\start_demo.bat --python "D:\已有环境\.venv\Scripts\python.exe"
+.\start_demo.bat --runtime "D:\StudyUI运行数据" --port 7886 --langflow-port 7887
 ```
 
-`--python` 必须指向解释器文件。启动器不会向该环境安装或升级任何依赖，且拒绝同时使用 `--python --setup`。服务的 `PYTHONPATH` 指向当前仓库包源码，组件使用当前仓库的副本，因此演示运行当前版本。
-
-高级参数：
+已有依赖齐全的 Python 3.10 环境可只读运行：
 
 ```powershell
-.\start_demo.bat --port 7886 --runtime "D:\演示数据\科研 Skill"
+.\start_demo.bat --python "D:\Python310\python.exe"
 ```
 
-已有 `.demo-venv` 时，上述命令直接启动；首次使用请加 `--setup`。`--runtime` 可指定独立运行目录；默认 `.demo-runtime` 包含数据库 `langflow.db`、组件副本 `components/`、配置 `config/`、日志 `logs/`、临时文件 `tmp/` 与 pip 缓存 `pip-cache/`。`.demo-venv` 与 `.demo-runtime` 已被 Git 忽略。启动器不修改系统环境变量；启动子进程时会替换继承的 Langflow 配置，以免误用其他工作区的数据库。仅固定专用虚拟环境可作为安装目标，现成解释器的虚拟环境标识与前缀会在安装前检查。安装子进程清除继承的 pip/Python 安装重定向变量、禁用外部 pip 配置文件，并显式限定安装前缀、禁止用户级安装和限定缓存目录。
-
-端口被占用时，启动器会停止并提示使用 `--port`，不会接管已有服务。慢机器可加 `--ready-timeout 480`。服务启动日志在 `logs/launcher-server.log`，Langflow 日志在 `logs/langflow.log`。
-
-服务就绪后，启动器仅通过本次新启动的本机服务的 `auto_login` 与 `flows` API 导入：
-
-- `packages/materials-quality/examples/skill_flows/spectra.json`
-- `packages/materials-quality/examples/skill_flows/mechanics.json`
-- `packages/materials-quality/examples/skill_flows/contrast.json`
-
-已有同名流程会保留，不覆盖编辑。终端分别显示实际导入和已保留的名称。如果自动导入失败，会明确显示未完成，并打印三个 JSON 文件的绝对路径；在 Langflow 的新建/上传流程入口手动导入即可。自动导入不等于执行流程；进入画布后按流程说明运行。
-
-验证范围：自动测试覆盖只读检查、依赖阻断与可选提示、安装隔离、中文空格路径、非法/占用端口，以及用本机 HTTP 测试服务确认同名保留和缺失流程创建。Windows 使用现有 Python 3.10 环境执行真实启动与流程 API 回读；不会为验收向该环境安装依赖。全新环境网络下载与 Linux/macOS 包装器需在目标机器验收。
+此模式不会向外部解释器安装依赖；不能与 `--setup` 同时使用。启动参数和检查退出码见 `scripts/start_demo.py --help`。

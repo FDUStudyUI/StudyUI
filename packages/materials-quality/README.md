@@ -1,233 +1,90 @@
-# 材料科学工作流：Langflow 自定义节点
+# StudyUI 材料科学组件包
 
-当前版本 0.8.0 提供样品主表关联、测量校准、电学与光响应、电池循环分析及[四条示例工作流](examples/expansion_flows/README.md)。
-普通使用见[可靠性指南](docs/research-reliability.md)和[四个三节点示例](examples/reliability_flows/README.md)；
-科学验证范围、保留的失败案例与复跑命令见[独立评测说明](docs/evaluation-reliability.md)。
+本包为 StudyUI 提供可视化科研节点、科研 Skills、测试与示例工作流。应用层 Agent 负责研究对话、学术检索、工具权限和审批；LFX/Langflow 的图编辑与执行能力只作为 StudyUI 内部工作流运行时。生产示例工作流使用 JSON 文件保存，组件代码只来自仓库中经过审核的材料科学节点。
 
-对应《工作流节点.md》的八类、50 项要求，提供 **64 个原生节点**，包括原有 52 个节点、10 个批量科研任务节点及 2 个科研技能节点。
-按 Langflow `Component` / `DataFrame` / `Data` / `Message` 接口实现；数据处理与科学计算在运行
-Langflow 的电脑或服务器执行。所有处理输出新结果，保留原始数据。日常分析无需云端大模型；
-选择大模型文献抽取时才配置兼容服务与环境变量密钥。
+## 组件类别
 
-覆盖数据接入、内容提取、质量检查、预处理、材料分析、统计建模、可视化报告、文献检索。
-[逐项要求对照](docs/requirements-matrix.md)保留全部原文方法；
-[可导入工作流](examples/science_flows/README.md)提供带合成数据的连线示例。
-首次使用请先看[表单操作指南](docs/node-usability.md)：普通任务通过下拉框、列选择、数值框和规则表配置。
-多文件、按样品分组、逐曲线光谱、时间动态、组间研究和批量显微图见[批量分析指南](docs/batch-processing.md)。
-内置光谱、力学、组间研究三个 Skill，采用“任务规划 → 分析执行”，提供步骤预览、参数校验、图表和追溯。
-见[科研技能指南](docs/research-skills.md)与[三节点教学示例](examples/skill_flows/README.md)。
-[0.5.0 验收范围与复跑方法](docs/batch-acceptance.md)记录批量、特征连接及安装包验证。
-0.4.0 的界面与兼容验证见[表单验收记录](docs/node-ui-acceptance.md)。
-绘图已统一采用科研图规范：[六例画廊与四格式文件](examples/paper_figures/README.md)、
-[论文模式配置](docs/publication-plots.md)。
-XRD 匹配需要参考谱库，图像量化需要标尺，断裂判定需要实验确认，EDS 读取外部定量结果。
-统计离群点是待研究者复核的发现，不等同于错误实验。
-
-| 功能 | 使用说明 |
+| 类别 | 范围 |
 |---|---|
-| 文件、数据库、OCR、图表数字化 | [接入与提取](docs/science-io.md) |
-| 质量扩展、插值、合并、单位与缩放 | [预处理](docs/science-preprocessing.md) |
-| XRD、光谱、热分析、力学、SEM/EDS、显微图 | [材料分析](docs/science-materials.md) |
-| 统计检验、回归、训练与评估 | [统计建模](docs/science-statistics.md) |
-| 绘图、CSV/Excel、含来源与图片的报告 | [可视化与导出](docs/science-visualization.md) |
-| 检索、证据抽取、比较、引文与摘要 | [文献节点](docs/science-literature.md) |
+| `materials_sources` | 表格、文本、PDF、图像、仪器数据和内嵌源数据导入 |
+| `materials_extraction` | OCR、图表数字化、文献字段与证据抽取 |
+| `materials_preprocessing` | 质量检查、单位处理、筛选、整形和数据合并 |
+| `materials_quality` | 可追溯的数据质量规则与报告 |
+| `materials_analysis` | XRD、热分析、光谱、力学、显微和电学分析 |
+| `materials_statistics` | 统计检验、回归、设计评估和模型诊断 |
+| `materials_visualization` | 科研图、报告及 CSV/Excel 等输出 |
+| `materials_batch` | 多试样、多曲线和跨仪器批量处理 |
+| `materials_skills` | 科研任务规划/执行节点及 AI 分析子代理 |
 
-## 兼容版本
+画布仅列出已安装的 StudyUI 科研组件和必要数据输入节点。Agent 只能按组件目录中的端口、类型和配置创建节点与连线。JSON 工作流加载时会重新绑定已安装组件代码，保留配置值，未知节点或自定义代码不能执行。
 
-- 初始验证目标：Python 3.10、LFX 1.13.0（Langflow 1.13.x 的组件与图执行运行时）、pandas 2.x。
-- Pint 固定为 0.24.4，保留 Python 3.10 兼容性。
-- 团队实际 Langflow 版本尚待确认。其他版本须运行测试及示例流程后再声明兼容。
-- 已完成真实 Langflow 1.13.0 / Chrome 的画布验收，见[界面验收记录](docs/ui-acceptance.md)。
+## 安装与开发
 
-## 安装与运行测试
-
-首次演示可使用仓库根目录的 `start_demo.bat` / `start_demo.sh`，详见[启动器说明](../../docs/demo-launcher.md)。
-参赛定位、实测依据与材料草案见[参赛对齐](docs/contest-readiness.md)和[提交材料目录](../../submission/README.md)。
-
-在组件包根目录执行（团队仓库中先 `cd packages/materials-quality`，PowerShell）：
+建议直接从仓库根目录用启动器启动 StudyUI，首次安装需要联网：
 
 ```powershell
-$env:PYTHONUTF8 = "1"
+.\start_demo.bat --setup
+```
+
+macOS/Linux：
+
+```sh
+sh ./start_demo.sh --setup
+```
+
+独立开发环境需要 Python 3.10：
+
+```powershell
+cd packages/materials-quality
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[langflow,science,dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[langflow,science,instruments,dev]"
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\ruff.exe check src components tests scripts examples
 ```
 
-需要固定依赖时，先 `pip install -r requirements.lock`，再 `pip install -e .`。
+macOS/Linux 将 Windows 路径替换为 `.venv/bin/python`。工作台入口、AI 模型配置和排障方式见[项目启动说明](../../docs/demo-launcher.md)。
 
-`langflow` extra 安装 `lfx==1.13.0` 及其惰性导出兼容依赖，不安装网页编辑器。
-Windows 中文路径配合 Python 3.10 的 editable 安装时，需保留 `PYTHONUTF8=1`，
-以正确读取 UTF-8 `.pth` 路径；也可以使用普通安装 `pip install ".[langflow,dev]"`。
-要使用网页编辑器，在同一虚拟环境安装团队确认的 Langflow 版本。
-界面验收使用含网页编辑器的 `langflow-base==1.13.0`；需要额外集成包时也可安装 `langflow==1.13.0`：
+## JSON 工作流
+
+- 当前运行工作流位于仓库根目录 `workflows/`，每个流程一个 JSON 文件。
+- 保存修改前会进行版本检查；变更历史位于 `workflows/.history/<flow-id>/`，删除的流程进入可恢复的 `.trash/`。
+- 可分享示例存放在 `examples/` 下。根目录 `workflows/` 和 `workspace.json` 是本机数据，不应提交。
+- 工作流连线应同时保存源端口、目标端口及画布句柄。Agent 会校验节点、端口、数据类型与节点标识。
+
+## AI 分析子代理节点
+
+`AI 分析` 组件由主 Agent 提供分析要求，上游数据通过表格或结构化结果端口输入。输出是结论、数据依据、未解决问题、限制、覆盖范围和输入哈希。该节点只做语言模型辅助综合，不联网、不访问本地文件、不执行代码；统计计算应交给确定性科研节点。
+
+AI 分析会将上游数据发送到已配置模型服务。Agent 运行含此节点的工作流前会创建一次性审批，审批后若图内容变化则原审批失效。画布直接运行该节点会失败关闭，请从 StudyUI 研究会话请求并批准运行。
+
+默认输入边界：最多 4,000 行、60 列、8 MB；每个模型数据块最多 200 KB。数据过大时停止并提示缩减输入；超过 4,000 行时分析前 4,000 行并明确写出未分析范围。
+
+## Skills 与科研检索
+
+导入 ZIP 必须包含一个 `SKILL.md`。Skill 默认停用；安装或更新需一次性审批。Skill 版本以内容 SHA-256 追踪，更新会保留旧版本并撤销现有信任。含脚本的 Skill 必须再次审批并信任当前版本，且只允许在无网络 Docker 沙箱中执行 Python 脚本。
+
+主 Agent 的科研文献检索限定为 Crossref、OpenAlex、Semantic Scholar、Europe PMC、DataCite 和 arXiv 元数据接口，不接受模型提供任意网页地址，不自动下载论文全文。
+
+## 数据与示例
+
+公开原始数据示例：[DNA Origami-scaffolded single dyes in nanogaps](examples/research_flows/03-dna-origami-nanogaps.md)。流程引用论文公开仓储的四个 Figure 3 测量 CSV，并在材料化时逐一校验 SHA-256。分析保持描述性，不将每条光谱曲线擅自视作独立生物学重复。
+
+其余节点手册和示例目录：
+
+- [节点操作指南](docs/node-usability.md)
+- [科学节点输入输出](docs/science-io.md)
+- [材料分析方法与前提](docs/science-materials.md)
+- [统计节点](docs/science-statistics.md)
+- [文献与证据节点](docs/science-literature.md)
+- [图表与文件输出](docs/science-visualization.md)
+- [批量处理](docs/batch-processing.md)
+- [可靠性说明](docs/research-reliability.md)
+- [示例工作流索引](examples/science_flows/README.md)
+
+## 测试
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install "langflow-base==1.13.0"
-$env:LANGFLOW_COMPONENTS_PATH = (Resolve-Path .\components).Path
-.\.venv\Scripts\python.exe -m langflow run
+cd packages/materials-quality
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
-进入组件菜单的 `materials_quality` 分类可看到原有八个质检/追溯节点；其余七个分类包含 44 个科学节点。
-`materials_batch` 分类提供 8 个批量与科研任务节点；数组文件可另安装 `.[instruments]` 依赖。
-`LANGFLOW_COMPONENTS_PATH` 指向分类文件夹的**父目录**，不是某个 `.py` 文件。
-本包必须安装在运行 Langflow 的同一个 Python 环境，仅复制组件文件不够。
-不需要修改 Langflow 仓库或重建其前端。
-
-## 连接与输出
-
-“结果表格”是可以接到下一节点的表；“结果与追溯”包含计算结果、文件位置、警告和来源链。
-建议同时连接这两条线，保留连续处理记录。“报告来源”可接多个结果供报告生成节点汇总。
-“生成文件”列出路径与 SHA-256；文件在运行 Langflow 的服务器上。示例以嵌入资源方式携带合成输入，
-导入后无需改本机路径；实际使用时在读取节点上传文件，或填写服务器可访问的路径。
-
-普通任务在表单中选择方法、列、单位、分组或校准信息。切换方法后只显示相关字段；
-低频选项放在高级设置。已有 JSON 流程保持原配置，复杂配置也可在高级设置中切换到 `json` 模式。
-同一输入的多个输出共享一次计算；配置、表格或源文件内容改变后重新计算。
-JSON Schema 类型推断、模糊重复和单位转换均需显式配置；质量检查默认保持输入不变。
-
-## 质量节点及输入
-
-六个检查节点都接收 `输入表格`，并同时提供三个输出端口：
-
-- **原始表格**：值、顺序、索引不变的副本，便于串联后续节点。
-- **问题明细**：每条发现所在列、零基行位置、原始索引、依据和严重程度。
-- **检查报告**：完整计数、参数、指标、有限条明细和覆盖范围。
-
-单位检查在原生表单中明确开启换算后，才显示“换算表格”端口；完整成功时返回新值，受阻时明确报错。
-旧 JSON 模式保留兼容端口，无结果时返回带不可用标记及原因的空表。原始表格端口保持不变。[完整节点与界面验收](docs/full-suite-acceptance.md)。
-
-| 节点 | 关键配置 | 检查内容 |
-|---|---|---|
-| 材料数据·共享规则与追溯 | 共享规则表单、规则版本、来源声明 | 绑定数据指纹；六个检查连接同一上下文 |
-| 材料数据·结构检查 | 必需字段列表、字段别名表 | 缺失字段、多个候选别名；不重命名 |
-| 材料数据·缺失检查 | 检查列、缺失标记、可选分组 | 缺失数量和比例、行位置、缺失模式 |
-| 材料数据·类型格式检查 | 字段类型规则表 | number、integer、string、boolean、datetime、category |
-| 材料数据·单位检查 | 原始单位、目标量纲单位、检查列 | 量纲兼容、混合单位、未声明或无法识别的单位 |
-| 材料数据·重复记录检查 | 重复判定键列表 | 整行重复或组合键重复；标记每个重复成员 |
-| 材料数据·异常值标记 | 数值列、方法、范围、阈值、分组 | 明确范围、IQR、MAD，以及非数值和不足以估计的基线 |
-| 材料数据·检查报告汇总 | 多个检查报告 | 汇总接入的检查，输出报告、明细和 Message 摘要 |
-
-高级 `json` 模式使用标准 JSON，不接受 Python 字典语法、单引号 JSON 或 NaN/Infinity 常量。
-列名必须唯一且为非空字符串。数值规则允许能准确解析的数值字符串，但不写回类型转换。
-
-### 共享规则与数据追溯
-
-推荐连接方式：原始表格 → **共享规则与追溯**，该节点的原始表格、共享规则与来源两个端口分别接入六项检查，再将报告接入汇总。
-
-- 已连接上下文时，使用共享规则，忽略节点独立规则配置；未在共享规则中配置的检查报错。
-- 缺失标记贯穿缺失、类型、单位、异常检查，通过显式参数统一传入；原始表格和重复判定键保持不变。`[]` 表示空字符串也不是缺失值。
-- 规则集、数据值/类型/索引/顺序、来源声明均纳入追溯；汇总拒绝混用数据集、共享规则或本地/共享模式。
-- 无上下文时保留原有独立配置并自动记录表格指纹。旧纯函数报告仍可单独汇总，标记 `unverified_legacy`，不能与有追溯报告混合。
-- `provenance_status=verified` 表示报告间身份和参数完整性校验通过，不代表实验真实、来源可信或材料性能合格。
-
-完整演示见 [材料力学测试案例](examples/mechanics/README.md)，包含三份 CSV、三份可导入工作流、独立预期和人工修订记录。
-
-### 高级 JSON 配置示例
-
-以下示例供旧流程和高级配置使用。日常操作可直接填写对应的表单控件。
-
-必需字段：
-
-```json
-["sample_id", "stress", "temperature", "date"]
-```
-
-显式别名（两个候选同时出现时报告歧义）：
-
-```json
-{"sample_id": ["样品编号", "试样号"]}
-```
-
-类型和日期格式：
-
-```json
-{
-  "sample_id": "string",
-  "stress": "number",
-  "date": {"type": "datetime", "format": "%Y-%m-%d"},
-  "phase": {"type": "category", "allowed": ["alpha", "beta"]}
-}
-```
-
-单位节点的原始单位：
-
-```json
-{"stress": "MPa", "temperature": "degC"}
-```
-
-目标量纲单位：
-
-```json
-{"stress": "Pa", "temperature": "K"}
-```
-
-MPa 与 Pa 兼容，不代表数值已从 MPa 换算成 Pa；输出仍保留原值。
-同一列中的 `1 MPa` 和 `1000 kPa` 会标记混合单位。
-纯数字没有原始单位声明时不会凭列名猜测。`degC`、`℃`、`°C` 支持温度量纲检查。
-
-范围检查（上下限包含在允许范围内，至少提供一端）：
-
-```json
-{"stress": {"min": 0, "max": 100}}
-```
-
-**缺失标记**：默认只把实际空值和空白字符串视为缺失。特殊标记必须依照原始数据说明配置，
-不能默认将样品名称 `NA` 当成缺失。IQR/MAD 的分组字段应按实验设计指定，避免混合不同材料。
-
-## 示例工作流
-
-`examples/clean.csv`、`examples/dirty.csv` 均为**人工构造的测试样例**，不是真实实验数据。
-`dirty` 样例包括重复编号、缺失值、数值/日期格式错误和超范围值。
-流程里的演示数据节点内嵌这些记录，不依赖本机绝对路径。
-
-```powershell
-.\.venv\Scripts\python.exe -m scripts.build_example
-.\.venv\Scripts\python.exe -m scripts.run_example .\examples\clean_quality_flow.json --output .\artifacts\clean_report.json
-.\.venv\Scripts\python.exe -m scripts.run_example .\examples\dirty_quality_flow.json --output .\artifacts\dirty_report.json
-```
-
-在 Langflow 的导入功能中选择 `examples/dirty_quality_flow.json` 或 `clean_quality_flow.json`。
-流程有一个人工演示数据源、六个并行检查节点、一个汇总节点。运行汇总节点后查看报告/摘要。
-换自己的数据时，将演示源替换为能输出原生 Table 的文件读取节点，并修改检查规则。
-
-命令行示例会**重新导入导出的 JSON，再执行原生图**，不以直接调用 Python 检查函数代替流程测试。
-`clean` 应完成六项且通过；`dirty` 应完成六项但发现问题。
-参数错误会抛出明确错误，不会以空报告代替成功检查。
-
-## 科学与接口边界
-
-- 无行数据和无接入报告不能给出全部通过。
-- 汇总只说明已接入的检查；未接入节点不在覆盖范围内。
-- 问题明细可限制为 1 至 10000 条，但完整计数和最终结论不受预览截断影响。
-- 行位置 `row_position` 从 0 开始；CSV 的物理行号还需考虑表头、多行单元格等。
-- 重复记录可能是有效重复实验；异常值不自动删除或修正。
-- MAD 为零时标记偏离重复中位数的值，并记录此回退；IQR/MAD 少于3个有效值时报告基线不足。
-- 极大有限值使 IQR/MAD 中间计算溢出时，报告 NUMERICAL_LIMIT，不会给出通过。
-  明确范围检查使用 Decimal 比较，保留超出浮点整数精度的输入差异。
-  统计计算转换中出现不同精确值合并为同一浮点值、非零值下溢为零时，也停止该组的统计判定。
-- 类型、单位、范围来自明确规则，不替代仪器校准、材料知识和研究者判断。
-- 报告包含本地字段名、索引和检查依据；不要将其自动当作适合公开或发送云端的数据。
-
-质检报告格式见 [docs/contract.md](docs/contract.md)，科学节点使用 `science-result/1` 信封格式。
-`requirements.lock` 提供带平台标记的依赖固定清单。`requirements-tested-py310.txt`
-记录 Windows/Python 3.10 的历史验证环境，包含平台专用包，不应直接用于 Linux。
-普通 wheel 安装后，可在组件包目录运行 `python -m scripts.verify_install --require-wheel`，
-检查安装包中的 60 个节点是否被发现，并重新导入、执行五份原有质检流程。
-九份科学流程可使用 `python -m scripts.build_science_examples --verify-only` 独立复核。
-
-完整手册与历史验收见[文档索引](docs/README.md)。
-
-## 目录
-
-```text
-components/materials_*/        # 九个分类，60 个原生节点
-src/materials_quality/         # 质检、科学算法、原生适配与报告契约
-tests/                        # 核心行为、原生加载和导出图执行测试
-examples/                     # 人工CSV、演示源、可导入流程JSON
-scripts/                      # 生成、重新导入和执行示例
-docs/                         # 使用手册、接口契约与验收记录
-docs/development/             # 开发设计与历史执行记录
-```
-
-参考：[Langflow 自定义组件规范](https://docs.langflow.org/components-custom-components)。
+验收涵盖节点数据契约、科研流程 JSON 重载、端口连线、权限与审批、Skill 版本、模型密钥脱敏及文件工作流。需要网络或 Docker 的测试会使用模拟服务或明确检验失败关闭行为；公开数据复现流程需从 StudyUI 画布中运行。

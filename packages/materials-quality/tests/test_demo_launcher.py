@@ -6,9 +6,7 @@ import os
 import socket
 import subprocess
 import sys
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from threading import Thread
 
 import pytest
 
@@ -46,6 +44,7 @@ def test_check_never_invokes_setup_or_starts_server(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(demo, "setup_environment", lambda *a: pytest.fail("--check attempted setup"))
     monkeypatch.setattr(demo.subprocess, "Popen", lambda *a, **k: pytest.fail("--check started a server"))
+    monkeypatch.setattr(demo, "port_available", lambda port: True)
     runtime = tmp_path / "不存在 目录"
     assert demo.main(["--check", "--setup", "--python", sys.executable, "--runtime", str(runtime)]) == 0
     assert not runtime.exists()
@@ -122,8 +121,8 @@ def test_runtime_environment_overrides_inherited_shared_paths(tmp_path, monkeypa
     assert env["LANGFLOW_HOST"] == "127.0.0.1"
     assert env["LANGFLOW_OPEN_BROWSER"] == "false"
     assert env["LANGFLOW_CONFIG_DIR"] == str(runtime / "config")
-    assert env["LANGFLOW_DATABASE_URL"].endswith("/langflow.db")
-    assert str(runtime).replace("\\", "/") in env["LANGFLOW_DATABASE_URL"]
+    assert "LANGFLOW_DATABASE_URL" not in env
+    assert "LANGFLOW_AUTO_LOGIN" not in env
     assert env["TEMP"] == str(runtime / "tmp")
     assert env["TMPDIR"] == str(runtime / "tmp")
     assert env["LANGFLOW_COMPONENTS_PATH"] == str(runtime / "components")
@@ -165,42 +164,15 @@ def test_busy_port_is_reported_before_launch(tmp_path, monkeypatch, capsys):
     assert not (tmp_path / "untouched").exists()
 
 
-def test_flow_seeding_preserves_same_name_and_posts_only_missing_flows(tmp_path):
+def test_file_seeding_is_local_and_preserves_existing_workflows(tmp_path):
     demo = load_launcher()
-    for name in ["spectra", "mechanics", "contrast"]:
-        (tmp_path / (name + ".json")).write_text(json.dumps({"name": name, "data": {"nodes": []}}))
-    created = []
-
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, *args):
-            pass
-
-        def do_GET(self):
-            payload = (
-                {"access_token": "demo-token"} if self.path.endswith("auto_login") else [{"name": "spectra"}]
-            )
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(json.dumps(payload).encode())
-
-        def do_POST(self):
-            assert self.headers["Authorization"] == "Bearer demo-token"
-            created.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
-            self.send_response(201)
-            self.end_headers()
-            self.wfile.write(b"{}")
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    thread = Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        result = demo.seed_flows("http://127.0.0.1:" + str(server.server_port), tmp_path)
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join()
-    assert result == {"imported": ["mechanics", "contrast"], "preserved": ["spectra"]}
-    assert [item["name"] for item in created] == ["mechanics", "contrast"]
+    demo.initialize_file_workflows(tmp_path)
+    paths = sorted((tmp_path / "workflows").glob("*.json"))
+    assert len(paths) == 4
+    originals = {path.name: path.read_bytes() for path in paths}
+    assert len({json.loads(raw)["folder_id"] for raw in originals.values()}) == 1
+    demo.initialize_file_workflows(tmp_path)
+    assert {path.name: path.read_bytes() for path in paths} == originals
 
 
 def test_managed_setup_rejects_unrecognized_existing_interpreter(tmp_path, monkeypatch):
@@ -245,6 +217,7 @@ def test_optional_instrument_dependencies_do_not_block_core_demo_check(tmp_path,
         lambda *a: {"required_missing": [], "optional_missing": ["h5py>=3.10,<4"], "python": "3.10.11"},
     )
     runtime = tmp_path / "untouched"
+    monkeypatch.setattr(demo, "port_available", lambda port: True)
     assert demo.main(["--python", sys.executable, "--check", "--runtime", str(runtime)]) == 0
     output = capsys.readouterr().out
     assert "optional_missing" in output
@@ -265,7 +238,10 @@ def test_setup_reuses_complete_managed_environment_without_network(tmp_path, mon
     )
     monkeypatch.setattr(demo, "setup_environment", lambda *a: pytest.fail("complete environment reinstalled"))
     monkeypatch.setattr(demo, "prepare_runtime", lambda *a: None)
-    monkeypatch.setattr(demo, "start_server", lambda *a: 0)
+    monkeypatch.setattr(demo, "port_available", lambda port: True)
+    monkeypatch.setattr(demo, "initialize_file_workflows", lambda *a: None)
+    monkeypatch.setattr(demo, "apply_studyui_langflow_theme", lambda *a: None)
+    monkeypatch.setattr(demo, "start_system", lambda *a: 0)
     assert demo.main(["--setup", "--runtime", str(tmp_path / "runtime")]) == 0
 
 
@@ -289,6 +265,9 @@ def test_running_server_wait_remains_interruptible(tmp_path, monkeypatch):
         def kill(self):
             self.stopped = True
 
+        def terminate(self):
+            self.stopped = True
+
     class Healthy:
         status = 200
 
@@ -304,12 +283,12 @@ def test_running_server_wait_remains_interruptible(tmp_path, monkeypatch):
     process = Process()
     monkeypatch.setattr(demo.subprocess, "Popen", lambda *a, **k: process)
     monkeypatch.setattr(demo, "build_opener", lambda *a: Healthy())
-    monkeypatch.setattr(demo, "seed_flows", lambda *a: {"imported": [], "preserved": []})
+    monkeypatch.setattr(demo, "start_studyui_service", lambda *a: Process())
     monkeypatch.setattr(demo.time, "sleep", lambda *a: (_ for _ in ()).throw(KeyboardInterrupt()))
     if os.name != "nt":
         process.pid = 12345
         monkeypatch.setattr(demo.os, "killpg", lambda *a: process.kill())
-    assert demo.start_server(Path(sys.executable), tmp_path, 7880, 10) == 0
+    assert demo.start_system(Path(sys.executable), tmp_path, 7880, 7881, 10) == 0
     assert process.stopped
 
 

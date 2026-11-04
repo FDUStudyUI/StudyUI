@@ -11,7 +11,7 @@ from lfx.graph import Graph
 from components.materials_batch.batch_quality import MaterialBatchQuality
 from components.materials_batch.batch_source import MaterialBatchInput
 from components.materials_batch.batch_summary import MaterialBatchSummary
-from examples.science_flows.fixture_source import ScienceFixtureBundle
+from components.materials_sources.science_fixture_bundle import ScienceFixtureBundle
 from materials_quality.science.catalog import component_class
 
 ROOT = Path(__file__).resolve().parents[1]

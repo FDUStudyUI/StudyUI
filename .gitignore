@@ -1,15 +1,62 @@
+# IDE and editor state
+/.idea/
+**/.idea/
+/.vscode/
+**/.vscode/
+*.suo
+*.user
+.DS_Store
+Thumbs.db
+
+# Python environments, caches, and package output
 **/.venv/
 **/.verify-venv/
+/.demo-venv/
 **/__pycache__/
+**/*.py[cod]
 **/.pytest_cache/
 **/.ruff_cache/
+**/.mypy_cache/
+**/.cache/
+**/htmlcov/
+/.coverage
+/.coverage.*
+**/coverage.xml
 **/*.egg-info/
-**/artifacts/
 **/build/
 **/dist/
+**/*.whl
+**/.tox/
+**/.nox/
+
+# Local application runtime and user research state
+/.demo-runtime/
+/workflows/
+/workspace.json
+/data/
+**/artifacts/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.log
+*.log.*
+*.bak
+*.backup
+*.tmp
+*.temp
+
+# Secrets and local credential/config files
 .env
 **/.env
-*.log
+.env.*
+!.env.example
+**/*.pem
+**/*.key
+**/*.p12
+**/credentials.json
+**/*secret*.json
+
+# Tool scratch state
 .superpowers/
-.demo-venv/
-.demo-runtime/

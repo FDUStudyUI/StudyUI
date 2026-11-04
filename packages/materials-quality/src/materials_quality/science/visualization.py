@@ -752,8 +752,13 @@ def export_table(table=None, *, config=None, data=None, tables=None):
     for col in frame.columns:
         original = frame[col]
         if col in text_columns:
-            a = original.map(lambda v: "" if pd.isna(v) else str(v)).tolist()
-            b = back[col].map(lambda v: "" if pd.isna(v) else str(v)).tolist()
+            def export_text(value):
+                if pd.api.types.is_scalar(value) and pd.isna(value):
+                    return ""
+                return str(value)
+
+            a = original.map(export_text).tolist()
+            b = back[col].map(export_text).tolist()
             if a != b:
                 raise ValueError(f"export readback changed text or identifiers in {col}")
         elif pd.api.types.is_integer_dtype(original.dtype):

@@ -279,3 +279,10 @@ def test_mechanics_rejects_loading_unloading_connectivity_instead_of_sorting(tmp
         api().mechanics(
             t, config={"method": method, "x": "x", "y": "y", "sample": "sample", "output_dir": str(tmp_path)}
         )
+
+
+def test_csv_export_accepts_list_valued_fields(tmp_path):
+    frame = pd.DataFrame({"sample": ["s1", "s2"], "peaks": [[1.0, 2.0], [3.0]]})
+    result = api().export_table(frame, config={"output_dir": str(tmp_path)})
+    restored = pd.read_csv(result.data["file_path"], dtype=str, keep_default_na=False)
+    assert restored["peaks"].tolist() == ["[1.0, 2.0]", "[3.0]"]

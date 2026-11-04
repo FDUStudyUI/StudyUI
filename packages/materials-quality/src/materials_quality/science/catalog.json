@@ -371,7 +371,7 @@
     ],
     "icon": "FileText",
     "context_input": false,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -527,7 +527,7 @@
     ],
     "icon": "Activity",
     "context_input": false,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -1176,7 +1176,7 @@
     ],
     "icon": "ScanText",
     "context_input": false,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -1324,7 +1324,7 @@
     ],
     "icon": "Table",
     "context_input": false,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -2108,7 +2108,7 @@
       "txt"
     ],
     "context_input": false,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -3583,6 +3583,17 @@
         "required": false
       },
       {
+        "path": "intensity_unit",
+        "label": "衍射强度单位",
+        "kind": "str",
+        "default": "unspecified",
+        "choices": [],
+        "advanced": false,
+        "info": "声明输入信号列的实测单位（例如 counts）；只传播单位标签，不换算数值。未知时保留 unspecified。",
+        "when": {},
+        "required": false
+      },
+      {
         "path": "match",
         "label": "参考库匹配",
         "kind": "choice",
@@ -4572,7 +4583,7 @@
     ],
     "icon": "ScanLine",
     "context_input": false,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -4905,7 +4916,7 @@
     ],
     "icon": "Microscope",
     "context_input": false,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -5198,7 +5209,7 @@
     "upload_types": [],
     "icon": "ChartColumn",
     "context_input": true,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -5677,7 +5688,7 @@
     "upload_types": [],
     "icon": "ChartNoAxesCombined",
     "context_input": true,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -6325,7 +6336,7 @@
     "upload_types": [],
     "icon": "Gauge",
     "context_input": false,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -7115,7 +7126,7 @@
     "upload_types": [],
     "icon": "Waves",
     "context_input": true,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -7528,7 +7539,7 @@
     "upload_types": [],
     "icon": "Activity",
     "context_input": true,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -8100,7 +8111,7 @@
     "upload_types": [],
     "icon": "FileSpreadsheet",
     "context_input": false,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [
@@ -8653,7 +8664,7 @@
     "upload_types": [],
     "icon": "Quote",
     "context_input": false,
-    "reports_input": false,
+    "reports_input": true,
     "ui_version": 2,
     "features_output": false,
     "form_fields": [

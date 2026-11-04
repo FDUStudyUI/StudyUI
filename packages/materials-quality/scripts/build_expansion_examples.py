@@ -12,7 +12,7 @@ from components.materials_batch.battery_cycles import BatteryCycles
 from components.materials_batch.electrical import ElectricalAnalysis
 from components.materials_skills.research_executor import ResearchSkillExecutor
 from components.materials_skills.research_planner import ResearchSkillPlanner
-from examples.science_flows.fixture_source import ScienceFixtureBundle
+from components.materials_sources.science_fixture_bundle import ScienceFixtureBundle
 from scripts.build_batch_examples import _dump, _id, _science
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -95,6 +95,26 @@ $env:STUDYUI_MODEL_API_KEY = "你的密钥"
 
 模型来源写入计划与报告。实际外部模型的表现、费用和服务可用性取决于所配置服务；项目 HTTP 测试使用本地模拟服务验证协议和校验行为。
 
+### Langflow 原生科研对话 Agent
+
+科研 Agent 使用 Langflow 自带的 `Chat Input → Agent → Chat Output` 对话机制，不另起
+Web 控制台或外部编排服务。演示启动器会从当前 Langflow 安装的原生
+`LangflowAssistant` 模板导入一个 **StudyUI 科研工作流助手**，并把本项目三个 Skill
+正文注入 Agent Instructions。
+
+这个 Agent 可以使用 Langflow 原生工具进行对话、文献检索和流程构建；它被明确要求优先
+复用 `ResearchSkillPlanner` 与 `ResearchSkillExecutor`，先检查单位、实验设计和论文证据，
+再提出节点连接或参数变化。流程修改必须先说明影响、验证方法和回滚方式，缺失的科学条件
+不能由模型臆造。模型生成的代码、Shell、安装命令和任意插件不会执行。
+
+助手还带有四个 Langflow 原生 **Flow as Tool**，分别绑定 DNA origami、批量光谱、材料力学
+和组间对照示例流程。用户明确要求运行或复核时，Agent 可以选择对应流程并解释返回结果；
+工具不会自动改写流程，也不会绕过科研节点的计划校验。需要改变画布时，Agent 先给出
+节点/参数修改提案，由用户在 Langflow 画布中确认后再保存。
+
+启动 `start_demo.bat` 后，在 Langflow 的 Playground 中选择 **StudyUI 科研工作流助手**；
+所有对话历史、模型配置和审批交互都留在 Langflow 内。
+
 ## 命令行
 
 在安装组件包的 Python 环境中运行：

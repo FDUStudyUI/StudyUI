@@ -1,5 +1,7 @@
 """Scientific identifiers and literal source cells survive table ingestion."""
 
+import hashlib
+
 import pandas as pd
 import pytest
 
@@ -13,6 +15,8 @@ def test_default_delimited_import_preserves_zero_padded_identity_and_raw_file(tm
     result = text_import(config={"path": str(path), "method": "delimited"})
     assert result.table.to_dict("list") == {"sample_id": ["001", "01", "1"], "value": [1.5, 2.5, 3.5]}
     assert result.data["schema"]["sample_id"]["conversion"] == "preserved-leading-zero"
+    assert result.data["source_sha256"] == hashlib.sha256(raw).hexdigest()
+    assert result.data["source_bytes"] == len(raw)
     assert path.read_bytes() == raw
 
 
@@ -25,6 +29,18 @@ def test_identifiers_and_explicit_text_schema_are_applied_before_numeric_inferen
     assert result.table.to_dict("list") == {"sample_id": ["1", "2"], "batch": ["10", "20"], "value": [2, 3]}
     assert result.data["schema"]["sample_id"]["role"] == "identifier"
     assert result.data["schema"]["batch"]["requested_dtype"] == "string"
+
+
+def test_table_import_reports_exact_raw_source_hash_and_byte_size(tmp_path):
+    path = tmp_path / "original.xy"
+    raw = b"angle,intensity\n5.0,17\n5.1,18\n"
+    path.write_bytes(raw)
+
+    result = table_import(config={"path": str(path)})
+
+    assert result.data["source_sha256"] == hashlib.sha256(raw).hexdigest()
+    assert result.data["source_bytes"] == len(raw)
+    assert path.read_bytes() == raw
 
 
 def test_excel_retains_literal_na_text_and_native_numeric_cells(tmp_path):

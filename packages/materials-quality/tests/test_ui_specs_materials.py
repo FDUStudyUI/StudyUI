@@ -94,6 +94,12 @@ def test_curve_forms_have_native_baseline_smoothing_and_peak_controls(key):
     assert form["prominence"]["default"] is None
 
 
+def test_xrd_form_declares_signal_units_for_provenance_and_peak_features():
+    field = fields("materials.xrd")["intensity_unit"]
+    assert field["default"] == "unspecified"
+    assert "不换算数值" in field["info"]
+
+
 def test_materials_and_figures_ports_match_actual_node_results():
     _, contracts = schemas()
     for key, contract in contracts.items():

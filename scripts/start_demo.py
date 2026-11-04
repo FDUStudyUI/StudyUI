@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Start a project-isolated Langflow demo; --check is strictly read-only."""
+"""Start the local StudyUI research-agent harness; --check is strictly read-only."""
 
 from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import os
 import re
@@ -14,13 +15,15 @@ import socket
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.request import ProxyHandler, Request, build_opener
+from urllib.error import URLError
+from urllib.request import ProxyHandler, build_opener
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "packages" / "materials-quality"
 FLOW_FILES = ("spectra.json", "mechanics.json", "contrast.json")
+PAPER_FLOW_FILES = ("03-dna-origami-nanogaps.json",)
 
 
 def venv_python(directory: Path) -> Path:
@@ -114,13 +117,9 @@ def runtime_environment(runtime: Path) -> dict[str, str]:
     env.update({key: str(runtime / value) for key, value in paths.items()})
     env.update(
         {
-            "LANGFLOW_DATABASE_URL": "sqlite:///"
-            + (runtime / "langflow.db").as_posix(),
             "LANGFLOW_HOST": "127.0.0.1",
             "LANGFLOW_OPEN_BROWSER": "false",
-            "LANGFLOW_AUTO_LOGIN": "true",
             "LANGFLOW_DO_NOT_TRACK": "true",
-            "LANGFLOW_SAVE_DB_IN_CONFIG_DIR": "false",
             "PYTHONUTF8": "1",
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTHONIOENCODING": "utf-8",
@@ -218,49 +217,20 @@ def port_available(port: int) -> bool:
     return True
 
 
-def json_request(url: str, token: str | None = None, payload: dict | None = None):
-    headers = {"Content-Type": "application/json"}
-    if token:
-        headers["Authorization"] = "Bearer " + token
-    body = json.dumps(payload).encode("utf-8") if payload is not None else None
-    # The demo's own loopback HTTP calls must never pass through a system proxy.
-    opener = build_opener(ProxyHandler({}))
-    with opener.open(Request(url, data=body, headers=headers), timeout=15) as response:
-        return json.load(response)
+def _flow_paths(flow_dir: Path, extra_flow_dir: Path | None = None) -> list[Path]:
+    paths = [flow_dir / filename for filename in FLOW_FILES]
+    if extra_flow_dir is not None:
+        paths.extend(extra_flow_dir / filename for filename in PAPER_FLOW_FILES)
+    return paths
 
 
-def seed_flows(url: str, flow_dir: Path) -> dict[str, list[str]]:
-    token = json_request(url + "/api/v1/auto_login")["access_token"]
-    existing = json_request(url + "/api/v1/flows/", token)
-    if isinstance(existing, dict):
-        existing = existing["items"]
-    names = {flow["name"] for flow in existing}
-    result: dict[str, list[str]] = {"imported": [], "preserved": []}
-    for filename in FLOW_FILES:
-        payload = json.loads((flow_dir / filename).read_text(encoding="utf-8"))
-        name = payload["name"]
-        if name in names:
-            result["preserved"].append(name)
-            continue
-        # IDs/ownership from an exported flow must never retarget an existing record.
-        allowed = {
-            key: payload[key]
-            for key in ("name", "description", "data", "is_component")
-            if key in payload
-        }
-        json_request(url + "/api/v1/flows/", token, allowed)
-        names.add(name)
-        result["imported"].append(name)
-    return result
-
-
-def import_instructions(flow_dir: Path) -> None:
+def import_instructions(flow_dir: Path, extra_flow_dir: Path | None = None) -> None:
     print(
         "Manual import: Langflow -> New flow / Upload flow; choose these JSON files:",
         flush=True,
     )
-    for filename in FLOW_FILES:
-        print("  " + str(flow_dir / filename), flush=True)
+    for path in _flow_paths(flow_dir, extra_flow_dir):
+        print("  " + str(path), flush=True)
 
 
 def prepare_runtime(runtime: Path) -> None:
@@ -274,30 +244,414 @@ def prepare_runtime(runtime: Path) -> None:
     )
 
 
-def start_server(python: Path, runtime: Path, port: int, ready_timeout: float) -> int:
+def initialize_file_workflows(root: Path) -> None:
+    """Seed a new installation once; never replace an existing research workflow."""
+    directory = root / "workflows"
+    directory.mkdir(parents=True, exist_ok=True)
+    if any(directory.glob("*.json")):
+        return
+    project_id = str(uuid.uuid4())
+    for source in _flow_paths(PACKAGE / "examples" / "skill_flows", PACKAGE / "examples" / "research_flows"):
+        if not source.is_file():
+            continue
+        flow = json.loads(source.read_text(encoding="utf-8"))
+        flow.update(id=str(uuid.uuid4()), folder_id=project_id)
+        flow.pop("user_id", None)
+        with (directory / (flow["id"] + ".json")).open("x", encoding="utf-8") as target:
+            json.dump(flow, target, ensure_ascii=False, indent=2)
+            target.write("\n")
+
+
+def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> None:
+    """Rebuild the bundled Langflow UI entry points for StudyUI's workflow-only shell."""
+    result = subprocess.run(
+        [
+            str(python),
+            "-c",
+            "from importlib.metadata import distribution; print(distribution('langflow-base').locate_file('langflow/frontend'))",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    vendor_frontend = Path(result.stdout.strip())
+    frontend = (runtime or ROOT / ".demo-runtime") / "workbench-ui"
+    shutil.copytree(vendor_frontend, frontend, dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns("studyui-*"))
+    index_path = frontend / "index.html"
+    if not index_path.is_file():
+        raise RuntimeError(f"Langflow frontend entry was not found: {index_path}")
+    index = index_path.read_text(encoding="utf-8").replace("<title>Langflow</title>", "<title>StudyUI Workbench</title>")
+    index = re.sub(
+        r'\s*<script id="studyui-clean-chrome">.*?</script>\s*',
+        "\n",
+        index,
+        count=1,
+        flags=re.DOTALL,
+    )
+    if "studyui-theme-default" not in index:
+        theme_bootstrap = """<script id="studyui-theme-default">
+      try {
+        if (!localStorage.getItem("themePreference")) {
+          localStorage.setItem("themePreference", "light");
+          localStorage.setItem("isDark", "false");
+        }
+      } catch (_) {}
+    </script>
+    <link rel="stylesheet" href="./studyui-theme.css" />"""
+        if "</head>" not in index:
+            raise RuntimeError(f"Unexpected Langflow frontend entry format: {index_path}")
+        index = index.replace("</head>", theme_bootstrap + "\n  </head>", 1)
+    if 'href="./studyui-theme.css"' not in index:
+        if "</head>" not in index:
+            raise RuntimeError(f"Unexpected Langflow frontend entry format: {index_path}")
+        index = index.replace(
+            "</head>", '    <link rel="stylesheet" href="./studyui-theme.css" />\n  </head>', 1
+        )
+
+    bundle_match = re.search(r'<script[^>]+src="([^"]+\.js(?:\?[^"]*)?)"', index)
+    if bundle_match is None:
+        raise RuntimeError(f"Langflow frontend bundle was not found in {index_path}")
+    bundle_url = bundle_match.group(1)
+    assets_root = (frontend / "assets").resolve()
+    bundle_name = bundle_url.split("?", 1)[0].rsplit("/", 1)[-1]
+    bundle_path = (assets_root / bundle_name).resolve()
+    try:
+        bundle_path.relative_to(assets_root)
+    except ValueError as exc:
+        raise RuntimeError("Langflow frontend bundle path escaped its package") from exc
+    if not bundle_path.is_file():
+        raise RuntimeError(f"Langflow frontend bundle was not found: {bundle_path}")
+
+    backup_root = (runtime or ROOT / ".demo-runtime") / "backup"
+    backup_root.mkdir(parents=True, exist_ok=True)
+    original_bundle = backup_root / (bundle_path.name + ".studyui-original")
+    if not original_bundle.exists():
+        shutil.copy2(bundle_path, original_bundle)
+    bundle = original_bundle.read_text(encoding="utf-8")
+
+    def replace_region(source: str, start: str, end: str, replacement: str, label: str) -> str:
+        if source.count(start) != 1 or source.count(end) != 1:
+            raise RuntimeError(f"Langflow UI changed; cannot remove its {label} component safely")
+        start_at = source.index(start)
+        end_at = source.index(end, start_at + len(start))
+        return source[:start_at] + replacement + source[end_at:]
+
+    def replace_component(source: str, old: str, new: str, label: str) -> str:
+        if source.count(old) != 1:
+            raise RuntimeError(f"Langflow UI changed; cannot remove its {label} component safely")
+        return source.replace(old, new, 1)
+
+    def save_bundle() -> None:
+        cache_tag = hashlib.sha256(bundle.encode("utf-8")).hexdigest()[:12]
+        versioned_assets = assets_root / f"studyui-{cache_tag}"
+        versioned_assets.mkdir(parents=True, exist_ok=True)
+        try:
+            versioned_assets.resolve().relative_to(assets_root)
+        except ValueError as exc:
+            raise RuntimeError("StudyUI frontend asset path escaped the Langflow package") from exc
+        for source in assets_root.iterdir():
+            if not source.is_file() or source.name == bundle_name:
+                continue
+            target = versioned_assets / source.name
+            if target.exists():
+                continue
+            try:
+                os.link(source, target)
+            except OSError:
+                shutil.copy2(source, target)
+        (versioned_assets / bundle_name).write_text(bundle, encoding="utf-8")
+
+        # Retire generated copies from previous builds, including old login assets.
+        for previous in assets_root.glob("studyui-*"):
+            if previous != versioned_assets and previous.is_dir() and previous.resolve().parent == assets_root:
+                shutil.rmtree(previous)
+
+        # Every code-split icon imports the entry module by its relative filename.
+        # A query-only cache tag makes the browser load a second React app at the
+        # untagged URL, so give the whole asset graph one versioned directory.
+        versioned_url = f"./assets/{versioned_assets.name}/{bundle_name}"
+        script_pattern = re.compile(
+            rf'(<script[^>]+src=")[^"]*{re.escape(bundle_name)}(?:\?[^"]*)?"'
+        )
+        updated_index, replacements = script_pattern.subn(
+            lambda match: match.group(1) + versioned_url + '"',
+            index,
+            count=1,
+        )
+        if replacements != 1:
+            raise RuntimeError("Langflow frontend entry changed while saving the StudyUI bundle")
+        index_path.write_text(updated_index, encoding="utf-8")
+
+    # Remove account/profile renderers and their components from the compiled bundle.
+    bundle = replace_region(
+        bundle,
+        ",wFi=()=>{",
+        "function MFi(",
+        ";",
+        "account/profile menu",
+    )
+    bundle = replace_region(
+        bundle,
+        "const cFi=({children:e})=>",
+        "({href:e",
+        "const _Le=",
+        "account menu primitives",
+    )
+    bundle = replace_region(
+        bundle,
+        ",hFi=()=>{",
+        ";function gFi(",
+        ";const pFi=e=>null",
+        "community menu links",
+    )
+    bundle = replace_region(
+        bundle,
+        "const Xki=",
+        "Zki=({children:e})=>",
+        "const ",
+        "interactive authentication guard",
+    )
+    bundle = replace_component(
+        bundle,
+        'b.jsx(Xki,{children:b.jsx(n$,{})})',
+        'b.jsx(n$,{})',
+        "interactive authentication route guard",
+    )
+    bundle = replace_component(
+        bundle,
+        ',b.jsx(pu,{path:"login",element:b.jsx(zdt,{children:b.jsx(jCo,{})})}),'
+        'b.jsx(pu,{path:"signup",element:b.jsx(zdt,{children:b.jsx(kDo,{})})}),'
+        'b.jsx(pu,{path:"login/admin",element:b.jsx(zdt,{children:b.jsx(RDo,{})})}),',
+        ",",
+        "login and sign-up routes",
+    )
+    bundle = replace_component(
+        bundle,
+        'const RDo=N.lazy(()=>te(()=>import("./index-CxoBrV6N.js"),[],import.meta.url)),TDo=',
+        "const TDo=",
+        "admin login module",
+    )
+    bundle = replace_component(
+        bundle,
+        ',kDo=N.lazy(()=>te(()=>import("./index-_FvlbSMC.js"),[],import.meta.url))',
+        "",
+        "sign-up module",
+    )
+    bundle = replace_region(bundle, "function jCo(){", "const qor=", "", "sign-in form")
+    bundle = replace_region(
+        bundle,
+        ",AFi=()=>{",
+        "function xFi(){return b.jsx(b.Fragment,{})}",
+        ";",
+        "GitHub and Discord header links",
+    )
+    bundle = replace_region(
+        bundle,
+        "function hqi(){",
+        "function fqi(){",
+        'function hqi(){const{t:e}=ot(),n=Vv(),{isFetched:t}=MKn();Lwe();h3t({get_all:!0,header_flows:!0},{enabled:t});return b.jsx("header",{className:"z-10 flex h-[48px] w-full items-center border-b pl-2.5 dark:bg-background","data-testid":"app-header",children:b.jsx(gt,{unstyled:!0,onClick:()=>n("/"),className:"mr-1 flex h-8 w-8 items-center justify-center","data-testid":"icon-ChevronLeft","aria-label":e("header.home"),children:b.jsx(MFi,{className:"h-5 w-5"})})})}',
+        "Langflow header",
+    )
+    bundle = replace_component(
+        bundle,
+        ',b.jsx(wqi,{})',
+        '',
+        "knowledge storage upgrade panel",
+    )
+
+    bundle = replace_region(
+        bundle,
+        'b.jsxs(UHn,{open:V,modal:!1,children:[',
+        'b.jsx(kSo,{selectedNode:t})',
+        '',
+        "Langflow Assistant canvas control",
+    )
+    bundle = replace_region(
+        bundle, "function kgo(){", "function Lnr(",
+        'function kgo(){const e=SC(z=>z.isOpen),t=SC(z=>z.close);N.useEffect(()=>{e&&t()},[e,t]);return null}',
+        "legacy assistant welcome overlay",
+    )
+
+    # The local workbench has one workspace and no user or token lifecycle.
+    bundle = replace_region(bundle, "function Kei({children:e}){", "const Xei=", 'function Kei({children:e}){return b.jsx(OI.Provider,{value:Gei,children:e})}', "account provider")
+    bundle = replace_region(bundle, "function g4i({children:e}){", "function Jxn(", 'function g4i({children:e}){return e}', "session guard")
+    bundle = replace_region(bundle, "function qqi(){", "const Wqi=", 'function qqi(){const{isFetched:e}=Nqi(),{isFetched:t}=Dqi();MKn();T4({mirrorToStore:!0});return e&&t?b.jsx(n$,{}):b.jsx(kxt,{})}', "account initialization")
+    bundle = replace_region(bundle, "function $ae({resourceType:", "class XFe ", 'function $ae({children:e}){return e}', "account permissions provider")
+    bundle = replace_component(bundle, 'RNn(Bwt).then(()=>{', 'Aa.setState({isAuthenticated:!0,isAdmin:!0,autoLogin:!0});RNn(Bwt).then(()=>{', "workspace initialization")
+
+    # This embedded canvas only exposes components; the old assistant,
+    # memories, tracing and unsupported server-management panels are removed.
+    bundle = replace_region(
+        bundle,
+        'const ATt=[{id:"components"',
+        '],PTn=new Set(',
+        'const ATt=[{id:"components",icon:"component",label:"sidebar.nav.components",tooltip:"sidebar.nav.components"}',
+        "legacy canvas navigation",
+    )
+    bundle = replace_component(bundle, 'P=["flows","mcp",...D?["deployments"]:[]]', 'P=["flows"]', "unsupported project tabs")
+
+    # Remove onboarding and non-workflow navigation, keeping project creation.
+    bundle = replace_region(bundle, "const R_o=", "const k_o=", "", "onboarding card")
+    bundle = replace_region(
+        bundle,
+        "const k_o=",
+        "N_o=({onClick:e,disabled:t})=>",
+        'const k_o=({onClick:e,disabled:t,loading:n})=>b.jsx(gt,{variant:"ghost",size:"icon",onClick:e,disabled:t,loading:n,"aria-label":"New project","data-testid":"add-project-button",children:b.jsx(Pe,{name:"Plus",className:"h-4 w-4"})}),',
+        "project creation control",
+    )
+    bundle = replace_region(
+        bundle,
+        "D_o=({handleUploadFlowsToFolder:",
+        ",L_o=({handleEditFolderName:",
+        'D_o=({handleUploadFlowsToFolder:e,isUpdatingFolder:t,isPending:n,addNewFolder:i,containerClassName:s,titleClassName:a})=>{const{t:l}=ot();return b.jsxs("div",{className:He("flex shrink-0 items-center justify-between gap-2 pt-2",s),children:[b.jsx(MZ,{className:"lg:hidden",children:b.jsx(Pe,{name:"PanelLeftClose",className:"h-4 w-4"})}),b.jsx("div",{id:"project-sidebar-title",className:He("flex-1 text-sm font-medium",a),children:l("sidebar.projects")}),b.jsxs("div",{className:"flex items-center gap-1",children:[b.jsx(N_o,{onClick:e,disabled:t}),b.jsx(k_o,{onClick:i,disabled:t,loading:n})]})]})}',
+        "project sidebar",
+    )
+    knowledge_link = 'b.jsxs(e3,{onClick:pn,size:"md",className:He("text-sm",u.footerItemClassName),children:[b.jsx(Pe,{name:"Library",className:"h-4 w-4"}),y("sidebar.knowledge")]})'
+    my_files_link = 'b.jsxs(e3,{onClick:Zt,size:"md",className:He("text-sm",u.footerItemClassName),children:[b.jsx(Pe,{name:"File",className:"h-4 w-4"}),y("sidebar.myFiles")]})'
+    bundle = replace_component(
+        bundle,
+        ',b.jsxs(b.Fragment,{children:[' + knowledge_link + "," + my_files_link + "]})",
+        "",
+        "Knowledge and My Files navigation",
+    )
+    bundle = replace_region(
+        bundle,
+        ',b.jsxs(pu,{path:"assets",children:[',
+        ',b.jsx(pu,{path:"flows/"',
+        "",
+        "Knowledge and My Files routes",
+    )
+    bundle = replace_region(
+        bundle,
+        "$_o=({setOpenModal:e})=>",
+        ";function V_o(",
+        '$_o=()=>b.jsx("div",{className:"flex h-full w-full items-center justify-center text-sm text-muted-foreground",children:"此项目还没有工作流。"})',
+        "empty-project onboarding",
+    )
+
+    # Remove the unused sign-in chunks before creating the versioned asset set.
+    for chunk_name in ("index-CxoBrV6N.js", "index-_FvlbSMC.js"):
+        chunk_path = assets_root / chunk_name
+        if not chunk_path.is_file() or f'"./{chunk_name}"' in bundle:
+            continue
+        removed_copy = backup_root / (chunk_name + ".studyui-removed")
+        if not removed_copy.exists():
+            shutil.copy2(chunk_path, removed_copy)
+        chunk_path.unlink()
+
+    # Keep Langflow's package files pristine; StudyUI serves its own built asset tree.
+    bundle_path.write_text(bundle, encoding="utf-8")
+    save_bundle()
+    (frontend / "studyui-theme.css").write_text(
+        "#body{--accent-amber:217 48% 34%!important;"
+        "--accent-amber-foreground:217 52% 38%!important}\n"
+        "#body:not(.dark){--background:42 33% 96%!important;"
+        "--foreground:220 18% 18%!important;--card:42 45% 99%!important;"
+        "--card-foreground:220 18% 18%!important;--popover:42 45% 99%!important;"
+        "--popover-foreground:220 18% 18%!important;--muted:39 24% 92%!important;"
+        "--muted-foreground:220 9% 45%!important;--border:38 20% 87%!important;"
+        "--input:38 20% 87%!important;--canvas:42 30% 97%!important;"
+        "--canvas-dot:220 10% 73%!important;--primary:217 48% 34%!important;"
+        "--primary-foreground:0 0% 100%!important;--primary-hover:217 50% 28%!important;"
+        "--ring:217 48% 34%!important}\n"
+        "#body.dark{--primary:217 48% 34%!important;"
+        "--primary-foreground:0 0% 100%!important;--primary-hover:217 50% 28%!important;"
+        "--ring:217 48% 44%!important}\n",
+        encoding="utf-8",
+    )
+
+
+def start_studyui_service(python: Path, runtime: Path, langflow_url: str, port: int):
     url = f"http://127.0.0.1:{port}"
-    log_path = runtime / "logs" / "launcher-server.log"
-    flow_dir = PACKAGE / "examples" / "skill_flows"
     env = runtime_environment(runtime)
-    env["LANGFLOW_PORT"] = str(port)
+    env["STUDYUI_PORT"] = str(port)
+    env["STUDYUI_DATABASE"] = str(runtime / "agent.sqlite3")
+    env["STUDYUI_LANGFLOW_URL"] = langflow_url
     command = [
         str(python),
         "-B",
         "-m",
-        "langflow",
-        "run",
+        "materials_quality.agent.server",
         "--host",
         "127.0.0.1",
         "--port",
         str(port),
-        "--components-path",
+        "--database",
+        str(runtime / "agent.sqlite3"),
+        "--langflow-url",
+        langflow_url,
+        "--workflows",
+        str(ROOT / "workflows"),
+        "--components",
         str(runtime / "components"),
-        "--log-file",
-        str(runtime / "logs/langflow.log"),
-        "--no-open-browser",
+    ]
+    options = (
+        {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW}
+        if os.name == "nt"
+        else {"start_new_session": True}
+    )
+    with (runtime / "logs" / "studyui-server.log").open("a", encoding="utf-8") as log:
+        process = subprocess.Popen(
+            command,
+            cwd=runtime,
+            env=env,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            **options,
+        )
+    deadline = time.monotonic() + 20
+    while process.poll() is None and time.monotonic() < deadline:
+        try:
+            with build_opener(ProxyHandler({})).open(url + "/api/health", timeout=2) as response:
+                if response.status == 200:
+                    return process
+        except (URLError, OSError):
+            pass
+        time.sleep(0.25)
+    stop_studyui_service(process)
+    raise RuntimeError("StudyUI did not start; read .demo-runtime/logs/studyui-server.log")
+
+
+def stop_studyui_service(process: subprocess.Popen) -> None:
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=10)
+
+
+def start_system(
+    python: Path, runtime: Path, studyui_port: int, langflow_port: int, ready_timeout: float
+) -> int:
+    langflow_url = f"http://127.0.0.1:{langflow_port}"
+    studyui_url = f"http://127.0.0.1:{studyui_port}"
+    log_path = runtime / "logs" / "studyui-launcher.log"
+    flow_dir = PACKAGE / "examples" / "skill_flows"
+    env = runtime_environment(runtime)
+    env["LANGFLOW_PORT"] = str(langflow_port)
+    env["LANGFLOW_AGENTIC_EXPERIENCE"] = "false"
+    command = [
+        str(python),
+        "-B",
+        "-m",
+        "materials_quality.agent.workbench",
+        "--port",
+        str(langflow_port),
+        "--workflows",
+        str(ROOT / "workflows"),
+        "--components",
+        str(runtime / "components"),
+        "--frontend",
+        str(runtime / "workbench-ui"),
     ]
     print(
-        f"Starting demo: {url}\nLogs: {log_path}\nPress Ctrl+C here to stop this demo.",
+        f"Starting StudyUI: {studyui_url}\nLangflow workspace: {langflow_url}\n"
+        f"Logs: {log_path}\nPress Ctrl+C here to stop this demo.",
         flush=True,
     )
     with log_path.open("a", encoding="utf-8") as log:
@@ -315,13 +669,14 @@ def start_server(python: Path, runtime: Path, port: int, ready_timeout: float) -
             stderr=subprocess.STDOUT,
             **options,
         )
+        studyui_process = None
         try:
             deadline = time.monotonic() + ready_timeout
             ready = False
             while process.poll() is None and time.monotonic() < deadline:
                 try:
                     opener = build_opener(ProxyHandler({}))
-                    with opener.open(url + "/health", timeout=2) as response:
+                    with opener.open(langflow_url + "/health", timeout=2) as response:
                         ready = response.status == 200
                     if ready:
                         break
@@ -333,41 +688,27 @@ def start_server(python: Path, runtime: Path, port: int, ready_timeout: float) -
                     "Server did not become ready. Read the log above; no flows were preloaded.",
                     flush=True,
                 )
-                import_instructions(flow_dir)
+                import_instructions(flow_dir, PACKAGE / "examples" / "research_flows")
                 return process.returncode or 2
-            print(f"Demo ready: {url}", flush=True)
-            try:
-                result = seed_flows(url, flow_dir)
-                print(
-                    "Preloaded flows: " + ", ".join(result["imported"] or ["none"]),
-                    flush=True,
-                )
-                print(
-                    "Existing flows preserved: "
-                    + ", ".join(result["preserved"] or ["none"]),
-                    flush=True,
-                )
-            except (
-                HTTPError,
-                URLError,
-                OSError,
-                ValueError,
-                KeyError,
-                TypeError,
-            ) as exc:
-                print(
-                    f"Automatic flow import incomplete ({type(exc).__name__}); use manual import.",
-                    flush=True,
-                )
-                import_instructions(flow_dir)
-            # An indefinite Windows wait can defer Python's KeyboardInterrupt handler.
-            while process.poll() is None:
+            print(f"File-backed workflow workspace ready: {langflow_url}", flush=True)
+            studyui_process = start_studyui_service(python, runtime, langflow_url, studyui_port)
+            print(
+                f"StudyUI ready: {studyui_url} (Langflow is embedded in the StudyUI workspace)",
+                flush=True,
+            )
+            while process.poll() is None and studyui_process.poll() is None:
                 time.sleep(0.5)
-            return process.returncode
+            if studyui_process.poll() is not None:
+                print("StudyUI stopped unexpectedly; check logs/studyui-server.log", flush=True)
+                return studyui_process.returncode or 2
+            print("Langflow stopped unexpectedly; stopping StudyUI.", flush=True)
+            return process.returncode or 2
         except KeyboardInterrupt:
             print("Stopping this demo...", flush=True)
             return 0
         finally:
+            if studyui_process is not None:
+                stop_studyui_service(studyui_process)
             stop_server(process)
 
 
@@ -422,7 +763,8 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Use an existing Python 3.10 environment read-only; incompatible with --setup",
     )
-    parser.add_argument("--port", type=valid_port, default=7880)
+    parser.add_argument("--port", type=valid_port, default=7880, help="StudyUI main application port")
+    parser.add_argument("--langflow-port", type=valid_port, default=7881, help="Embedded Langflow workspace port")
     parser.add_argument("--runtime", type=Path, default=ROOT / ".demo-runtime")
     parser.add_argument(
         "--ready-timeout",
@@ -438,7 +780,8 @@ def main(argv: list[str] | None = None) -> int:
         else venv_python(ROOT / ".demo-venv")
     )
     print(
-        f"Python: {python}\nRuntime: {runtime}\nDemo URL: http://127.0.0.1:{args.port}",
+        f"Python: {python}\nRuntime: {runtime}\nStudyUI URL: http://127.0.0.1:{args.port}"
+        f"\nEmbedded Langflow URL: http://127.0.0.1:{args.langflow_port}",
         flush=True,
     )
     if args.setup and args.python and not args.check:
@@ -494,6 +837,12 @@ def main(argv: list[str] | None = None) -> int:
                 "no existing service will be reused."
             )
             return 2
+        if args.langflow_port == args.port or not port_available(args.langflow_port):
+            print(
+                f"Langflow port {args.langflow_port} must be distinct and available; "
+                "choose another value with --langflow-port."
+            )
+            return 2
         print("Prerequisites OK. Loopback port is available.")
         if args.check:
             print(
@@ -502,8 +851,10 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         prepare_runtime(runtime)
-        return start_server(python, runtime, args.port, args.ready_timeout)
-    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        initialize_file_workflows(ROOT)
+        apply_studyui_langflow_theme(python, runtime)
+        return start_system(python, runtime, args.port, args.langflow_port, args.ready_timeout)
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
         print(f"Demo launcher failed: {exc}")
         return 2
 

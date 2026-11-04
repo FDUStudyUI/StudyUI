@@ -140,6 +140,22 @@ def _resolve_assets(value, assets):
     return value
 
 
+def _asset_paths(data, reports):
+    """Collect only explicit asset paths from the input envelope and report ports."""
+    result = {}
+    direct = data.get("asset_paths", {}) if isinstance(data, dict) else {}
+    if isinstance(direct, dict):
+        result.update({key: value for key, value in direct.items() if isinstance(key, str)})
+    for report in reports:
+        report_data = _unwrap(report)
+        candidate = report_data.get("asset_paths", {}) if isinstance(report_data, dict) else {}
+        if isinstance(candidate, dict):
+            for key, value in candidate.items():
+                if isinstance(key, str):
+                    result.setdefault(key, value)
+    return result
+
+
 def _input_paths(key, config, data, reports):
     # Structural capabilities, not recursive key-name guessing: text, table cells,
     # previews, document metadata and arbitrary parameter dictionaries are inert.
@@ -430,7 +446,8 @@ def _execute_single(component, key, config_override=None):
     config = _operation_config(component, key) if config_override is None else deepcopy(config_override)
     upstream = _object(getattr(component, "input_data", None))
     data = dict(_unwrap(upstream))
-    assets = data.get("asset_paths", {})
+    reports = [_object(x) for x in (getattr(component, "reports", None) or [])]
+    assets = _asset_paths(data, reports)
     config = _resolve_assets(config, assets)
     upload = getattr(component, "source_file", None)
     if upload:
@@ -449,7 +466,6 @@ def _execute_single(component, key, config_override=None):
         tables = []
     if isinstance(tables, pd.DataFrame):
         tables = [tables]
-    reports = [_object(x) for x in (getattr(component, "reports", None) or [])]
     envelopes = [upstream, *reports]
     files = _file_hashes(
         _input_paths(key, config, data, reports),
@@ -592,7 +608,7 @@ def _execute_single(component, key, config_override=None):
 
 
 def output_table(component, key):
-    result, _ = execute(component, key)
+    result, envelope = execute(component, key)
     if result.table is None:
         if getattr(component, "ui_contract_version", 1) >= 2:
             raise ValueError(f"{get(key)['title']} 当前方法不提供表格；请使用结果与追溯或生成文件输出。")
@@ -602,6 +618,9 @@ def output_table(component, key):
         return legacy
     table = DataFrame(result.table.copy(deep=True))
     table.attrs = deepcopy(result.table.attrs)
+    asset_paths = envelope.get("data", {}).get("asset_paths")
+    if isinstance(asset_paths, dict):
+        table.attrs["asset_paths"] = deepcopy(asset_paths)
     return table
 
 

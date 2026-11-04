@@ -288,6 +288,13 @@ def form_config(component, key, *, validate=True):
             value = raw
         return _parse_json(value, object_only=True)
     specs = fields_for(key)
+    parameters = getattr(component, "_parameters", {})
+
+    def supplied(name, default=None):
+        if isinstance(parameters, dict) and name in parameters:
+            return parameters[name]
+        return getattr(component, name, default)
+
     # Controllers are merged first, independent of descriptor display order.
     ordered = sorted(specs, key=lambda s: bool(s.get("when")))
     config = {}
@@ -298,8 +305,8 @@ def form_config(component, key, *, validate=True):
         if _optional_numeric(spec, defaults) and not _enabled(component, name):
             continue
         if kind == "range":
-            lower = getattr(component, name + "_min", None)
-            upper = getattr(component, name + "_max", None)
+            lower = supplied(name + "_min")
+            upper = supplied(name + "_max")
             if lower is None and upper is None:
                 if validate and spec.get("required"):
                     raise ValueError(f"请填写{spec['label']}的下限和上限")
@@ -312,7 +319,7 @@ def form_config(component, key, *, validate=True):
             if validate and lower >= upper:
                 raise ValueError(f"{spec['label']}：下限必须小于上限")
         else:
-            value = getattr(component, name, deepcopy(spec.get("default")))
+            value = supplied(name, deepcopy(spec.get("default")))
             if isinstance(value, pd.DataFrame):
                 value = value.to_dict("records")
             empty = value is None or isinstance(value, str) and value == ""
@@ -492,7 +499,7 @@ def science_inputs(key, default):
                 info="specimen 模式接各仪器的样品特征表；其他模式接全部待合并表格。",
             )
         )
-    if key in REPORT_COLLECTION_KEYS:
+    if key in REPORT_COLLECTION_KEYS or contract["artifacts_output"]:
         result.append(
             DataInput(
                 name="reports",

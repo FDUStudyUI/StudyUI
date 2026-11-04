@@ -5,10 +5,10 @@ build-backend = "hatchling.build"
 [project]
 name = "langflow-materials-quality"
 version = "0.8.0"
-description = "Traceable materials science workflow components for Langflow"
+description = "StudyUI materials-science research components, workflow engine and agent harness"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
-dependencies = ["pandas>=2.0,<3.0", "pint==0.24.4", "jsonschema>=4.23,<5"]
+dependencies = ["pandas>=2.0,<3.0", "pint==0.24.4", "jsonschema>=4.23,<5", "filelock>=3.16,<4", "keyring>=25,<27", "requests>=2.32,<3"]
 
 [project.optional-dependencies]
 langflow = ["lfx==1.13.0", "langchain-community>=0.4,<0.5"]
