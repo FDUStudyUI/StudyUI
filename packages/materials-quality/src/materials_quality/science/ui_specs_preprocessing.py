@@ -2,6 +2,8 @@
 
 from .ui_types import field
 
+_CALIBRATIONS = ["blank_subtract", "reference_ratio", "linear_calibration"]
+
 
 def _columns(when=None):
     return field(
@@ -217,8 +219,8 @@ SPECS = {
             "多表合并方式",
             "choice",
             default="join",
-            choices=["join", "append", "asof"],
-            info="连接至少两张表到 input_tables；join 按键关联，append 逐行追加，"
+            choices=["join", "append", "asof", "specimen"],
+            info="specimen 按样品主表逐一关联仪器特征；join 按键关联，append 逐行追加，"
             "asof 为恰好两表的有容差近邻关联。",
         ),
         field(
@@ -228,8 +230,27 @@ SPECS = {
             converter="column_or_list",
             default=["sample_id"],
             required=True,
-            when={"method": ["join", "asof"]},
-            info="join 可填写多个键；asof 必须恰好一列，坐标不得缺失且两表均须按坐标递增排序。",
+            when={"method": ["join", "asof", "specimen"]},
+            info="specimen 可填写多列共同标识一个样品，各表须使用同名、同类型的文本或整数键。"
+            "join 可填写多个键；asof 必须恰好一列，坐标不得缺失且两表均须按坐标递增排序。",
+        ),
+        field(
+            "unmatched",
+            "未匹配样品的处理",
+            "choice",
+            default="report",
+            choices=["report", "error"],
+            when={"method": ["specimen"]},
+            info="report 保留全部主表样品并报告缺失特征、主表外的特征；error 要求各表完整覆盖主表。",
+        ),
+        field(
+            "allow_undeclared_features",
+            "确认无声明的输入是样品特征表",
+            "bool",
+            default=False,
+            when={"method": ["specimen"]},
+            info="仅在已核对导入表每个样品至多一行，且每列特征的测量条件明确时开启。"
+            "重复测量须在上游按明确的样品和测量条件处理。",
         ),
         field(
             "how",
@@ -293,19 +314,102 @@ SPECS = {
     "preprocess.normalize": [
         field(
             "method",
-            "归一化方式",
+            "归一化或校准方式",
             "choice",
             default="minmax",
-            choices=["minmax", "zscore", "robust"],
+            choices=["minmax", "zscore", "robust", *_CALIBRATIONS],
             info="minmax 按极差，zscore 按总体标准差 ddof=0，robust 按中位数与四分位距；"
-            "常量列映射为零并提示。",
+            "blank_subtract 扣空白，reference_ratio 按参考归一化，linear_calibration 拟合标准对。",
         ),
-        _columns(),
+        _columns({"method": ["minmax", "zscore", "robust"]}),
+        field(
+            "calibration_signal",
+            "原始信号列",
+            required=True,
+            when={"method": _CALIBRATIONS},
+            info="填写原表中保留的测量信号列。",
+        ),
+        field(
+            "calibration_input_unit",
+            "原始信号和参考的单位",
+            required=True,
+            when={"method": _CALIBRATIONS},
+            info="标准信号、空白、参考必须使用同一单位。",
+        ),
+        field(
+            "calibration_output",
+            "校准后新列名",
+            default="corrected",
+            when={"method": _CALIBRATIONS},
+            info="写入未使用的列名，保留原始读数。",
+        ),
+        field(
+            "calibration_source",
+            "校准来源或标准编号",
+            required=True,
+            when={"method": _CALIBRATIONS},
+            info="记录标准表、证书编号或空白测量的来源。",
+        ),
+        field(
+            "calibration_blank",
+            "空白值",
+            "float",
+            default=0.0,
+            when={"method": ["blank_subtract", "reference_ratio"]},
+            info="按信号单位填写；选择空白列时采用逐行空白。",
+        ),
+        field(
+            "calibration_blank_column",
+            "同一行的空白列",
+            when={"method": ["blank_subtract", "reference_ratio"]},
+            info="可选。填写后用对应行的空白值。",
+        ),
+        field(
+            "calibration_reference",
+            "参考值",
+            "float",
+            when={"method": ["reference_ratio"]},
+            info="填写固定参考值，或选择对应参考列。",
+        ),
+        field(
+            "calibration_reference_column",
+            "同一行的参考列",
+            when={"method": ["reference_ratio"]},
+            info="可选。填写后用对应行的参考值。",
+        ),
+        field(
+            "calibration_output_unit",
+            "已知标准值与校准结果的单位",
+            required=True,
+            when={"method": ["linear_calibration"]},
+            info="填写已知标准的实际单位，例如 MPa。",
+        ),
+        field(
+            "calibration_standards",
+            "线性标定的标准对",
+            "table",
+            required=True,
+            when={"method": ["linear_calibration"]},
+            converter="pairs",
+            pair_columns=["signal", "value"],
+            table_schema=_schema(("signal", "标准信号", "float"), ("value", "已知值", "float")),
+            info="至少填三种不同的标准信号及相应已知值。默认拒绝标定范围外的样品。",
+        ),
+        field(
+            "calibration_allow_extrapolation",
+            "允许超出标定范围",
+            "bool",
+            default=False,
+            advanced=True,
+            when={"method": ["linear_calibration"]},
+            info="仅在有依据时勾选；报告会标出外推行数。",
+        ),
         field(
             "group_by",
-            "独立归一化分组列",
+            "归一化分组 / 校准重复测量分组",
             "list",
-            info="选择 curve_id、sample_id 或实验组列；每组分别拟合中心/尺度并保留参数。留空按全表归一化。",
+            info="归一化按组拟合，留空按全表。校准时仅填写同一样品、同一条件的重复测量分组；"
+            "留空则不计算重复测量波动。",
         ),
     ],
 }

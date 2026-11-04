@@ -1,5 +1,8 @@
 # StudyUI
 
+0.8.0 增加同批样品的跨仪器关联、测量校准、电学与光响应分析及电池循环分析。
+参见[扩展工作流](packages/materials-quality/examples/expansion_flows/README.md)。
+
 0.7.0 增加窗口候选规则与阈值表单、独立试验单位与小样本政策、可传递数据契约及独立评测。
 参见[可靠性操作指南](packages/materials-quality/docs/research-reliability.md)、
 [四个可导入示例](packages/materials-quality/examples/reliability_flows/README.md)与
@@ -7,7 +10,7 @@
 
 基于 Langflow 的可视化科研 Agent 工作流。
 
-材料科学组件包对应《工作流节点.md》的八类、50 项功能，并增加批量科研任务与内置科研技能，包含 62 个 Langflow 原生节点，
+材料科学组件包对应《工作流节点.md》的八类、50 项功能，并增加批量科研任务与内置科研技能，包含 64 个 Langflow 原生节点，
 以及测试、依赖清单和可导入示例。覆盖文件与数据库接入、OCR、质量与预处理、专业材料分析、
 统计建模、绘图报告和文献证据。计算默认在部署 Langflow 的电脑或服务器运行，原始数据保留。
 

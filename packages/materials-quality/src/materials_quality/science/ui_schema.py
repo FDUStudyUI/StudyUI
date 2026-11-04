@@ -459,7 +459,17 @@ def science_inputs(key, default):
     item, contract, specs = catalog_item(key), contract_for(key), fields_for(key)
     result = []
     if item["table_input"]:
-        result.append(DataFrameInput(name="input_table", display_name="输入表格", required=False))
+        if key == "preprocess.merge":
+            result.append(
+                DataFrameInput(
+                    name="input_table",
+                    display_name="样品主表",
+                    required=False,
+                    info="specimen 模式的唯一主表，每个样品键须恰好一行。",
+                )
+            )
+        else:
+            result.append(DataFrameInput(name="input_table", display_name="输入表格", required=False))
     if item["data_input"]:
         result.append(DataInput(name="input_data", display_name="输入数据 / 文件与证据", required=False))
     elif item["table_input"] or item["tables_input"]:
@@ -479,6 +489,7 @@ def science_inputs(key, default):
                 display_name="待合并表格（可多接）",
                 input_types=["DataFrame"],
                 is_list=True,
+                info="specimen 模式接各仪器的样品特征表；其他模式接全部待合并表格。",
             )
         )
     if key in REPORT_COLLECTION_KEYS:
@@ -589,6 +600,8 @@ def refresh_config(component, key, build_config, field_value, field_name):
                 build_config[name]["show"] = show
     if "config_json" in build_config:
         build_config["config_json"]["show"] = mode == "json"
+    if key == "preprocess.merge" and "input_table" in build_config:
+        build_config["input_table"]["show"] = mode == "json" or config.get("method") == "specimen"
     table = field_value if field_name == "input_table" else getattr(component, "input_table", None)
     if isinstance(table, pd.DataFrame):
         columns = [str(c) for c in table.columns]

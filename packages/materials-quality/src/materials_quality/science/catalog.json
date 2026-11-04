@@ -2848,7 +2848,7 @@
     "function": "materials_quality.science.preprocessing:merge_tables",
     "category": "preprocessing",
     "requirement": "多表合并",
-    "table_input": false,
+    "table_input": true,
     "data_input": false,
     "tables_input": true,
     "default_config": {
@@ -2877,10 +2877,11 @@
         "choices": [
           "join",
           "append",
-          "asof"
+          "asof",
+          "specimen"
         ],
         "advanced": false,
-        "info": "连接至少两张表到 input_tables；join 按键关联，append 逐行追加，asof 为恰好两表的有容差近邻关联。",
+        "info": "specimen 按样品主表逐一关联仪器特征；join 按键关联，append 逐行追加，asof 为恰好两表的有容差近邻关联。",
         "when": {},
         "required": false
       },
@@ -2893,15 +2894,49 @@
         ],
         "choices": [],
         "advanced": false,
-        "info": "join 可填写多个键；asof 必须恰好一列，坐标不得缺失且两表均须按坐标递增排序。",
+        "info": "specimen 可填写多列共同标识一个样品，各表须使用同名、同类型的文本或整数键。join 可填写多个键；asof 必须恰好一列，坐标不得缺失且两表均须按坐标递增排序。",
         "when": {
           "method": [
             "join",
-            "asof"
+            "asof",
+            "specimen"
           ]
         },
         "required": true,
         "converter": "column_or_list"
+      },
+      {
+        "path": "unmatched",
+        "label": "未匹配样品的处理",
+        "kind": "choice",
+        "default": "report",
+        "choices": [
+          "report",
+          "error"
+        ],
+        "advanced": false,
+        "info": "report 保留全部主表样品并报告缺失特征、主表外的特征；error 要求各表完整覆盖主表。",
+        "when": {
+          "method": [
+            "specimen"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "allow_undeclared_features",
+        "label": "确认无声明的输入是样品特征表",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "仅在已核对导入表每个样品至多一行，且每列特征的测量条件明确时开启。重复测量须在上游按明确的样品和测量条件处理。",
+        "when": {
+          "method": [
+            "specimen"
+          ]
+        },
+        "required": false
       },
       {
         "path": "how",
@@ -3055,16 +3090,19 @@
     "form_fields": [
       {
         "path": "method",
-        "label": "归一化方式",
+        "label": "归一化或校准方式",
         "kind": "choice",
         "default": "minmax",
         "choices": [
           "minmax",
           "zscore",
-          "robust"
+          "robust",
+          "blank_subtract",
+          "reference_ratio",
+          "linear_calibration"
         ],
         "advanced": false,
-        "info": "minmax 按极差，zscore 按总体标准差 ddof=0，robust 按中位数与四分位距；常量列映射为零并提示。",
+        "info": "minmax 按极差，zscore 按总体标准差 ddof=0，robust 按中位数与四分位距；blank_subtract 扣空白，reference_ratio 按参考归一化，linear_calibration 拟合标准对。",
         "when": {},
         "required": false
       },
@@ -3076,17 +3114,219 @@
         "choices": [],
         "advanced": false,
         "info": "填写表中实际列名，可手填自定义名称；留空处理全部列，数值方法请明确选取数值列。",
-        "when": {},
+        "when": {
+          "method": [
+            "minmax",
+            "zscore",
+            "robust"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "calibration_signal",
+        "label": "原始信号列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写原表中保留的测量信号列。",
+        "when": {
+          "method": [
+            "blank_subtract",
+            "reference_ratio",
+            "linear_calibration"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "calibration_input_unit",
+        "label": "原始信号和参考的单位",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "标准信号、空白、参考必须使用同一单位。",
+        "when": {
+          "method": [
+            "blank_subtract",
+            "reference_ratio",
+            "linear_calibration"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "calibration_output",
+        "label": "校准后新列名",
+        "kind": "str",
+        "default": "corrected",
+        "choices": [],
+        "advanced": false,
+        "info": "写入未使用的列名，保留原始读数。",
+        "when": {
+          "method": [
+            "blank_subtract",
+            "reference_ratio",
+            "linear_calibration"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "calibration_source",
+        "label": "校准来源或标准编号",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "记录标准表、证书编号或空白测量的来源。",
+        "when": {
+          "method": [
+            "blank_subtract",
+            "reference_ratio",
+            "linear_calibration"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "calibration_blank",
+        "label": "空白值",
+        "kind": "float",
+        "default": 0.0,
+        "choices": [],
+        "advanced": false,
+        "info": "按信号单位填写；选择空白列时采用逐行空白。",
+        "when": {
+          "method": [
+            "blank_subtract",
+            "reference_ratio"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "calibration_blank_column",
+        "label": "同一行的空白列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选。填写后用对应行的空白值。",
+        "when": {
+          "method": [
+            "blank_subtract",
+            "reference_ratio"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "calibration_reference",
+        "label": "参考值",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写固定参考值，或选择对应参考列。",
+        "when": {
+          "method": [
+            "reference_ratio"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "calibration_reference_column",
+        "label": "同一行的参考列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选。填写后用对应行的参考值。",
+        "when": {
+          "method": [
+            "reference_ratio"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "calibration_output_unit",
+        "label": "已知标准值与校准结果的单位",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写已知标准的实际单位，例如 MPa。",
+        "when": {
+          "method": [
+            "linear_calibration"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "calibration_standards",
+        "label": "线性标定的标准对",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "至少填三种不同的标准信号及相应已知值。默认拒绝标定范围外的样品。",
+        "when": {
+          "method": [
+            "linear_calibration"
+          ]
+        },
+        "required": true,
+        "converter": "pairs",
+        "pair_columns": [
+          "signal",
+          "value"
+        ],
+        "table_schema": [
+          {
+            "name": "signal",
+            "display_name": "标准信号",
+            "type": "float",
+            "description": "标准信号",
+            "edit_mode": "inline"
+          },
+          {
+            "name": "value",
+            "display_name": "已知值",
+            "type": "float",
+            "description": "已知值",
+            "edit_mode": "inline"
+          }
+        ]
+      },
+      {
+        "path": "calibration_allow_extrapolation",
+        "label": "允许超出标定范围",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": true,
+        "info": "仅在有依据时勾选；报告会标出外推行数。",
+        "when": {
+          "method": [
+            "linear_calibration"
+          ]
+        },
         "required": false
       },
       {
         "path": "group_by",
-        "label": "独立归一化分组列",
+        "label": "归一化分组 / 校准重复测量分组",
         "kind": "list",
         "default": null,
         "choices": [],
         "advanced": false,
-        "info": "选择 curve_id、sample_id 或实验组列；每组分别拟合中心/尺度并保留参数。留空按全表归一化。",
+        "info": "归一化按组拟合，留空按全表。校准时仅填写同一样品、同一条件的重复测量分组；留空则不计算重复测量波动。",
         "when": {},
         "required": false
       }

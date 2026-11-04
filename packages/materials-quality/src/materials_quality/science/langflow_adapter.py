@@ -276,12 +276,15 @@ def _redact(value):
     return value
 
 
-def _frame_value(table):
+def _frame_value(table, *, include_source=False):
     if table is None:
         return None
     if not isinstance(table, pd.DataFrame):
         raise ValueError("Connect a DataFrame output to the table input")
-    return {"table_sha256": table_fingerprint(table), "contract_sha256": contract_identity(table)}
+    value = {"table_sha256": table_fingerprint(table), "contract_sha256": contract_identity(table)}
+    if include_source:
+        value.update({name: table.attrs.get(name) for name in ("source_name", "source_sha256")})
+    return value
 
 
 def _digest(value):
@@ -454,14 +457,15 @@ def _execute_single(component, key, config_override=None):
         max_store_entries=config.get("max_store_entries", 100_000),
         max_store_bytes=config.get("max_file_bytes", 1024**3),
     )
+    include_source = key == "preprocess.merge"
     signature = _digest(
         [
             key,
             config,
             upstream,
             data,
-            _frame_value(table),
-            [_frame_value(t) for t in tables],
+            _frame_value(table, include_source=include_source),
+            [_frame_value(t, include_source=include_source) for t in tables],
             reports,
             files,
             ui_task,

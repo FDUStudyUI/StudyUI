@@ -36,8 +36,13 @@ def numeric_matrix(table, columns):
     selected = select_columns(frame, columns)
     if any(frame[c].map(lambda x: isinstance(x, (bool, np.bool_))).any() for c in selected):
         raise ValueError("boolean values require an explicit numeric conversion")
+    if any(getattr(frame[c].dtype, "kind", None) in {"M", "m"} for c in selected):
+        raise ValueError("date and duration values require an explicit numeric conversion")
     try:
-        values = frame[selected].apply(pd.to_numeric, errors="raise").to_numpy(dtype=float)
+        converted = frame[selected].apply(pd.to_numeric, errors="raise")
+        if any(pd.api.types.is_complex_dtype(dtype) for dtype in converted.dtypes):
+            raise ValueError("complex values cannot be converted to real measurement columns")
+        values = converted.to_numpy(dtype=float)
     except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError("selected columns must contain finite numeric values") from exc
     if not np.isfinite(values).all():

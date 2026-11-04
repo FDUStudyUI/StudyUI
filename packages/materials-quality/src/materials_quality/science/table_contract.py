@@ -284,7 +284,7 @@ def propagate_contract(source, target, operation, parameters=None):
     roles = deepcopy(contract["roles"])
     grain, design = contract["granularity"], contract["experimental_design"]
     aggregation = deepcopy(contract["aggregation"])
-    known = {"rename", "filter", "normalize", "units", "identity", "concat"}
+    known = {"rename", "filter", "normalize", "units", "identity", "concat", "calibration"}
     identity_columns = {column for role, column in roles.items() if role not in {"x", "response", "value"}}
     if operation in {"normalize", "units"}:
         selected = (
@@ -300,7 +300,7 @@ def propagate_contract(source, target, operation, parameters=None):
         aggregation.append({"operation": operation, "parameters": parameters})
     elif operation in known:
         rename = parameters.get("rename", {})
-        if operation in {"filter", "rename", "identity", "concat"}:
+        if operation in {"filter", "rename", "identity", "concat", "calibration"}:
             inherited_units = {
                 rename.get(column, column): label
                 for column, label in source.attrs.get("units", {}).items()

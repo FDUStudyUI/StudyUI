@@ -2,6 +2,7 @@
 
 import ast
 from copy import deepcopy
+from numbers import Integral
 
 import numpy as np
 import pandas as pd
@@ -9,6 +10,12 @@ import pandas as pd
 from materials_quality.common import groups, json_value, missing, numeric, select_columns, validate_table
 from materials_quality.common import missing_tokens as normalize_missing_tokens
 from materials_quality.science.contracts import NodeResult, numeric_matrix, require_table
+from materials_quality.science.table_contract import (
+    attach_contract,
+    make_contract,
+    read_contract,
+    restore_contract_units,
+)
 from materials_quality.units import _QUANTITY, _REGISTRY, _unit
 
 
@@ -500,14 +507,202 @@ def reshape_table(table=None, *, config=None, data=None, tables=None):
     return _result(frame, output, method, config, **details)
 
 
+def _specimen_keys(frame, keys, label):
+    columns, types = [], {}
+    for key in select_columns(frame, keys):
+        values = []
+        for position, value in enumerate(frame[key]):
+            if missing(value):
+                raise ValueError(f"{label}: missing specimen key {key!r} at row position {position}")
+            if isinstance(value, str):
+                values.append(value)
+            elif isinstance(value, Integral) and not isinstance(value, (bool, np.bool_)):
+                values.append(int(value))
+            else:
+                raise ValueError(
+                    f"{label}: specimen keys must be exact strings or integers ({key!r}, row {position})"
+                )
+        kinds = {type(value) for value in values}
+        if len(kinds) > 1:
+            raise ValueError(f"{label}: mixed key types in {key!r}; normalize identifiers explicitly")
+        if kinds:
+            types[key] = kinds.pop()
+        columns.append(values)
+    lookup, duplicates = {}, {}
+    for position, identity in enumerate(zip(*columns, strict=True)):
+        if identity in lookup:
+            duplicates[identity] = duplicates.get(identity, 1) + 1
+        else:
+            lookup[identity] = position
+    if duplicates:
+        examples = [
+            {"key": dict(zip(keys, identity, strict=True)), "rows": count}
+            for identity, count in list(duplicates.items())[:10]
+        ]
+        raise ValueError(
+            f"{label}: {len(duplicates)} duplicate specimen keys ({sum(duplicates.values())} rows). "
+            f"Preview: {examples}. "
+            "Resolve repeated measurements at an explicit specimen and measurement-condition grain upstream."
+        )
+    return lookup, types
+
+
+def _specimen_contract(frame, keys, label, *, master=False, allow_undeclared=False):
+    contract = read_contract(frame)
+    if contract is None:
+        if not master and not allow_undeclared:
+            raise ValueError(f"{label}: undeclared feature table. Confirm its specimen grain explicitly")
+        return None, table_units(frame)
+    grain, roles = contract["granularity"], contract["roles"]
+    allowed_grains = {"sample", "experimental_unit"} if master else {"sample", "experimental_unit", "curve"}
+    if grain not in allowed_grains:
+        raise ValueError(f"{label}: incompatible grain {grain!r}. Connect a specimen-level table")
+    if grain == "curve" and "curve_id" not in roles:
+        raise ValueError(f"{label}: curve-grain features require a declared curve_id")
+    if not master and "variable" in roles and frame[roles["variable"]].nunique(dropna=False) > 1:
+        raise ValueError(f"{label}: multiple measured variables in one feature column. Pivot them upstream")
+    identity = roles.get("sample_id", roles.get("experimental_unit"))
+    if grain == "experimental_unit":
+        identity = roles.get("experimental_unit", identity)
+    # Contract roles are scalar. An immediately preceding association can
+    # establish composite identity, while historical records are provenance.
+    last_derivation = contract["derived_from"][-1] if contract["derived_from"] else {}
+    if identity is not None:
+        identity_matches = identity in keys
+    elif last_derivation.get("operation") == "preprocess.merge.specimen":
+        previous_keys = last_derivation.get("keys")
+        identity_matches = (
+            isinstance(previous_keys, list)
+            and len(previous_keys) == len(keys)
+            and all(key in previous_keys for key in keys)
+        )
+    else:
+        identity_matches = master
+    if not identity_matches:
+        raise ValueError(f"{label}: declared specimen identity must be represented by the selected keys")
+    non_specimen_roles = {
+        "curve_id", "technical_replicate", "peak_id", "x", "response", "variable", "value", "pair_id"
+    }
+    for role in sorted(non_specimen_roles & roles.keys()):
+        if roles[role] in keys and roles[role] != identity:
+            raise ValueError(f"{label}: specimen keys cannot include the declared {role} column")
+    return contract, table_units(restore_contract_units(frame, contract))
+
+
+def _associate_specimens(master, features, config, sources):
+    on = config.get("on")
+    if not on:
+        raise ValueError("specimen association requires explicit master specimen keys")
+    keys = select_columns(master, [on] if isinstance(on, str) else on)
+    unmatched = config.get("unmatched", "report")
+    allow_undeclared = config.get("allow_undeclared_features", False)
+    if unmatched not in ("report", "error") or type(allow_undeclared) is not bool:
+        raise ValueError("unmatched must be report or error; allow_undeclared_features must be boolean")
+    if config.get("how", "left") != "left" or config.get("validate", "one_to_one") != "one_to_one":
+        raise ValueError("specimen association requires a one-to-one master-left join")
+    master_lookup, master_types = _specimen_keys(master, keys, "specimen master")
+    contract, units = _specimen_contract(master, keys, "specimen master", master=True)
+    if set(keys) & units.keys():
+        raise ValueError("specimen master keys must be unitless identifiers")
+    parts = [master.reset_index(drop=True)]
+    parts[0].attrs = {}
+    columns = set(master.columns)
+    diagnostics, warnings = [], []
+    for position, feature in enumerate(features, start=1):
+        label = f"feature table {position}"
+        feature_lookup, feature_types = _specimen_keys(feature, keys, label)
+        feature_contract, feature_units = _specimen_contract(
+            feature, keys, label, allow_undeclared=allow_undeclared
+        )
+        for key, kind in feature_types.items():
+            if kind != master_types[key]:
+                raise ValueError(f"{label}: incompatible key types for {key!r}. Normalize keys explicitly")
+        if set(keys) & feature_units.keys():
+            raise ValueError(f"{label}: specimen keys must be unitless identifiers")
+        feature_columns = [column for column in feature if column not in keys]
+        if not feature_columns:
+            raise ValueError(f"{label}: connect a feature table containing at least one non-key column")
+        collisions = columns.intersection(feature_columns)
+        if collisions:
+            table_units(
+                feature,
+                declared={c: units[c] for c in collisions if c in units},
+                data={"units": feature_units},
+            )
+            raise ValueError(f"{label}: duplicate non-key columns {sorted(collisions)}. Rename upstream")
+        columns.update(feature_columns)
+        units.update(feature_units)
+
+        positions = [feature_lookup.get(identity, -1) for identity in master_lookup]
+        missing_keys = [identity for identity in master_lookup if identity not in feature_lookup]
+        orphan_keys = [identity for identity in feature_lookup if identity not in master_lookup]
+        record = {
+            "table_position": position,
+            "input_grain": None if feature_contract is None else feature_contract["granularity"],
+            "identity_evidence": "explicit_user_declaration" if not feature_contract else "table_contract",
+            "cardinality": "one_to_one",
+            "matched_rows": len(master) - len(missing_keys),
+            "missing_master_rows": len(missing_keys),
+            "orphan_feature_rows": len(orphan_keys),
+            "missing_master_preview": [dict(zip(keys, row, strict=True)) for row in missing_keys[:10]],
+            "orphan_feature_preview": [dict(zip(keys, row, strict=True)) for row in orphan_keys[:10]],
+        }
+        diagnostics.append(record)
+        if missing_keys or orphan_keys:
+            warnings.append(
+                f"{label}: {len(missing_keys)} missing master specimens and "
+                f"{len(orphan_keys)} orphan feature rows. "
+                f"Missing preview: {record['missing_master_preview']}. "
+                f"Orphan preview: {record['orphan_feature_preview']}."
+            )
+        part = feature[feature_columns].reset_index(drop=True)
+        part.attrs = {}
+        if missing_keys:
+            for column in part.select_dtypes(include=["integer", "bool"]):
+                part[column] = part[column].convert_dtypes()
+        parts.append(part.reindex(positions).reset_index(drop=True))
+    if unmatched == "error" and warnings:
+        raise ValueError("incomplete specimen association: " + " ".join(warnings))
+
+    output = pd.concat(parts, axis=1)
+    output.index = master.index.copy()
+    output.attrs["units"] = units
+    master_declaration = contract or {}
+    lineage = {
+        "operation": "preprocess.merge.specimen",
+        "keys": keys,
+        "sources": [{key: source[key] for key in ("table_sha256", "contract_sha256")} for source in sources],
+    }
+    output_contract = make_contract(
+        output,
+        granularity=master_declaration.get("granularity", "sample"),
+        roles=master_declaration.get("roles", {"sample_id": keys[0]} if len(keys) == 1 else {}),
+        experimental_design=master_declaration.get("experimental_design"),
+        aggregation=master_declaration.get("aggregation"),
+        derived_from=[*master_declaration.get("derived_from", []), lineage],
+    )
+    return attach_contract(output, output_contract), warnings, {"keys": keys, "features": diagnostics}
+
+
 def merge_tables(table=None, *, config=None, data=None, tables=None):
     config = config or {}
-    if not isinstance(tables, list) or len(tables) < 2:
-        raise ValueError("connect at least two input tables")
-    frames = [require_table(t, min_rows=0) for t in tables]
     method = config.get("method", "join")
+    if method == "specimen":
+        if table is None or not isinstance(tables, list) or not tables:
+            raise ValueError("connect a specimen master and at least one feature table")
+        frames = [require_table(table), *(require_table(t, min_rows=0) for t in tables)]
+    else:
+        if not isinstance(tables, list) or len(tables) < 2:
+            raise ValueError("connect at least two input tables")
+        frames = [require_table(t, min_rows=0) for t in tables]
     details = {}
-    if method == "append":
+    warnings = []
+    if method == "specimen":
+        sources = _merge_sources(frames, include_contracts=True)
+        output, warnings, details["association"] = _associate_specimens(
+            frames[0], frames[1:], config, sources
+        )
+    elif method == "append":
         output = pd.concat(frames, ignore_index=config.get("ignore_index", True), sort=False)
     elif method == "join":
         on = config.get("on")
@@ -586,7 +781,20 @@ def merge_tables(table=None, *, config=None, data=None, tables=None):
             )
         details["matches"] = matches
     else:
-        raise ValueError("merge method must be join, asof or append")
+        raise ValueError("merge method must be join, asof, append or specimen")
+    return _result(
+        frames[0],
+        output,
+        method,
+        config,
+        warnings=warnings,
+        input_table_rows=[len(t) for t in frames],
+        sources=sources if method == "specimen" else _merge_sources(frames),
+        **details,
+    )
+
+
+def _merge_sources(frames, *, include_contracts=False):
     from materials_quality.context import table_fingerprint
 
     sources = [
@@ -600,15 +808,11 @@ def merge_tables(table=None, *, config=None, data=None, tables=None):
         }
         for i, t in enumerate(frames)
     ]
-    return _result(
-        frames[0],
-        output,
-        method,
-        config,
-        input_table_rows=[len(t) for t in frames],
-        sources=sources,
-        **details,
-    )
+    if include_contracts:
+        for source, frame in zip(sources, frames, strict=True):
+            contract = read_contract(frame)
+            source["contract_sha256"] = None if contract is None else contract["contract_sha256"]
+    return sources
 
 
 def _coordinate_distance(first, second):
@@ -621,8 +825,12 @@ def _coordinate_distance(first, second):
 def normalize_table(table=None, *, config=None, data=None, tables=None):
     config = config or {}
     frame = require_table(table)
-    selected = select_columns(frame, config.get("columns"))
     method = config.get("method", "minmax")
+    if method in {"blank_subtract", "reference_ratio", "linear_calibration"}:
+        from .calibration import calibrate_signal
+
+        return calibrate_signal(frame, config, data)
+    selected = select_columns(frame, config.get("columns"))
     if method not in {"minmax", "zscore", "robust"}:
         raise ValueError("normalization method must be minmax, zscore or robust")
     values = numeric_matrix(frame, selected)
@@ -696,7 +904,7 @@ CATALOG = [
         "function": f"materials_quality.science.preprocessing:{function}",
         "category": "preprocessing",
         "requirement": requirement,
-        "table_input": key != "merge",
+        "table_input": True,
         "data_input": key in {"filter", "units", "normalize"},
         "tables_input": key == "merge",
         "default_config": config,
