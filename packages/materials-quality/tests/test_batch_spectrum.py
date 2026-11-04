@@ -184,9 +184,17 @@ def test_group_summary_uses_one_primary_peak_per_curve_and_seeded_bootstrap():
     assert group["n_curves"] == 2
     assert group["peak_position_mean"] == 560
     assert group["peak_position_q50"] == 560
-    assert group["peak_position_ci_low"] >= 550 and group["peak_position_ci_high"] <= 570
+    assert group["peak_position_ci_low"] is None and group["peak_position_ci_high"] is None
+    assert group["peak_position_ci_status"] == "insufficient_sample_size"
     again = analyze_spectra(source, options(bootstrap_samples=50, bootstrap_seed=42))
     assert result.data["group_summary"] == again.data["group_summary"]
+    independent = curves((550, 560, 570, 580, 590, 600))
+    declared = analyze_spectra(
+        independent, options(bootstrap_samples=50, bootstrap_seed=42, bootstrap_independence_confirmed=True)
+    )
+    estimated = declared.data["group_summary"][0]
+    assert estimated["peak_position_ci_status"] == "estimated"
+    assert 550 <= estimated["peak_position_ci_low"] < estimated["peak_position_ci_high"] <= 590
 
 
 def test_native_component_uses_controls_runs_real_sdk_and_serializes_graph():

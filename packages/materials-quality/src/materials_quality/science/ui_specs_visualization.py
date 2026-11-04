@@ -120,7 +120,7 @@ SPECS = {
             default="overlay",
             choices=["line", "overlay", "difference", "band"],
             info="line 不偏移折线；overlay 允许逐条偏移；difference 计算第一条强度列减第二条；"
-            "band 使用长表完整独立曲线计算均值与真实填充带。",
+            "band 使用长表完整曲线计算均值和描述带；ci95 另外要求确认独立试验单位。",
         ),
         field(
             "x",
@@ -152,7 +152,7 @@ SPECS = {
             default="curve_id",
             required=True,
             when={"method": ["band"]},
-            info="一条完整曲线代表一个独立实验重复；每条曲线至少两个递增且不重复的横坐标。",
+            info="每条曲线至少两个递增且不重复的横坐标；曲线 ID 数量本身不能证明试验独立性。",
         ),
         field(
             "group", "曲线分组列（可选）", when={"method": ["band"]}, info="同一曲线 ID 必须始终属于同一组。"
@@ -165,6 +165,25 @@ SPECS = {
             default="iqr",
             when={"method": ["band"]},
             info="IQR 为逐点25%–75%观测分位带；SD 为样本标准差；ci95 为独立曲线均值逐点t区间，非同时置信带。",
+        ),
+        field(
+            "independence_confirmed",
+            "确认每条曲线对应独立试验单位",
+            "bool",
+            default=False,
+            when={"method": ["band"], "band": ["ci95"]},
+            info="须依据试验设计确认；已知同一样品的多条曲线应先按单位汇总，勾选不能覆盖已声明的聚类或配对设计。",
+        ),
+        field(
+            "small_sample_policy",
+            "CI 小样本政策",
+            "choice",
+            default="默认保留描述",
+            choices=["默认保留描述", "明确模型假设推断"],
+            value_map={"默认保留描述": "descriptive", "明确模型假设推断": "model_based"},
+            when={"method": ["band"], "band": ["ci95"]},
+            info="默认 n<3 不绘制 CI，请选 IQR/SD；模型推断允许 n=2，明确假定独立、同分布及逐点正态响应。"
+            "n=1 始终不可估计；n≥3 也不能保证模型适用。",
         ),
         field(
             "grid",

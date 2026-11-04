@@ -7,7 +7,10 @@ from pathlib import Path
 
 from lfx.schema import Data
 
+from materials_quality.common import json_value
+from materials_quality.context import table_fingerprint
 from materials_quality.science.contracts import NodeResult
+from materials_quality.science.table_contract import propagate_contract, read_contract
 
 from .packet import combined_table, make_batch, pack_table, unpack_table, validate_batch
 
@@ -66,7 +69,7 @@ def _rename(frame, mapping):
     renamed.attrs = deepcopy(frame.attrs)
     if "units" in renamed.attrs:
         renamed.attrs["units"] = {mapping.get(k, k): v for k, v in renamed.attrs["units"].items()}
-    return renamed
+    return propagate_contract(frame, renamed, "rename", {"rename": mapping})
 
 
 def _check_source(item, checked):
@@ -119,9 +122,32 @@ def execute_batch(component, key, packet, config, single_executor):
             result_table = result.table
             if original["table"] is None:
                 result_table = _rename(result_table, packet.get("rename_columns", {}))
-            item["table"] = pack_table(_identity(result_table, item)) if result_table is not None else None
-            if result.features is not None:
-                item["features"] = pack_table(_identity(result.features, item))
+            result_table = _identity(result_table, item)
+            features = _identity(result.features, item)
+            report = deepcopy(report)
+            report["table_contract"] = read_contract(result_table)
+            report["features_contract"] = read_contract(features)
+            report["table_fingerprint"] = None if result_table is None else table_fingerprint(result_table)
+            report["features_fingerprint"] = None if features is None else table_fingerprint(features)
+            for frame, preview_field, limit in (
+                (result_table, "table_preview", 100),
+                (features, "features_preview", 20),
+            ):
+                if frame is not None and isinstance(report.get(preview_field), dict):
+                    report[preview_field].update(
+                        json_value(
+                            {
+                                "columns": list(frame.columns),
+                                "units": frame.attrs.get("units", {}),
+                                "records": frame.head(limit).to_dict("records"),
+                            }
+                        )
+                    )
+            if result_table is not None:
+                report["table_summary"] = {"rows": len(result_table), "columns": list(result_table.columns)}
+            item["table"] = pack_table(result_table) if result_table is not None else None
+            if features is not None:
+                item["features"] = pack_table(features)
             if item["report"]:
                 item["history"].append(item["report"])
             item["report"] = deepcopy(report)

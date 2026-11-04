@@ -121,12 +121,18 @@ def test_missing_merge_and_normalize_only_offer_supported_methods():
     assert missing["continuous"]["default"] is False
     assert missing["order_by"]["when"] == {"method": ["ffill", "linear"]}
     merge = fields("preprocess.merge")
-    assert set(merge["method"]["choices"]) == {"join", "append", "asof"}
+    assert set(merge["method"]["choices"]) == {"join", "append", "asof", "specimen"}
     assert merge["on"]["converter"] == "column_or_list"
     assert merge["tolerance"]["converter"] == "number_or_text"
     assert merge["tolerance"]["when"] == {"method": ["asof"]}
     assert merge["validate"]["default"] == "one_to_one"
-    assert set(fields("preprocess.normalize")["method"]["choices"]) == {"minmax", "zscore", "robust"}
+    normalize = fields("preprocess.normalize")
+    assert set(normalize["method"]["choices"]) == {
+        "minmax", "zscore", "robust", "blank_subtract", "reference_ratio", "linear_calibration",
+    }
+    assert normalize["calibration_standards"]["kind"] == "table"
+    assert normalize["calibration_standards"]["converter"] == "pairs"
+    assert normalize["calibration_allow_extrapolation"]["default"] is False
 
 
 def test_ports_distinguish_real_empty_frames_from_absent_tables_and_exact_uploads():
@@ -151,7 +157,30 @@ def test_ports_distinguish_real_empty_frames_from_absent_tables_and_exact_upload
     assert conversion["method_path"] == "target"
     assert conversion["table_methods"] == ["csv", "txt"]
     merge = next(item for item in entries() if item["key"] == "preprocess.merge")
-    assert merge["tables_input"] is True and merge["table_input"] is False
+    assert merge["tables_input"] is True and merge["table_input"] is True
+
+
+def test_specimen_merge_runs_using_native_master_port_and_form_fields():
+    from lfx.schema import DataFrame
+
+    from materials_quality.science.catalog import component_class
+
+    node = component_class("preprocess.merge")().set(
+        input_table=DataFrame({"lot": ["X", "Y"], "id": ["01", "01"]}),
+        input_tables=[DataFrame({"lot": ["Y"], "id": ["01"], "peak": [550]})],
+        cfg_method="specimen",
+        cfg_on=["lot", "id"],
+        cfg_allow_undeclared_features=True,
+        cfg_unmatched="report",
+    )
+    template = node.to_frontend_node()["data"]["node"]["template"]
+    assert template["input_table"]["show"] is True
+    assert template["cfg_unmatched"]["show"] is True
+    assert template["cfg_validate"]["show"] is False
+    assert node.build_table()["peak"].dropna().tolist() == [550]
+    report = node.build_report().data
+    assert report["data"]["association"]["features"][0]["missing_master_rows"] == 1
+    assert report["table_preview"]["total_rows"] == 2
 
 
 @pytest.mark.parametrize(

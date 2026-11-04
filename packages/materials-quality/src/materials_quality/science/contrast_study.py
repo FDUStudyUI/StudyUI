@@ -8,7 +8,10 @@ from scipy import stats
 from statsmodels.stats.multitest import multipletests
 from statsmodels.stats.oneway import anova_oneway
 
+from materials_quality.units import _unit
+
 from .contracts import NodeResult, numeric_matrix, require_table
+from .table_contract import attach_contract, make_contract, read_contract, restore_contract_units
 
 
 def _number(value):
@@ -21,8 +24,41 @@ def contrast_study(table=None, *, config=None, data=None, tables=None):
     group, variable, value, unit, sample = (
         c.get(k, k) for k in ("group", "variable", "value", "experimental_unit", "sample_id")
     )
-    f = require_table(table, [group, variable, value, unit, sample])
+    if len({group, variable, value}) != 3 or {group, variable, value} & {unit, sample}:
+        raise ValueError("measurement/group/variable roles must be distinct from entity identifiers")
+    f = require_table(table, list(dict.fromkeys([group, variable, value, unit, sample])))
+    contract = read_contract(table)
+    if contract is not None:
+        f = restore_contract_units(f, contract)
+        if contract["granularity"] not in {"measurement", "curve", "sample", "experimental_unit"}:
+            raise ValueError("数据契约粒度不支持组间推断；请先提取每曲线/样品特征或声明标量测量表。")
+        declared = contract["roles"].get("experimental_unit")
+        if declared is not None and declared != unit:
+            raise ValueError("experimental_unit conflicts with the incoming table contract")
+        declared_design = contract["experimental_design"]
+        if declared_design["confirmed"] and declared_design["kind"] != c.get("design", "independent"):
+            raise ValueError("design conflicts with the incoming table contract")
+        intended = {
+            "group": group,
+            "variable": variable,
+            "response": value,
+            "value": value,
+            "technical_replicate": sample,
+        }
+        for role, column in intended.items():
+            if role in contract["roles"] and contract["roles"][role] != column:
+                raise ValueError(f"{role} conflicts with the incoming table contract")
+        if "technical_replicate" not in contract["roles"]:
+            if "sample_id" in contract["roles"] and contract["roles"]["sample_id"] != sample:
+                raise ValueError("sample_id conflicts with the incoming table contract")
     numeric_matrix(f, [value])
+    declared_unit = c.get("value_unit")
+    stored_unit = f.attrs.get("units", {}).get(value)
+    if declared_unit is not None:
+        if not isinstance(declared_unit, str) or not declared_unit.strip():
+            raise ValueError("value_unit must be a nonempty unit declaration")
+        if stored_unit is not None and _unit(stored_unit) != _unit(declared_unit):
+            raise ValueError("value_unit conflicts with source units; convert values explicitly first")
     for name in (group, variable, unit, sample):
         if f[name].isna().any() or f[name].astype(str).str.strip().eq("").any():
             raise ValueError(f"{name} must have nonmissing nonempty identifiers")
@@ -38,6 +74,9 @@ def contrast_study(table=None, *, config=None, data=None, tables=None):
     alpha = float(c.get("alpha", 0.05))
     if not 0 < alpha < 1:
         raise ValueError("alpha must lie between 0 and 1")
+    small_sample_policy = c.get("small_sample_policy", "descriptive")
+    if small_sample_policy not in {"descriptive", "model_based"}:
+        raise ValueError("small_sample_policy must be descriptive/model_based")
     # Technical measurements contribute only their unit mean to inference.
     aggregated = (
         f.groupby([variable, group, unit], sort=False, observed=True)[value]
@@ -60,8 +99,6 @@ def contrast_study(table=None, *, config=None, data=None, tables=None):
         arrays = []
         for label in labels:
             v = block.loc[block[group] == label, value].to_numpy(dtype=float)
-            if len(v) < 2:
-                raise ValueError("each group needs at least two independent experimental units")
             arrays.append(v)
             descriptives.append(
                 {
@@ -69,7 +106,7 @@ def contrast_study(table=None, *, config=None, data=None, tables=None):
                     "group": label,
                     "count": len(v),
                     "mean": float(v.mean()),
-                    "std": float(v.std(ddof=1)),
+                    "std": float(v.std(ddof=1)) if len(v) > 1 else None,
                     "median": float(np.median(v)),
                     "q25": float(np.quantile(v, 0.25)),
                     "q75": float(np.quantile(v, 0.75)),
@@ -78,7 +115,17 @@ def contrast_study(table=None, *, config=None, data=None, tables=None):
                 }
             )
         if len(labels) > 2:
-            if strategy == "parametric":
+            if any(len(v) < (3 if small_sample_policy == "descriptive" else 2) for v in arrays):
+                omnibus.append(
+                    {
+                        "variable": var,
+                        "method": "descriptive_only",
+                        "statistic": None,
+                        "p_raw": None,
+                        "status": "descriptive_only_small_n",
+                    }
+                )
+            elif strategy == "parametric":
                 if any(np.var(v, ddof=1) == 0 for v in arrays):
                     omnibus.append(
                         {
@@ -132,6 +179,37 @@ def contrast_study(table=None, *, config=None, data=None, tables=None):
                 a = left.to_numpy(dtype=float)
                 b = right.reindex(left.index).to_numpy(dtype=float)
                 n_pairs = len(a)
+            low_n = min(len(a), len(b)) < 2 or (
+                min(len(a), len(b)) < 3 and small_sample_policy == "descriptive"
+            )
+            if low_n:
+                pairwise.append(
+                    {
+                        "variable": var,
+                        "group_a": labels[i],
+                        "group_b": labels[j],
+                        "method": "descriptive_only",
+                        "n_a": len(a),
+                        "n_b": len(b),
+                        "n_pairs": n_pairs,
+                        "mean_difference": float(a.mean() - b.mean()),
+                        "statistic": None,
+                        "p_raw": None,
+                        "p_adjusted": None,
+                        "reject": None,
+                        "effect_name": None,
+                        "effect_size": None,
+                        "direction": "group_a minus group_b; positive rank effect favors group_a",
+                        "status": "descriptive_only_small_n",
+                        "mean_difference_ci_low": None,
+                        "mean_difference_ci_high": None,
+                        "ci_method": None,
+                        "ci_status": "not_estimated_small_n_policy",
+                        "confidence_level": 1 - alpha,
+                    }
+                )
+                continue
+            if design == "paired":
                 difference = a - b
                 if strategy == "parametric":
                     test = stats.ttest_rel(a, b)
@@ -174,6 +252,18 @@ def contrast_study(table=None, *, config=None, data=None, tables=None):
             if degenerate:
                 statistic = p = None
             status = "completed" if p is not None else "undefined_degenerate_variance_or_all_zero_differences"
+            low, high, ci_method = None, None, None
+            ci_status = "not_estimated_rank_strategy"
+            if strategy == "parametric":
+                ci_status = "not_estimated_degenerate" if degenerate else "estimated"
+                if not degenerate and test is not None:
+                    interval = test.confidence_interval(confidence_level=1 - alpha)
+                    low, high = _number(interval.low), _number(interval.high)
+                    ci_method = method
+                    if low is None or high is None:
+                        ci_status = "not_estimated_nonfinite"
+                    elif min(len(a), len(b)) < 3:
+                        ci_status = "estimated_small_n_model_assumptions"
             pairwise.append(
                 {
                     "variable": var,
@@ -192,6 +282,11 @@ def contrast_study(table=None, *, config=None, data=None, tables=None):
                     "effect_size": effect,
                     "direction": "group_a minus group_b; positive rank effect favors group_a",
                     "status": status,
+                    "mean_difference_ci_low": low,
+                    "mean_difference_ci_high": high,
+                    "ci_method": ci_method,
+                    "ci_status": ci_status,
+                    "confidence_level": 1 - alpha,
                 }
             )
         if len(labels) == 2:
@@ -215,8 +310,8 @@ def contrast_study(table=None, *, config=None, data=None, tables=None):
             pairwise[i]["reject"] = bool(reject)
     if any(row["status"] != "completed" for row in pairwise):
         warnings.append(
-            "Degenerate contrasts have unavailable inferential p-values; "
-            "zero variance effect sizes remain unavailable."
+            "Small-sample policy or degenerate contrasts can withhold inference; "
+            "inspect each comparison status. Zero-variance effect sizes remain unavailable."
         )
     warnings.append(
         "Technical replicates were averaged within variable/group/experimental unit before all inference. "
@@ -226,7 +321,7 @@ def contrast_study(table=None, *, config=None, data=None, tables=None):
         "Omnibus p-values are raw; adjusted pairwise p-values share one family across all supplied "
         "variables and group pairs. No automatic normality pretest is used."
     )
-    return NodeResult(
+    result = NodeResult(
         table=aggregated,
         features=pd.DataFrame(pairwise),
         data={
@@ -241,6 +336,44 @@ def contrast_study(table=None, *, config=None, data=None, tables=None):
             "experimental_unit": unit,
             "aggregation": "arithmetic mean of technical replicates",
             "parameters": c,
+            "small_sample_policy": small_sample_policy,
+            "interval_scope": "individual unadjusted mean-difference intervals; not simultaneous intervals",
         },
         warnings=warnings,
     )
+    known_unit = f.attrs.get("units", {}).get(value) or c.get("value_unit")
+    result.table.attrs = {"units": {value: known_unit} if known_unit else {}}
+    result.features.attrs = {
+        "units": {
+            key: known_unit
+            for key in ("mean_difference", "mean_difference_ci_low", "mean_difference_ci_high")
+        }
+        if known_unit
+        else {}
+    }
+    result.table = attach_contract(
+        result.table,
+        make_contract(
+            result.table,
+            granularity="experimental_unit",
+            roles={"experimental_unit": unit, "group": group, "variable": variable, "response": value},
+            experimental_design={
+                "kind": design,
+                "confirmed": bool(contract and contract["experimental_design"]["confirmed"]),
+            },
+            aggregation=[{"operation": "mean_technical_replicates", "parameters": {"unit": unit}}],
+            derived_from=[{"operation": "contrast_study", "contract_sha256": contract["contract_sha256"]}]
+            if contract
+            else [],
+        ),
+    )
+    result.features = attach_contract(
+        result.features,
+        make_contract(
+            result.features,
+            granularity="group_summary",
+            roles={"variable": "variable", "response": "mean_difference"},
+            aggregation=[{"operation": "declared_group_contrasts", "parameters": {"design": design}}],
+        ),
+    )
+    return result

@@ -22,9 +22,9 @@ def main():
     if component_path.is_dir():
         discovered = build_custom_component_list_from_path(str(component_path))
         count = sum(len(nodes) for nodes in discovered.values())
-        if len(discovered.get("materials_quality", {})) != 8 or count != 60:
+        if len(discovered.get("materials_quality", {})) != 8 or count != 64:
             raise RuntimeError(
-                f"Installed discovery expected 60 nodes including 8 quality nodes; got {count}"
+                f"Installed discovery expected 64 nodes including 8 quality nodes; got {count}"
             )
     elif args.require_wheel:
         raise RuntimeError("Wheel does not contain installable component sources")
@@ -57,7 +57,7 @@ def main():
         raise RuntimeError("Wheel-native science component did not execute")
     print(
         json.dumps(
-            {"wheel": "site-packages" in package.parts, "components": 60, "flows": results},
+            {"wheel": "site-packages" in package.parts, "components": 64, "flows": results},
             ensure_ascii=False,
         )
     )

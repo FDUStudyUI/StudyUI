@@ -1,4 +1,4 @@
-"""Complete-curve spectra analysis and independent-curve group statistics.
+"""Complete-curve spectra analysis and descriptive curve-level group statistics.
 
 No plotting, material identification, automatic physical-unit guesses or pooling
 of raw curves takes place here. Baseline, peak widths and integrations reuse the
@@ -16,13 +16,127 @@ from materials_quality.units import _unit
 from .contracts import NodeResult, require_table
 from .features import FEATURE_COLUMNS, feature_units, features_for
 from .materials import spectra
+from .table_contract import attach_contract, make_contract, read_contract, restore_contract_units
 
 # λ_10 denotes the lowest-energy coupled plasmon mode in Rocchetti et al.,
 # Nano Letters (2023), DOI 10.1021/acs.nanolett.3c01016, Figure 2b.
 # This extractor reports a window-selected spectral candidate, not a confirmed
 # mode assignment or a reproduction of an unreported peak-fitting procedure.
 LAMBDA10_REFERENCE = "https://doi.org/10.1021/acs.nanolett.3c01016"
-SUMMARY_METRICS = ("peak_position", "height", "prominence", "fwhm", "area", "baseline", "lambda10_nm")
+SUMMARY_METRICS = (
+    "peak_position",
+    "height",
+    "prominence",
+    "fwhm",
+    "area",
+    "baseline",
+    "lambda10_nm",
+    "window_candidate_nm",
+)
+ENTITY_ROLES = ("sample_id", "experimental_unit", "pair_id", "technical_replicate")
+
+
+def validate_spectral_contract(table, config):
+    """Validate declared point/identity semantics at every spectral API entry."""
+    contract = read_contract(table)
+    if contract is None:
+        return None
+    if contract["granularity"] != "point":
+        raise ValueError("spectral input contract must declare point-granularity measurements")
+    curve_column = config.get("curve_id", "curve_id")
+    bindings = {
+        "curve_id": curve_column,
+        "x": config.get("x", "x"),
+        "response": config.get("y", "y"),
+        "group": config.get("group", "group" if "group" in table else None),
+    }
+    require_table(table, [column for column in bindings.values() if column is not None])
+    roles = contract["roles"]
+    for role, column in bindings.items():
+        if role in roles and roles[role] != column:
+            raise ValueError(f"input contract role {role} conflicts with configured source column")
+    relationships = {}
+    for column in {roles[role] for role in ENTITY_ROLES if role in roles}:
+        pair = table[list(dict.fromkeys([curve_column, column]))].drop_duplicates()
+        if pair[curve_column].duplicated().any():
+            raise ValueError(
+                "each curve must map to exactly one declared sample/unit/pair/replicate identity"
+            )
+        relationships[column] = pair
+    if config.get("bootstrap_independence_confirmed") is True:
+        if contract["experimental_design"]["kind"] == "paired":
+            raise ValueError("paired design cannot be overridden by independent-curve bootstrap")
+        unit = roles.get("experimental_unit")
+        if unit is not None and relationships[unit][unit].duplicated().any():
+            raise ValueError(
+                "known experimental units contain repeated curves; "
+                "aggregate by unit before independent bootstrap"
+            )
+    return contract
+
+
+def contract_spectral_output(source, frame, grain, roles, source_contract, curve_column="curve_id"):
+    """Preserve declared entity topology across public and native spectral ports.
+
+    Source topology must already pass ``validate_spectral_contract``. Point and
+    peak outputs retain typed entity mappings, design and aggregation history;
+    group summaries retain descriptive semantics. No contract is fabricated for
+    legacy inputs lacking a declaration.
+    """
+    if source_contract is None:
+        return frame
+    frame = frame.copy(deep=True)
+    frame.attrs = deepcopy(frame.attrs)
+    roles = {
+        role: column
+        for role, column in roles.items()
+        if column in frame and (role not in {"curve_id", "group"} or not frame[column].isna().any())
+    }
+    aggregation = deepcopy(source_contract["aggregation"])
+    design = {"kind": "descriptive", "confirmed": False}
+    if grain != "group_summary":
+        source_roles = source_contract["roles"]
+        source = restore_contract_units(source, source_contract)
+        mapping = source.drop_duplicates(curve_column).set_index(curve_column, drop=False)
+        targets = {
+            source_roles[role]: roles[role]
+            for role in ("curve_id", "group")
+            if role in source_roles and role in roles
+        }
+        for role in ENTITY_ROLES:
+            if role not in source_roles:
+                continue
+            column = source_roles[role]
+            if column not in targets:
+                target = column
+                while target in frame.columns:
+                    target = "source_" + target
+                targets[column] = target
+                frame[target] = frame.curve_id.map(mapping[column]).astype(object)
+                if column in source.attrs.get("units", {}):
+                    frame.attrs.setdefault("units", {})[target] = source.attrs["units"][column]
+            roles[role] = targets[column]
+        design = deepcopy(source_contract["experimental_design"])
+    else:
+        aggregation.append({"operation": "curve_level_description"})
+    return attach_contract(
+        frame,
+        make_contract(
+            frame,
+            granularity=grain,
+            roles=roles,
+            experimental_design=design,
+            aggregation=aggregation,
+            derived_from=[
+                *source_contract["derived_from"],
+                {
+                    "operation": "materials.batch_spectra",
+                    "contract_sha256": source_contract["contract_sha256"],
+                },
+            ],
+            units_state={"source": "spectral_analysis", "units": deepcopy(frame.attrs.get("units", {}))},
+        ),
+    )
 
 
 def _identifiers(series, name):
@@ -84,7 +198,7 @@ def _lambda10_settings(config, x_unit):
     return bounds, method, _wavelength_scale(x_unit)
 
 
-def _lambda10_candidate(peaks, x, bounds, method, scale):
+def _lambda10_candidate(peaks, x, bounds, method, scale, source_rows=None):
     if np.any(x <= 0):
         raise ValueError("wavelength coordinates must be positive")
     candidates = [i for i, peak in enumerate(peaks) if bounds[0] <= peak["position"] * scale <= bounds[1]]
@@ -100,15 +214,46 @@ def _lambda10_candidate(peaks, x, bounds, method, scale):
             if candidates
             else None
         )
+    status = (
+        "missing_candidate"
+        if chosen is None
+        else ("ambiguous_candidate" if len(candidates) > 1 else "candidate")
+    )
+    value = float(peaks[chosen]["position"] * scale) if chosen is not None else np.nan
+    candidate_records = [
+        {
+            "peak_index": i,
+            "processed_index": peaks[i]["index"],
+            "source_index": int(source_rows[peaks[i]["index"]])
+            if source_rows is not None
+            else peaks[i]["index"],
+            "position": peaks[i]["position"],
+            "position_nm": float(peaks[i]["position"] * scale),
+            "height": peaks[i]["height"],
+            "prominence": peaks[i]["prominence"],
+            "fwhm": peaks[i]["fwhm"],
+            "selected": i == chosen,
+            "at_window_edge": bool(np.isclose(peaks[i]["position"] * scale, bounds, rtol=0, atol=1e-9).any()),
+        }
+        for i in candidates
+    ]
     return {
-        "lambda10_nm": float(peaks[chosen]["position"] * scale) if chosen is not None else np.nan,
+        "window_candidate_nm": value,
+        "selection_rule": method,
+        "candidate_count": len(candidates),
+        "ambiguous": len(candidates) > 1,
+        "detection_status": status,
+        "window_candidates": candidate_records,
+        "candidate_at_window_edge": any(p["selected"] and p["at_window_edge"] for p in candidate_records),
+        "selection_reason": "largest prominence; ties choose redmost coordinate"
+        if method == "highest_prominence"
+        else "redmost coordinate; ties choose largest prominence",
+        "lambda10_nm": value,
         "lambda10_peak_index": chosen,
         "lambda10_candidate_count": len(candidates),
         "lambda10_ambiguous": len(candidates) > 1,
         "lambda10_method": method,
-        "lambda10_status": "missing_candidate"
-        if chosen is None
-        else ("ambiguous_candidate" if len(candidates) > 1 else "candidate"),
+        "lambda10_status": status,
     }
 
 
@@ -119,29 +264,96 @@ def _group_statistics(summaries, config):
         raise ValueError("bootstrap_samples must be an integer between 0 and 10000")
     if type(seed) is not int or seed < 0:
         raise ValueError("bootstrap_seed must be a nonnegative integer")
+    confirmed = config.get("bootstrap_independence_confirmed", False)
+    if type(confirmed) is not bool:
+        raise ValueError("bootstrap_independence_confirmed must be a JSON boolean")
     rng = np.random.default_rng(seed)
     output = []
     records = pd.DataFrame(summaries)
     for group, frame in records.groupby("group", sort=False, dropna=False, observed=True):
         valid = frame[frame.status == "completed"]
+        detected = (
+            valid["candidate_count"].gt(0)
+            if "candidate_count" in valid
+            else valid.get("has_peak", pd.Series(False, index=valid.index)).eq(True)
+        )
+        ambiguous = (
+            valid["ambiguous"].eq(True) if "ambiguous" in valid else pd.Series(False, index=valid.index)
+        )
         item = {
             "group": None if pd.isna(group) else group,
             "n_curves": len(valid),
             "n_total_curves": len(frame),
             "n_failed": int((frame.status == "failed").sum()),
             "n_skipped": int((frame.status == "skipped").sum()),
-            "statistics_unit": "one selected feature value per independent curve",
+            "n_total": len(frame),
+            "n_eligible": len(valid),
+            "n_detected": int(detected.sum()),
+            "n_ambiguous": int(ambiguous.sum()),
+            "n_no_candidate": int((~detected).sum()),
+            "observed_detection_fraction": float(detected.mean()) if len(valid) else None,
+            "detection_denominator": "eligible completed curves; ambiguous candidates count as detected",
+            "ambiguous_in_descriptive_statistics": True,
+            "candidate_mean_scope": (
+                "conditional description among detected curves, including ambiguous selections"
+            ),
+            "statistics_unit": (
+                "one selected feature value per curve; independence is not inferred from curve count"
+            ),
+            "bootstrap_independence_confirmed": confirmed,
+            "bootstrap_policy": (
+                "default product policy withholds n<3 and degenerate empirical resampling; "
+                "an explicit independence declaration is required"
+            ),
             "bootstrap_samples": count,
             "bootstrap_seed": seed,
         }
         if "lambda10_ambiguous" in valid:
-            item["lambda10_ambiguous_curves"] = int(valid.lambda10_ambiguous.fillna(False).sum())
+            item["lambda10_ambiguous_curves"] = int(valid.lambda10_ambiguous.eq(True).sum())
         for metric in SUMMARY_METRICS:
             if metric not in valid:
+                continue
+            if metric == "window_candidate_nm" and "lambda10_nm" in valid:
+                # Compatibility aliases describe the same estimand and must
+                # share the exact resampling realization, not merely its seed.
+                item.update(
+                    {
+                        key.replace("lambda10_nm_", "window_candidate_nm_", 1): value
+                        for key, value in list(item.items())
+                        if key.startswith("lambda10_nm_")
+                    }
+                )
                 continue
             values = pd.to_numeric(valid[metric], errors="coerce").dropna().to_numpy(dtype=float)
             values = values[np.isfinite(values)]
             item[f"{metric}_n"] = len(values)
+            if count:
+                item[f"{metric}_ci_low"] = item[f"{metric}_ci_high"] = None
+                if len(values) < 3:
+                    ci_status, reason = (
+                        "insufficient_sample_size",
+                        "product policy requires at least three observed selected values; "
+                        "small n remains descriptive",
+                    )
+                elif np.ptp(values) == 0:
+                    ci_status, reason = (
+                        "degenerate_resampling",
+                        "all observed values are identical; "
+                        "empirical resampling cannot estimate population precision",
+                    )
+                elif not confirmed:
+                    ci_status, reason = (
+                        "independence_not_declared",
+                        "curve count does not establish independent experimental units; "
+                        "declare and validate the design first",
+                    )
+                else:
+                    ci_status, reason = (
+                        "estimated",
+                        "percentile empirical bootstrap of explicitly declared "
+                        "independent curve-level values",
+                    )
+                item[f"{metric}_ci_status"], item[f"{metric}_ci_reason"] = ci_status, reason
             if not len(values):
                 continue
             item.update(
@@ -153,13 +365,19 @@ def _group_statistics(summaries, config):
                     f"{metric}_q75": float(np.quantile(values, 0.75)),
                 }
             )
-            if count:
+            if count and ci_status == "estimated":
                 means = np.array(
                     [rng.choice(values, size=len(values), replace=True).mean() for _ in range(count)]
                 )
-                item[f"{metric}_ci_low"], item[f"{metric}_ci_high"] = map(
-                    float, np.quantile(means, [0.025, 0.975])
-                )
+                if np.ptp(means) == 0:
+                    item[f"{metric}_ci_status"] = "degenerate_resampling"
+                    item[f"{metric}_ci_reason"] = (
+                        "empirical bootstrap means are constant at the requested resampling count"
+                    )
+                else:
+                    item[f"{metric}_ci_low"], item[f"{metric}_ci_high"] = map(
+                        float, np.quantile(means, [0.025, 0.975])
+                    )
         output.append(item)
     return output
 
@@ -171,6 +389,14 @@ def analyze_spectra(table, config=None):
     completed curves without peaks). ``curve_summary`` retains every curve and
     selects its primary peak by largest prominence, then lowest coordinate.
     Group statistics use those primary curve records, never individual peaks.
+    Optional ``lambda10_window_nm`` adds canonical ``window_candidate_nm`` and
+    legacy aliases, with ``selection_rule``, candidate counts and detection
+    diagnostics. All completed curves retain effective ``peak_detection``.
+
+    Bootstrap intervals require ``bootstrap_independence_confirmed=True``;
+    this records a caller declaration, never derives independence from IDs or
+    count. The product policy withholds n<3, constant empirical samples and
+    degenerate resampling, retaining None limits and per-metric status/reason.
     """
     config = deepcopy(dict(config or {}))
     curve_column, x_column, y_column = (config.get(k, k) for k in ("curve_id", "x", "y"))
@@ -179,6 +405,9 @@ def analyze_spectra(table, config=None):
     if len(set(needed)) != len(needed):
         raise ValueError("curve_id, group, x and y must name distinct columns")
     frame = require_table(table, needed, min_rows=1)
+    source_contract = validate_spectral_contract(frame, config)
+    if source_contract is not None:
+        frame = restore_contract_units(frame, source_contract)
     _identifiers(frame[curve_column], "curve_id")
     if group_column:
         _identifiers(frame[group_column], "group")
@@ -213,10 +442,19 @@ def analyze_spectra(table, config=None):
             "n_points": len(subset),
             "x_unit": x_unit,
             "intensity_unit": intensity_unit,
+            "detection_status": "not_analyzed",
+            "selection_rule": selection,
+            "candidate_count": None,
+            "ambiguous": False,
         }
         if halted:
             summaries.append(
-                {**summary, "status": "skipped", "error": "earlier curve failed with on_error=stop"}
+                {
+                    **summary,
+                    "status": "skipped",
+                    "detection_status": "skipped",
+                    "error": "earlier curve failed with on_error=stop",
+                }
             )
             continue
         try:
@@ -232,6 +470,9 @@ def analyze_spectra(table, config=None):
                     "n_peaks": len(peaks),
                     "areas": result.data["areas"],
                     "has_peak": bool(peaks),
+                    "peak_detection": result.data["peak_detection"],
+                    "detection_status": "candidate" if peaks else "missing_candidate",
+                    "candidate_count": len(peaks),
                 }
             )
             primary = (
@@ -261,10 +502,20 @@ def analyze_spectra(table, config=None):
                 )
                 summary["reason"] = "no peaks pass the configured prominence and distance"
             if bounds is not None:
-                metrics = _lambda10_candidate(peaks, result.table.x.to_numpy(), bounds, selection, scale)
+                metrics = _lambda10_candidate(
+                    peaks,
+                    result.table.x.to_numpy(),
+                    bounds,
+                    selection,
+                    scale,
+                    result.table.source_row.to_numpy(),
+                )
+                for candidate in metrics["window_candidates"]:
+                    candidate["input_row_position"] = int(row_positions[candidate["source_index"]])
+                    candidate["input_row_index"] = subset.index[candidate["source_index"]]
                 summary.update(metrics)
                 for key, value in metrics.items():
-                    curve_features[key] = value
+                    curve_features[key] = [deepcopy(value) for _ in range(len(curve_features))]
                 curve_features["is_lambda10_candidate"] = [
                     (
                         not pd.isna(row["peak_index"])
@@ -290,6 +541,9 @@ def analyze_spectra(table, config=None):
                 for name in ("peak_position", "fwhm"):
                     if name in curve_features:
                         curve_features[f"{name}_nm"] = curve_features[name]
+            curve_features["peak_detection"] = [
+                deepcopy(result.data["peak_detection"]) for _ in range(len(curve_features))
+            ]
             curve_features.attrs = {}
             features.append(curve_features)
             complete = result.table.copy(deep=True)
@@ -303,7 +557,7 @@ def analyze_spectra(table, config=None):
                     f"curve {identifier!r}: FWHM unavailable without both observed half-height crossings"
                 )
         except (ValueError, TypeError, ArithmeticError) as exc:
-            summary.update({"status": "failed", "error": str(exc)})
+            summary.update({"status": "failed", "detection_status": "failed", "error": str(exc)})
             halted = on_error == "stop"
         summaries.append(summary)
     peak_table = pd.concat(features, ignore_index=True) if features else pd.DataFrame(columns=FEATURE_COLUMNS)
@@ -340,6 +594,29 @@ def analyze_spectra(table, config=None):
             "l2": "dimensionless",
             "area": f"1/{x_unit}",
         }[config.get("normalization", "none")]
+    if source_contract is not None:
+        complete_table = contract_spectral_output(
+            frame,
+            complete_table,
+            "point",
+            {"curve_id": "curve_id", "group": "group", "x": "x", "response": "smoothed"},
+            source_contract,
+            curve_column,
+        )
+        peak_table = contract_spectral_output(
+            frame,
+            peak_table,
+            "peak",
+            {
+                "curve_id": "curve_id",
+                "group": "group",
+                "x": "peak_position",
+                "response": "height",
+                "peak_id": "peak_index",
+            },
+            source_contract,
+            curve_column,
+        )
     counts = {
         "total": len(summaries),
         **{s: sum(r["status"] == s for r in summaries) for s in ("completed", "failed", "skipped")},
@@ -353,8 +630,9 @@ def analyze_spectra(table, config=None):
         "Peak-base areas can overlap; use explicit non-overlapping area_ranges for quantitative integration."
     )
     warnings.append(
-        "Group statistics assume each curve is an independent experimental unit; "
-        "repeated measurements require an appropriate design."
+        "Group summaries describe curve-level selected values, including ambiguous candidates. "
+        "Curve count does not establish independence; "
+        "bootstrap inference requires an explicitly confirmed design."
     )
     group_summary = _group_statistics(summaries, config)
     group_columns = set(pd.DataFrame(group_summary).columns)
@@ -381,6 +659,26 @@ def analyze_spectra(table, config=None):
         "lambda10_selection": selection,
         "lambda10_reference": LAMBDA10_REFERENCE,
         "primary_peak_selection": "largest prominence; ties choose lowest coordinate",
+        "candidate_alias_schema": (
+            "studyui-window-candidate/1; lambda10_* are compatibility aliases, not confirmed mode assignments"
+        ),
+        "peak_detection_settings": {
+            key: config[key]
+            for key in (
+                "prominence_mode",
+                "prominence",
+                "noise_window",
+                "noise_multiplier",
+                "peak_distance",
+                "peak_distance_x",
+            )
+            if key in config
+        },
+        "peak_detection": [
+            {"curve_id": row["curve_id"], **row["peak_detection"]}
+            for row in summaries
+            if "peak_detection" in row
+        ],
         "area_signal": "baseline-corrected smoothed signal before normalization",
         "parameters": config,
     }

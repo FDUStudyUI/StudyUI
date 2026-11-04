@@ -28,6 +28,7 @@ def test_analytic_bands_and_complete_curve_count(tmp_path, band):
             "curve_id": "curve_id",
             "group": "group",
             "band": band,
+            **({"independence_confirmed": True} if band == "ci95" else {}),
             "data_kind": "synthetic",
             "output_dir": str(tmp_path),
         },
@@ -60,6 +61,7 @@ def test_ci_rejects_single_curve_and_cross_group_identity(tmp_path):
         "y": "y",
         "curve_id": "curve_id",
         "band": "ci95",
+        "independence_confirmed": True,
         "group": "group",
         "output_dir": str(tmp_path),
     }

@@ -6,12 +6,13 @@ from copy import deepcopy
 
 import pandas as pd
 from lfx.custom import Component
-from lfx.io import DataFrameInput, DropdownInput, FloatInput, Output
+from lfx.io import DataFrameInput, DropdownInput, FloatInput, Output, StrInput
 from lfx.schema import Data, DataFrame, Message
 
 from materials_quality.batch.native import native_frame, prepare_form
 from materials_quality.context import table_fingerprint
 from materials_quality.science.contrast_study import contrast_study
+from materials_quality.science.table_contract import contract_identity, read_contract
 
 
 class ContrastStudy(Component):
@@ -50,10 +51,18 @@ class ContrastStudy(Component):
                 name="correction", display_name="两两比较多重校正", options=["holm", "fdr_bh"], value="holm"
             ),
             FloatInput(name="alpha", display_name="显著性 α", value=0.05),
+            StrInput(name="value_unit", display_name="测量值单位（可从上游继承）", value=""),
+            DropdownInput(
+                name="small_sample_policy",
+                display_name="小样本处理",
+                options=["默认仅描述", "显式模型推断（需检查假设）"],
+                value="默认仅描述",
+                info="每组独立单位少于3默认只描述；显式模型模式允许n=2并记录假设。",
+            ),
         ]
     )
     outputs = [
-        Output(name=n, display_name=d, method=m, group_outputs=True)
+        Output(name=n, display_name=d, method=m, group_outputs=True, cache=False)
         for n, d, m in [
             ("features", "两两检验与效应量", "build_features"),
             ("descriptives", "各组实验单位描述统计", "build_descriptives"),
@@ -69,12 +78,23 @@ class ContrastStudy(Component):
             for key in ("group", "variable", "value", "sample_id", "experimental_unit")
         }
         c.update(design=self.design, strategy=self.strategy, correction=self.correction, alpha=self.alpha)
+        c["small_sample_policy"] = (
+            "model_based"
+            if self.small_sample_policy in {"model_based", "显式模型推断（需检查假设）"}
+            else "descriptive"
+        )
+        if self.value_unit:
+            c["value_unit"] = self.value_unit
         return c
 
     def _result(self):
         c = self._config()
         signature = hashlib.sha256(
-            (table_fingerprint(self.input_table) + json.dumps(c, sort_keys=True)).encode()
+            (
+                table_fingerprint(self.input_table)
+                + str(contract_identity(self.input_table))
+                + json.dumps(c, sort_keys=True)
+            ).encode()
         ).hexdigest()
         cached = self._ctx.get("contrast_study")
         if cached is None or cached[0] != signature:
@@ -103,6 +123,18 @@ class ContrastStudy(Component):
                 "data": deepcopy(r.data),
                 "warnings": list(r.warnings),
                 "artifacts": [],
+                "table_contract": read_contract(r.table),
+                "features_contract": read_contract(r.features),
+                "table_fingerprint": table_fingerprint(r.table),
+                "features_fingerprint": table_fingerprint(r.features),
+                "table_preview": {
+                    "columns": list(r.table.columns),
+                    "units": deepcopy(r.table.attrs.get("units", {})),
+                },
+                "features_preview": {
+                    "columns": list(r.features.columns),
+                    "units": deepcopy(r.features.attrs.get("units", {})),
+                },
                 "provenance": {
                     "input_sha256": signature,
                     "parameters": self._config(),

@@ -72,10 +72,42 @@ def _curve_fields():
             info="非负整数；启用平滑时须小于窗口点数。使用 Savitzky–Golay 方法。",
         ),
         field(
+            "prominence_mode",
+            "寻峰阈值策略",
+            "choice",
+            default="兼容自动",
+            choices=["兼容自动", "显式阈值", "旧版全谱相对阈值", "噪声参考"],
+            value_map={
+                "兼容自动": "legacy_auto",
+                "显式阈值": "absolute",
+                "旧版全谱相对阈值": "legacy_relative",
+                "噪声参考": "noise_reference",
+            },
+            omit_values=["legacy_auto"],
+            info="兼容自动：留空突出度沿用全谱极差 5%，手填沿用显式阈值；噪声参考须提供可信背景窗口。",
+        ),
+        field(
             "prominence",
             "寻峰突出度",
             "float",
+            when={"prominence_mode": ["legacy_auto", "absolute"]},
             info="留空按信号极差的 5% 自适应；手填须大于 0，单位与基线校正后的信号相同。",
+        ),
+        field(
+            "noise_window",
+            "噪声参考窗口（原始坐标单位）",
+            "range",
+            required=True,
+            when={"prominence_mode": ["noise_reference"]},
+            info="明确填写背景区间；至少五个实测点且有正 MAD。不自动猜测或避开强峰，需复核污染和漂移。",
+        ),
+        field(
+            "noise_multiplier",
+            "噪声 MAD 倍数",
+            "float",
+            default=3.0,
+            when={"prominence_mode": ["noise_reference"]},
+            info="正数；阈值为背景窗口正态缩放 MAD 的指定倍数；不自动校准误报或修正相关噪声。",
         ),
         field(
             "peak_distance",
@@ -83,6 +115,12 @@ def _curve_fields():
             "int",
             default=1,
             info="整数且至少为 1；这是采样点数，不是横坐标单位。",
+        ),
+        field(
+            "peak_distance_x",
+            "最小峰间距（原始坐标单位）",
+            "float",
+            info="可选正数；非均匀采样直接在坐标域抑制过近峰，不重采样；与采样点数约束同时生效。",
         ),
     ]
 
