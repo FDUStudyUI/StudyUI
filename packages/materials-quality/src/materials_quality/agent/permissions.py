@@ -24,6 +24,7 @@ PRESETS = {
 }
 
 READ_ACTIONS = {
+    "data.inspect",
     "literature.search",
     "skill.list",
     "skill.read",

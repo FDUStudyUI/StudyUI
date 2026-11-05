@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+import re
+from urllib.parse import quote
 
 import requests
 
@@ -117,9 +119,24 @@ def _europe_pmc(query, limit):
 def _datacite(query, limit):
     import json
 
-    body = json.loads(_get("https://api.datacite.org/dois", {"query": query, "page[size]": limit}))
+    # A Zenodo record URL/identifier is not a free-text title. Resolve its
+    # DOI directly against the fixed DataCite API instead of searching the
+    # complete natural-language sentence.
+    match = re.search(
+        r"(?:10\.5281/zenodo\.|zenodo\.org/(?:records|record)/|zenodo\s+(?:record\s+)?)(\d+)",
+        query,
+        re.IGNORECASE,
+    )
+    if match:
+        doi = "10.5281/zenodo." + match.group(1)
+        body = json.loads(_get("https://api.datacite.org/dois/" + quote(doi, safe=""), {}))
+        data = body.get("data")
+        records = [data] if isinstance(data, dict) else []
+    else:
+        body = json.loads(_get("https://api.datacite.org/dois", {"query": query, "page[size]": limit}))
+        records = body.get("data", [])
     out = []
-    for item in body.get("data", []):
+    for item in records:
         attrs = item.get("attributes", {})
         title = next((x.get("title") for x in attrs.get("titles", []) if x.get("title")), None)
         out.append(
@@ -131,6 +148,12 @@ def _datacite(query, limit):
                 "venue": attrs.get("publisher"),
                 "url": attrs.get("url"),
                 "provider": "DataCite",
+                "description": re.sub(r"<[^>]+>", " ", next((x.get("description", "") for x in attrs.get("descriptions", []) if x.get("description")), ""))[:1600],
+                "related_identifiers": [
+                    {"identifier": row.get("relatedIdentifier"), "type": row.get("relatedIdentifierType"), "relation": row.get("relationType")}
+                    for row in attrs.get("relatedIdentifiers", [])[:10]
+                    if isinstance(row, dict)
+                ],
             }
         )
     return out

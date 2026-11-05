@@ -81,7 +81,7 @@ Linux/macOS 将最后两行替换为 `.venv/bin/python -m pip ...` 和 `.venv/bi
 
 更详细的运行方式、模型设置、权限与故障排除见[启动说明](docs/demo-launcher.md)和[Agent Harness 说明](docs/agent-harness.md)。材料节点目录、实验输入约定与示例见[组件包说明](packages/materials-quality/README.md)。
 
-五组公开原始数据的实际 Agent 建流、运行结果与局限见[原始数据实验验收记录](docs/raw-data-agent-experiments.md)。
+五组公开数据的 Agent 自主建流结果、验收方法和局限见[自主建流复测记录](docs/agent-autonomy-validation.md)；此前含人工引导的结果保留为[历史输入记录](docs/raw-data-agent-experiments.md)。
 
 ## 仓库与本机数据
 

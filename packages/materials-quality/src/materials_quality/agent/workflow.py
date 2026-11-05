@@ -185,7 +185,13 @@ def component_catalog_summary(catalog, query="", limit=40):
     """Return only project science components and basic data-import components."""
     query = str(query or "").casefold().strip()
     limit = max(1, min(int(limit), 80))
-    query_tokens = [token for token in re.findall(r"[a-z0-9_]+|[\u4e00-\u9fff]+", query) if len(token) > 1]
+    query_tokens = []
+    for token in re.findall(r"[a-z0-9_]+|[\u4e00-\u9fff]+", query):
+        if len(token) > 1:
+            query_tokens.append(token)
+        if len(token) > 2 and all("\u4e00" <= char <= "\u9fff" for char in token):
+            query_tokens.extend(token[index:index + 2] for index in range(min(len(token) - 1, 20)))
+    query_tokens = list(dict.fromkeys(query_tokens))[:40]
     groups = {
         "materials_quality",
         "materials_sources",
@@ -220,7 +226,9 @@ def component_catalog_summary(catalog, query="", limit=40):
             fields = component["template"]
             field_rows = []
             for field_name, field in fields.items():
-                if field_name == "code" or not isinstance(field, dict) or field.get("show", True) is False:
+                if field_name in {"code", "_type", "config_json"} or not isinstance(field, dict):
+                    continue
+                if field.get("show", True) is False and not field_name.startswith("cfg_"):
                     continue
                 row = {
                     "name": field_name,
@@ -230,6 +238,18 @@ def component_catalog_summary(catalog, query="", limit=40):
                 }
                 if field.get("list") is True:
                     row["is_list"] = True
+                if isinstance(field.get("table_schema"), list):
+                    row["table_schema"] = [
+                        {key: column[key] for key in ("name", "type", "required", "options") if key in column}
+                        for column in field["table_schema"][:16]
+                        if isinstance(column, dict)
+                    ]
+                if isinstance(field.get("input_types"), list) and field["input_types"]:
+                    row["input_types"] = field["input_types"][:8]
+                if field.get("show", True) is False:
+                    row["conditional"] = True
+                if isinstance(field.get("info"), str) and field["info"].strip():
+                    row["info"] = field["info"][:180]
                 if "options" in field and isinstance(field["options"], list):
                     row["options"] = [str(option)[:80] for option in field["options"][:12]]
                 if (
@@ -252,7 +272,7 @@ def component_catalog_summary(catalog, query="", limit=40):
             ]
             haystack = " ".join(
                 [category, type_name, str(name), description, search_aliases.get(type_name, "")]
-                + [field["name"] + " " + field["display_name"] for field in field_rows]
+                + [field["name"] + " " + field["display_name"] + " " + field.get("info", "") for field in field_rows]
             ).casefold()
             tokens_found = sum(token in haystack for token in query_tokens)
             if query and not tokens_found and query not in haystack:

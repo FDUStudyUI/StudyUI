@@ -54,6 +54,24 @@ def test_project_permission_presets_and_script_gate(tmp_path):
     )["allowed"]
 
 
+def test_report_artifact_requires_intent_and_obeys_project_permission(tmp_path):
+    from materials_quality.agent.harness import StudyUIAgent
+
+    agent = StudyUIAgent(tmp_path / "report.sqlite3", model=object())
+    project = agent.store.create_project("reports")
+    session = agent.new_session(project_id=project)
+    args = {"title": "Experiment", "content": "# Experiment\n\nMeasured result and limitations."}
+    assert agent._authorize_tool(session, "write_research_report", args, "请生成实验报告")["allowed"]
+    result = agent._dispatch(session, "write_research_report", args, "请生成实验报告")
+    artifact = result["artifact"]
+    assert artifact["sha256"] == hashlib.sha256(args["content"].encode()).hexdigest()
+    assert agent.store.get_artifact(artifact["id"], session)["project_id"] == project
+    with pytest.raises(PermissionError):
+        agent._dispatch(session, "write_research_report", args, "不要生成报告")
+    agent.permissions.set_preset(project, "per_action")
+    assert agent._authorize_tool(session, "write_research_report", args, "请生成实验报告")["requires_approval"]
+
+
 @pytest.mark.parametrize(
     "message",
     [
@@ -393,6 +411,24 @@ def test_generated_artifacts_are_copied_hashed_and_session_scoped(tmp_path):
     assert agent.store.get_artifact(item["id"], "another-session") is None
 
 
+def test_import_source_is_not_registered_as_generated_artifact(tmp_path):
+    from materials_quality.agent.harness import StudyUIAgent
+
+    directory = tmp_path / "studyui-run"
+    directory.mkdir()
+    raw = directory / "raw.csv"
+    output = directory / "report.html"
+    raw.write_text("x\n1\n", encoding="utf-8")
+    output.write_text("report", encoding="utf-8")
+    payload = {"outputs": [{"outputs": [{"name": "artifacts", "data": [{"path": str(raw)}, {"path": str(output)}]}]}]}
+    flow = {"data": {"nodes": [{"data": {"type": "ScienceIoTableImport", "node": {"template": {"cfg_path": {"value": str(raw)}}}}}]}}
+    agent = StudyUIAgent(tmp_path / "agent.sqlite3", model=object())
+    project = agent.store.create_project("test")
+    session = agent.new_session(project_id=project)
+    artifacts = agent._store_generated_artifacts(payload, session, flow=flow)
+    assert [item["name"] for item in artifacts] == ["report.html"]
+
+
 def test_lfx_debug_outputs_summarize_tables_and_collect_only_declared_artifacts(tmp_path):
     from materials_quality.agent.harness import _artifact_candidates, _compact_run_result
 
@@ -639,7 +675,7 @@ def test_successful_tool_calls_are_written_to_the_audit_log(tmp_path):
 
 
 def test_component_catalog_queries_are_cached_and_bounded_per_turn(tmp_path):
-    from materials_quality.agent.harness import StudyUIAgent
+    from materials_quality.agent.harness import MAX_COMPONENT_SEARCHES_PER_TURN, StudyUIAgent
 
     class FakeWorkflows:
         catalog_calls = 0
@@ -672,12 +708,12 @@ def test_component_catalog_queries_are_cached_and_bounded_per_turn(tmp_path):
         assert first["components"][0]["type"] == "ScienceMaterialsXrd"
         assert cached["cached"] is True
 
-        for query in ("one", "two", "three"):
+        for query in (f"other-{index}" for index in range(MAX_COMPONENT_SEARCHES_PER_TURN - 1)):
             agent._dispatch(session_id, "list_components", {"query": query, "limit": 5}, "")
         exhausted = agent._dispatch(session_id, "list_components", {"query": "four", "limit": 5}, "")
         assert exhausted["search_budget_reached"] is True
         assert "components" not in exhausted
-        assert workflows.catalog_calls == 4
+        assert workflows.catalog_calls == MAX_COMPONENT_SEARCHES_PER_TURN
     finally:
         del agent._turn_state.value
 
@@ -732,6 +768,7 @@ def test_component_search_ranks_exact_fields_and_keeps_tool_json_valid(tmp_path)
                     "template": {
                         "cfg_x": {"type": "str", "display_name": "X"},
                         "cfg_columns": {"type": "str", "list": True, "display_name": "Y series"},
+                        "cfg_conditions": {"type": "table", "display_name": "Conditions", "table_schema": [{"name": "column", "type": "str"}, {"name": "op", "type": "str"}]},
                     },
                     "outputs": [{"name": "artifacts", "types": ["File"]}],
                 },
@@ -748,6 +785,7 @@ def test_component_search_ranks_exact_fields_and_keeps_tool_json_valid(tmp_path)
     )
     assert plots[0]["type"] == "ScienceVizSpectra"
     assert next(field for field in plots[0]["inputs"] if field["name"] == "cfg_columns")["is_list"] is True
+    assert next(field for field in plots[0]["inputs"] if field["name"] == "cfg_conditions")["table_schema"][1]["name"] == "op"
 
 
 def test_oversized_tool_result_is_valid_json():
@@ -772,6 +810,54 @@ def test_missing_report_preserves_per_column_counts_without_rows():
     assert "rows" not in result["metrics"]
     assert result["provenance"]["source"]["source_name"] == "raw.csv"
     assert "private" not in str(result)
+
+
+def test_large_workflow_inspection_preserves_graph_instead_of_generic_truncation():
+    import json
+    from materials_quality.agent.harness import _bounded_tool_content
+
+    summary = {
+        "id": "flow", "name": "large", "node_count": 8, "edge_count": 1,
+        "nodes": [{"id": f"node-{i}", "component": "ScienceIoTableImport", "config": {"long_setting": "x" * 2000}, "inputs": [], "outputs": [{"name": "table"}]} for i in range(8)],
+        "edges": [{"source": "node-0", "target": "node-1", "sourceHandle": json.dumps({"id": "node-0", "name": "table"}), "targetHandle": json.dumps({"id": "node-1", "fieldName": "input_table"})}],
+    }
+    result = json.loads(_bounded_tool_content("inspect_workflow", summary))
+    assert len(result["nodes"]) == 8
+    assert result["edges"][0]["output"] == "table"
+    assert result["edges"][0]["input"] == "input_table"
+    assert "result_keys" not in result
+
+
+def test_known_aggregate_outputs_are_visible_while_raw_measurements_remain_hidden():
+    import json
+    from materials_quality.agent.harness import _compact_run_result
+
+    payload = {"outputs": [{"outputs": [
+        {"component_id": "raw", "results": {"table": [{"signal": "raw-secret", "x": 1.234}]}},
+        {"component_id": "stats", "results": {"table": {"data": [{"group": "A", "signal_mean": 2.5, "signal_count": 10}, {"group": "B", "signal_mean": 3.5, "signal_count": 12}]}}},
+    ]}]}
+    flow = {"data": {"nodes": [{"id": "raw", "data": {"type": "ScienceIoTableImport"}}, {"id": "stats", "data": {"type": "ScienceStatsGrouped"}}]}}
+    result = _compact_run_result(payload, flow=flow)
+    rendered = json.dumps(result)
+    assert "raw-secret" not in rendered and "1.234" not in rendered
+    derived = result["outputs"][1]["outputs"]["table"]
+    assert derived["aggregate_preview"][0]["signal_mean"] == 2.5
+    assert derived["aggregate_ranges"]["signal_count"] == {"min": 10, "max": 12}
+
+
+def test_singleton_group_mean_is_not_exposed_as_aggregate():
+    import json
+    from materials_quality.agent.harness import _compact_run_result
+
+    payload = {"outputs": [{"outputs": [{"component_id": "stats", "results": {"table": [
+        {"group": "private-id", "value_count": 1, "value_mean": 713.42},
+        {"group": "B", "value_count": 2, "value_mean": 10.0},
+    ]}}]}]}
+    flow = {"data": {"nodes": [{"id": "stats", "data": {"type": "ScienceStatsGrouped"}}]}}
+    result = _compact_run_result(payload, flow=flow)
+    assert "713.42" not in json.dumps(result)
+    assert "private-id" not in json.dumps(result)
+    assert result["outputs"][0]["outputs"]["table"]["aggregate_suppressed_rows"] == 1
 
 
 def test_workflow_summary_and_tool_reply_omit_component_source_code():

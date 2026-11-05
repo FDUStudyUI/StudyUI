@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -76,17 +77,27 @@ class ChatModel:
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
             headers=headers,
         )
-        try:
-            with build_opener(_NoRedirect).open(request, timeout=self.timeout) as response:
-                raw = response.read(2_000_001)
-            if len(raw) > 2_000_000:
-                raise ValueError("Model response exceeded 2 MB")
-            body = strict_json(raw.decode("utf-8"))
-            message = body["choices"][0]["message"]
-        except HTTPError as exc:
-            raise ValueError(f"Model service returned HTTP {exc.code}") from None
-        except (URLError, OSError, UnicodeError, KeyError, IndexError, TypeError) as exc:
-            raise ValueError(f"Model request failed: {type(exc).__name__}") from exc
+        for attempt in range(2):
+            try:
+                with build_opener(_NoRedirect).open(request, timeout=self.timeout) as response:
+                    raw = response.read(2_000_001)
+                if len(raw) > 2_000_000:
+                    raise ValueError("Model response exceeded 2 MB")
+                body = strict_json(raw.decode("utf-8"))
+                message = body["choices"][0]["message"]
+                break
+            except HTTPError as exc:
+                if attempt == 0 and (exc.code == 429 or 500 <= exc.code < 600):
+                    time.sleep(0.4)
+                    continue
+                raise ValueError(f"Model service returned HTTP {exc.code}") from None
+            except (URLError, OSError) as exc:
+                if attempt == 0:
+                    time.sleep(0.4)
+                    continue
+                raise ValueError(f"Model request failed: {type(exc).__name__}") from exc
+            except (UnicodeError, KeyError, IndexError, TypeError) as exc:
+                raise ValueError(f"Model request failed: {type(exc).__name__}") from exc
         if not isinstance(message, dict):
             raise ValueError("Model response did not contain a message")
         return message
