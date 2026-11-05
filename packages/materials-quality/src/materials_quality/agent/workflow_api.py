@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import io
 import json
 import math
@@ -16,8 +17,31 @@ from .workflow_executor import FileWorkflowExecutor
 from .workflow_files import WorkflowConflictError, WorkflowFileStore
 
 
+def _canvas_visible_flow(flow):
+    """Expose connected input handles in the canvas without editing the saved flow."""
+    result = copy.deepcopy(flow)
+    graph = result.get("data", {})
+    nodes = {node.get("id"): node for node in graph.get("nodes", []) if isinstance(node, dict)}
+    for edge in graph.get("edges", []):
+        if not isinstance(edge, dict):
+            continue
+        handle = edge.get("data", {}).get("targetHandle")
+        if not isinstance(handle, dict):
+            try:
+                handle = json.loads(edge.get("targetHandle", "{}"))
+            except (TypeError, ValueError):
+                continue
+        target = nodes.get(edge.get("target"), {})
+        fields = target.get("data", {}).get("node", {}).get("template", {})
+        field = fields.get(handle.get("fieldName")) if isinstance(fields, dict) else None
+        if isinstance(field, dict):
+            field["advanced"] = False
+            field["show"] = True
+    return result
+
+
 def create_workflow_router(
-    store: WorkflowFileStore, permission_store=None, component_catalog=None
+    store: WorkflowFileStore, permission_store=None, component_catalog=None, run_handler=None
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
 
@@ -55,7 +79,7 @@ def create_workflow_router(
             raise HTTPException(status_code=404, detail="Workflow not found") from None
 
     def public(flow, revision):
-        return {**flow, "version_token": revision, "user_id": None}
+        return {**_canvas_visible_flow(flow), "version_token": revision, "user_id": None}
 
     @router.get("/flows/basic_examples/")
     async def basic_examples():
@@ -274,6 +298,11 @@ def create_workflow_router(
         if not isinstance(payload, dict):
             raise HTTPException(status_code=422, detail="Run request must be an object")
         try:
+            if run_handler is not None:
+                result = await run_in_threadpool(run_handler, str(flow_id), payload)
+                if not isinstance(result, dict):
+                    raise HTTPException(status_code=502, detail="StudyUI Agent returned an invalid run result")
+                return result
             flow = await existing_flow(str(flow_id))
             authorize(flow.get("folder_id"), "workflow.run")
             if any(

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import math
 import os
+import re
 import tempfile
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
@@ -23,7 +26,7 @@ from .workflow_files import WorkflowFileStore
 from .workflow_host import create_file_execution_router
 
 
-def create_app(root: Path, components: Path, frontend: Path) -> FastAPI:
+def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_handler=None) -> FastAPI:
     root, components, frontend = root.resolve(), components.resolve(), frontend.resolve()
     store = WorkflowFileStore(root)
     client = FileWorkflowClient(root, components)
@@ -241,10 +244,44 @@ def create_app(root: Path, components: Path, frontend: Path) -> FastAPI:
 
     @app.post("/api/v1/custom_component/update")
     async def update_component(request: Request):
-        raise HTTPException(
-            403,
-            "StudyUI only loads signed-in-repository scientific components; custom runtime code is disabled.",
-        )
+        payload = await request.json()
+        if not isinstance(payload, dict) or len(json.dumps(payload, ensure_ascii=False)) > 256_000:
+            raise HTTPException(422, "组件配置无效或过大。")
+        frontend_node = payload.get("frontend_node")
+        metadata = frontend_node.get("metadata", {}) if isinstance(frontend_node, dict) else {}
+        name = metadata.get("component_class_name") if isinstance(metadata, dict) else None
+        if not isinstance(name, str):
+            raise HTTPException(403, "仅允许更新已安装的 StudyUI 科研组件。")
+        catalog = client.component_catalog()
+        component = next((group[name] for group in catalog.values()
+                          if isinstance(group, dict) and name in group), None)
+        trusted_template = component.get("template", {}) if isinstance(component, dict) else {}
+        trusted_code = trusted_template.get("code", {}).get("value")
+        if not isinstance(trusted_code, str) or payload.get("code") != trusted_code:
+            raise HTTPException(403, "仅允许更新已安装的 StudyUI 科研组件。")
+        operation = re.search(r'ui_operation_key\s*=\s*["\']([^"\']+)["\']', trusted_code)
+        if not operation:
+            raise HTTPException(403, "此组件不支持动态更新。")
+        template = copy.deepcopy(trusted_template)
+        supplied = payload.get("template")
+        if not isinstance(supplied, dict):
+            raise HTTPException(422, "组件配置缺失。")
+        for key, value in supplied.items():
+            if key != "code" and key in template and isinstance(value, dict) and "value" in value:
+                template[key]["value"] = value["value"]
+                if value.get("advanced") is False:
+                    template[key]["advanced"] = False
+        field = payload.get("field")
+        if field not in template:
+            raise HTTPException(422, "未知组件字段。")
+        from materials_quality.science.ui_schema import refresh_config
+
+        try:
+            refresh_config(SimpleNamespace(input_table=None), operation.group(1), template,
+                           payload.get("field_value"), field)
+        except (TypeError, ValueError, KeyError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return {"template": template, "outputs": component.get("outputs", [])}
 
     @app.post("/api/v1/files/upload/{flow_id}", status_code=201)
     async def upload_flow_file(flow_id: uuid.UUID, request: Request):
@@ -284,7 +321,10 @@ def create_app(root: Path, components: Path, frontend: Path) -> FastAPI:
 
     app.include_router(
         create_workflow_router(
-            store, permission_store=permissions, component_catalog=client.component_catalog
+            store,
+            permission_store=permissions,
+            component_catalog=client.component_catalog,
+            run_handler=workflow_run_handler,
         )
     )
     app.include_router(

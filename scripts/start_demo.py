@@ -330,6 +330,145 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
     if not bundle_path.is_file():
         raise RuntimeError(f"Langflow frontend bundle was not found: {bundle_path}")
 
+    if "studyui-agent-run-bridge" not in index:
+        bridge = r'''<script id="studyui-agent-run-bridge">
+      (() => {
+        const pending = new Set();
+        const panel = () => {
+          let root = document.getElementById("studyui-agent-run-status");
+          if (!root) {
+            root = document.createElement("aside");
+            root.id = "studyui-agent-run-status";
+            root.style.cssText = "position:fixed;right:18px;bottom:18px;z-index:2147483647;max-width:min(520px,calc(100vw - 36px));max-height:45vh;overflow:auto;padding:14px 16px;border:1px solid #d8d1c5;border-radius:12px;background:#fffdf8;color:#263246;box-shadow:0 8px 28px #1f293322;font:13px/1.55 system-ui,sans-serif;white-space:pre-wrap";
+            document.body.append(root);
+          }
+          return root;
+        };
+        const show = (text, meta) => {
+          const root = panel();
+          root.replaceChildren();
+          const message = document.createElement("div");
+          message.textContent = text;
+          root.append(message);
+          if (meta && meta.session_id) {
+            const link = document.createElement("a");
+            link.href = "/?session_id=" + encodeURIComponent(meta.session_id);
+            link.textContent = "在 StudyUI 中查看完整报告与附件";
+            link.style.cssText = "display:inline-block;margin-top:8px;color:#24466f;font-weight:600";
+            root.append(link);
+          }
+        };
+        const bodyWithSession = (body) => {
+          if (typeof body !== "string") return body;
+          try {
+            const value = JSON.parse(body);
+            const session = new URL(location.href).searchParams.get("studyui_session_id");
+            if (session) value.studyui_session_id = session;
+            return JSON.stringify(value);
+          } catch (_) { return body; }
+        };
+        const complete = (value) => {
+          const meta = value && value.studyui_run;
+          if (!meta || !meta.session_id) return;
+          const key = meta.session_id + ":" + meta.flow_id;
+          if (pending.has(key)) return;
+          pending.add(key);
+          const summary = meta.status === "completed" ? "StudyUI Agent 已完成工作流运行。" : "StudyUI Agent 已处理本次运行请求。";
+          show(summary + "\n\n" + (meta.message || "请打开研究会话查看 Agent 结果。"), meta);
+          if (window.parent !== window) {
+            window.parent.postMessage({type:"studyui-agent-run-complete",session_id:meta.session_id,flow_id:meta.flow_id},location.origin);
+          }
+        };
+        const OriginalXHR = window.XMLHttpRequest;
+        function StudyUIXHR() {
+          const xhr = new OriginalXHR();
+          let runRequest = false;
+          const open = xhr.open;
+          xhr.open = function(method, url, ...rest) {
+            try { runRequest = String(method).toUpperCase() === "POST" && /\/api\/v1\/run\/[^/?]+/.test(new URL(url,location.href).pathname); } catch (_) { runRequest = false; }
+            return open.call(xhr, method, url, ...rest);
+          };
+          const send = xhr.send;
+          xhr.send = function(body) {
+            if (runRequest) {
+              show("StudyUI 主 Agent 正在检查流程、编排子代理并整理运行结果……");
+              xhr.addEventListener("load", () => {
+                try {
+                  const value = typeof xhr.response === "string" ? JSON.parse(xhr.response) : (xhr.response || JSON.parse(xhr.responseText));
+                  complete(value);
+                } catch (_) { show("StudyUI Agent 返回结果无法读取，请查看当前会话或服务日志。"); }
+              }, {once:true});
+              body = bodyWithSession(body);
+            }
+            return send.call(xhr, body);
+          };
+          return xhr;
+        }
+        StudyUIXHR.prototype = OriginalXHR.prototype;
+        Object.setPrototypeOf(StudyUIXHR, OriginalXHR);
+        window.XMLHttpRequest = StudyUIXHR;
+
+        if (window.fetch) {
+          const originalFetch = window.fetch.bind(window);
+          window.fetch = async (input, init = {}) => {
+            let runRequest = false;
+            try {
+              const url = new URL(typeof input === "string" ? input : input.url, location.href);
+              runRequest = String(init.method || (input && input.method) || "GET").toUpperCase() === "POST" && /\/api\/v1\/run\/[^/?]+/.test(url.pathname);
+            } catch (_) {}
+            if (!runRequest) return originalFetch(input, init);
+            show("StudyUI 主 Agent 正在检查流程、编排子代理并整理运行结果……");
+            init = {...init, body:bodyWithSession(init.body)};
+            const response = await originalFetch(input, init);
+            try { complete(await response.clone().json()); } catch (_) {}
+            return response;
+          };
+        }
+        const syncStudyUIChrome = () => {
+          if (document.title.includes("Langflow")) document.title = document.title.replaceAll("Langflow", "StudyUI");
+          if (!document.body) return;
+          let button = document.getElementById("studyui-run-workflow");
+          if (!button) {
+            button = document.createElement("button");
+            button.id = "studyui-run-workflow";
+            button.textContent = "▶ 运行工作流";
+            button.style.cssText = "position:fixed;top:56px;right:190px;z-index:1000;border:0;border-radius:8px;padding:9px 14px;background:#294b77;color:white;font:600 13px system-ui,sans-serif;cursor:pointer";
+            button.onclick = async () => {
+              const match = location.pathname.match(/\/canvas\/flow\/([^/]+)/);
+              if (!match || button.disabled) return;
+              button.disabled = true;
+              button.textContent = "Agent 正在运行…";
+              try {
+                const response = await fetch('/canvas/api/v1/run/' + encodeURIComponent(match[1]), {
+                  method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({input_value:'',tweaks:{}})
+                });
+                const value = await response.json();
+                if (!response.ok) throw new Error(value.detail || value.error || '运行失败');
+                complete(value);
+              } catch (error) { show('工作流运行失败：' + String(error.message || error)); }
+              finally { button.disabled = false; button.textContent = '▶ 运行工作流'; }
+            };
+            document.body.append(button);
+          }
+          button.hidden = !/\/canvas\/flow\/[^/]+/.test(location.pathname);
+        };
+        for (const name of ['pushState','replaceState']) {
+          const original = history[name];
+          history[name] = function(...args) { const result = original.apply(this,args); queueMicrotask(syncStudyUIChrome); return result; };
+        }
+        addEventListener('popstate', syncStudyUIChrome);
+        addEventListener('DOMContentLoaded', () => {
+          syncStudyUIChrome();
+          const title = document.querySelector('title');
+          if (title) new MutationObserver(syncStudyUIChrome).observe(title,{childList:true,subtree:true,characterData:true});
+        });
+      })();
+    </script>'''
+        bundle_tag = bundle_match.group(0)
+        if bundle_tag not in index:
+            raise RuntimeError("StudyUI could not locate the canvas entry script for its Agent run bridge")
+        index = index.replace(bundle_tag, bridge + "\n" + bundle_tag, 1)
+
     backup_root = (runtime or ROOT / ".demo-runtime") / "backup"
     backup_root.mkdir(parents=True, exist_ok=True)
     original_bundle = backup_root / (bundle_path.name + ".studyui-original")
@@ -457,7 +596,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         bundle,
         "function hqi(){",
         "function fqi(){",
-        'function hqi(){const{t:e}=ot(),n=Vv(),{isFetched:t}=MKn();Lwe();h3t({get_all:!0,header_flows:!0},{enabled:t});return b.jsx("header",{className:"z-10 flex h-[48px] w-full items-center border-b pl-2.5 dark:bg-background","data-testid":"app-header",children:b.jsx(gt,{unstyled:!0,onClick:()=>n("/"),className:"mr-1 flex h-8 w-8 items-center justify-center","data-testid":"icon-ChevronLeft","aria-label":e("header.home"),children:b.jsx(MFi,{className:"h-5 w-5"})})})}',
+        'function hqi(){const n=Vv(),{isFetched:t}=MKn();Lwe();h3t({get_all:!0,header_flows:!0},{enabled:t});return b.jsx("header",{className:"z-10 flex h-[48px] w-full items-center border-b pl-2.5 dark:bg-background","data-testid":"app-header",children:b.jsx(gt,{unstyled:!0,onClick:()=>n("/"),className:"mr-1 flex h-8 w-8 items-center justify-center rounded-md bg-primary font-semibold text-white","data-testid":"icon-ChevronLeft","aria-label":"StudyUI 首页",children:"S"})})}',
         "Langflow header",
     )
     bundle = replace_component(
@@ -533,7 +672,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         bundle,
         "$_o=({setOpenModal:e})=>",
         ";function V_o(",
-        '$_o=()=>b.jsx("div",{className:"flex h-full w-full items-center justify-center text-sm text-muted-foreground",children:"此项目还没有工作流。"})',
+        '$_o=()=>b.jsx("div",{className:"flex h-full w-full items-center justify-center text-sm text-muted-foreground",children:"此项目还没有工作流。"}),H_o=({setOpenModal:e})=>b.jsx($_o,{setOpenModal:e})',
         "empty-project onboarding",
     )
 

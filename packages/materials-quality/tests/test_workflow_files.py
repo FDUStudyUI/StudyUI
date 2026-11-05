@@ -247,6 +247,48 @@ def test_workspace_keeps_imported_project_after_legacy_owner_is_removed(tmp_path
     assert restarted.get("/api/v1/flows/" + flow["id"]).status_code == 200
 
 
+def test_canvas_refreshes_only_trusted_scientific_component_forms(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from materials_quality.agent.file_workflow_client import FileWorkflowClient
+    from materials_quality.agent.workbench import create_app
+
+    code = 'class ScienceIoTableImport:\n    ui_operation_key = "io.table_import"\n'
+    template = {
+        "code": {"value": code},
+        "cfg_path": {"value": "", "show": True},
+        "cfg_sheet": {"value": "", "show": True},
+        "ui_mode": {"value": "form", "show": True},
+    }
+    monkeypatch.setattr(FileWorkflowClient, "component_catalog", lambda self: {
+        "materials_sources": {"ScienceIoTableImport": {"template": template, "outputs": []}}
+    })
+    frontend = tmp_path / "ui"
+    (frontend / "assets").mkdir(parents=True)
+    (frontend / "index.html").write_text("StudyUI", encoding="utf-8")
+    components = tmp_path / "components"
+    components.mkdir()
+    client = TestClient(create_app(tmp_path / "workflows", components, frontend))
+    payload = {"code": code, "frontend_node": {"metadata": {"component_class_name": "ScienceIoTableImport"}},
+               "template": template, "field": "cfg_path", "field_value": "data.csv"}
+    result = client.post("/api/v1/custom_component/update", json=payload)
+    assert result.status_code == 200
+    assert result.json()["template"]["code"]["value"] == code
+    payload["code"] = code + "print('untrusted')"
+    assert client.post("/api/v1/custom_component/update", json=payload).status_code == 403
+
+
+def test_canvas_shows_connected_advanced_input_without_changing_saved_graph():
+    from materials_quality.agent.workflow_api import _canvas_visible_flow
+
+    field = {"advanced": True, "show": False, "value": None}
+    flow = {"data": {"nodes": [{"id": "target", "data": {"node": {"template": {"input_data": field}}}}],
+                     "edges": [{"target": "target", "targetHandle": '{"fieldName":"input_data"}'}]}}
+    visible = _canvas_visible_flow(flow)
+    projected = visible["data"]["nodes"][0]["data"]["node"]["template"]["input_data"]
+    assert projected["advanced"] is False and projected["show"] is True
+    assert field["advanced"] is True and field["show"] is False
+
+
 def test_agent_and_canvas_share_projects_and_preserve_existing_sessions(tmp_path):
     from fastapi.testclient import TestClient
 

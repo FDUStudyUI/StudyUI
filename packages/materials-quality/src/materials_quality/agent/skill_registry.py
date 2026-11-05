@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import shutil
@@ -12,12 +13,21 @@ import uuid
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from materials_quality.skills.registry import SKILLS as BUILTIN_SKILLS
+from materials_quality.skills.registry import SKILL_CATALOG as BUILTIN_SKILLS
 from materials_quality.skills.registry import inspect_skill, load_skill
 
 MAX_SKILL_BYTES = 2_000_000
 MAX_SKILL_FILES = 128
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def _trigger_matches(query, trigger):
+    term = str(trigger).casefold().strip()
+    if not term:
+        return False
+    if re.search(r"[a-z0-9]", term):
+        return re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", query) is not None
+    return term in query
 
 
 class SkillRegistry:
@@ -34,6 +44,9 @@ class SkillRegistry:
                     "name": item["name"],
                     "title": title,
                     "description": item["description"],
+                    "domain": item.get("domain", "materials-science"),
+                    "triggers": item.get("triggers", []),
+                    "always": item.get("always", False),
                     "sha256": item["sha256"],
                     "version": item["version"],
                     "builtin": True,
@@ -60,6 +73,9 @@ class SkillRegistry:
                     "name": item["name"],
                     "title": item["name"],
                     "description": item["description"],
+                    "domain": item.get("domain", "materials-science"),
+                    "triggers": item.get("triggers", []),
+                    "always": item.get("always", False),
                     "sha256": item["sha256"],
                     "version": item["version"],
                     "builtin": False,
@@ -72,6 +88,53 @@ class SkillRegistry:
             )
         return rows
 
+    def select_for_task(self, task_text, *, limit=5):
+        """Select bounded, enabled Skills deterministically and explain every match."""
+        if not isinstance(task_text, str):
+            raise ValueError("Research task must be text")
+        if type(limit) is not int or not 1 <= limit <= 8:
+            raise ValueError("Skill selection limit must be between 1 and 8")
+        query = " ".join(task_text.casefold().split())
+        rows = [
+            row for row in self.list()
+            if row.get("enabled")
+            and (row.get("builtin") or not row.get("scripts") or row.get("trusted"))
+        ]
+        baseline = [row for row in rows if row.get("builtin") and row.get("always")]
+        scored = []
+        for row in rows:
+            if row in baseline:
+                continue
+            matches = sorted(
+                {trigger for trigger in row.get("triggers", []) if _trigger_matches(query, trigger)},
+                key=lambda value: (-len(value), value.casefold()),
+            )
+            if matches:
+                score = sum(10 + min(len(value), 48) for value in matches)
+                scored.append((score, row, matches))
+        scored.sort(key=lambda item: (-item[0], item[1]["name"]))
+        selected = []
+        for row in baseline:
+            selected.append({**row, "reason": "每项科研任务都检查通用建流与原始数据规则。", "matched_triggers": []})
+        selected_names = {row["name"] for row in selected}
+        for _score, row, matches in scored:
+            if row["name"] in selected_names or len(selected) >= limit:
+                continue
+            selected.append(
+                {
+                    **row,
+                    "reason": "任务文本命中领域触发词：" + "、".join(matches[:6]),
+                    "matched_triggers": matches[:12],
+                }
+            )
+            selected_names.add(row["name"])
+        digest = hashlib.sha256(task_text.encode("utf-8")).hexdigest()
+        return {
+            "selector_version": "studyui-skill-router-1.0.0",
+            "task_sha256": digest,
+            "status": "matched" if any(item["matched_triggers"] for item in selected) else "baseline_only",
+            "selected": selected,
+        }
     def get(self, name):
         if not isinstance(name, str):
             raise ValueError("Skill name is required")

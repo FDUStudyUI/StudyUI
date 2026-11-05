@@ -1,6 +1,6 @@
 # StudyUI 材料科学组件包
 
-本包为 StudyUI 提供可视化科研节点、科研 Skills、测试与示例工作流。应用层 Agent 负责研究对话、学术检索、工具权限和审批；LFX/Langflow 的图编辑与执行能力只作为 StudyUI 内部工作流运行时。生产示例工作流使用 JSON 文件保存，组件代码只来自仓库中经过审核的材料科学节点。
+本包为 StudyUI 提供可视化科研节点、科研 Skills、测试与示例工作流。应用层 Agent 负责研究对话、学术检索、工具权限和审批；图编辑与执行能力作为 StudyUI 内部工作流运行时。生产示例工作流使用 JSON 文件保存，组件代码只来自仓库中经过审核的材料科学节点。
 
 ## 组件类别
 
@@ -41,6 +41,8 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
+依赖范围见本文件的 `pyproject.toml`；仓库还附带 `requirements.lock` 跨平台解析锁，以及 `requirements-tested-py310.txt` 和 `requirements-ui-tested-py310.txt` 两份 Python 3.10 验收快照。根目录 `.python-version` 记录当前验收的 3.10.22。正常启动器按 `pyproject.toml` 在隔离目录安装依赖，不上传本机虚拟环境或包缓存。
+
 macOS/Linux 将 Windows 路径替换为 `.venv/bin/python`。工作台入口、AI 模型配置和排障方式见[项目启动说明](../../docs/demo-launcher.md)。
 
 ## JSON 工作流
@@ -61,6 +63,10 @@ AI 分析会将上游数据发送到已配置模型服务。Agent 运行含此�
 ## Skills 与科研检索
 
 导入 ZIP 必须包含一个 `SKILL.md`。Skill 默认停用；安装或更新需一次性审批。Skill 版本以内容 SHA-256 追踪，更新会保留旧版本并撤销现有信任。含脚本的 Skill 必须再次审批并信任当前版本，且只允许在无网络 Docker 沙箱中执行 Python 脚本。
+
+Harness 目前内置 14 项 StudyUI 原创 Skills，覆盖原始数据完整性、工作流/Harness 操作、XRD、电池循环、DSC/TG、压缩与混凝土、光谱、拉伸、实验设计、统计绘图、测量不确定度、DNA origami 等离激元单染料数据和论文证据检索。每条用户任务在模型请求前自动运行确定性 Skill 预检：通用 Harness 与原始数据规则默认加载，领域 Skills 按中英文触发词选择，单次最多加载三项领域 Skill。选择器使用英文词边界匹配并记录选择理由、任务哈希、Skill 版本和 SHA-256；对话和会话详情接口均可查看。预检未完整成功时，建流、改流和运行工具会拒绝执行。
+
+公开科研 Skill 集合仅用于参考技能覆盖和路由结构，不直接复制单项 Skill 的脚本或正文；上游说明各单项许可可能不同。领域知识主要依据 IUCr、IUPAC、NIST、NASA、Sandia、ASTM/ACI 和论文/数据仓储原始记录。逐条来源见 `src/materials_quality/skills/resources/sources.json` 与内置 Skill 正文；更多详情见 [科研 Skills 指南](docs/research-skills.md)。
 
 主 Agent 的科研文献检索限定为 Crossref、OpenAlex、Semantic Scholar、Europe PMC、DataCite 和 arXiv 元数据接口，不接受模型提供任意网页地址，不自动下载论文全文。
 

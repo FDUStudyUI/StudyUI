@@ -1,13 +1,27 @@
 {
   "authorship": "StudyUI original skill instructions; external sources inform design, no third-party scripts vendored",
-  "reviewed_on": "2026-11-03",
+  "reviewed_on": "2026-11-05",
   "references": [
     {"url": "https://agentskills.io/specification", "use": "SKILL.md structure and progressive resource disclosure"},
+    {"url": "https://github.com/K-Dense-AI/scientific-agent-skills", "use": "Open scientific Skill taxonomy and trigger/input/output organization; StudyUI content is independently written, no scripts or prose copied. Upstream states individual Skill licenses may differ; each candidate must be reviewed before import."},
     {"url": "https://docs.langflow.org/agents-tools", "use": "native tools and Run Flow integration"},
     {"url": "https://github.com/K-Dense-AI/scientific-agent-skills/blob/main/skills/statistical-analysis/SKILL.md", "blob_sha": "4ea7453a12e63f0dbc31d7a47ed41fe3ff4c4c1a", "use": "experimental units, estimates and uncertainty; no dependency commands reused"},
     {"url": "https://github.com/K-Dense-AI/scientific-agent-skills/blob/main/skills/scientific-visualization/SKILL.md", "blob_sha": "44ea38c24fb5015535254bfd9b5ae9a856195408", "use": "uncertainty labels, scientific figure integrity; original StudyUI plotting implementation"},
     {"url": "https://doi.org/10.1021/acs.nanolett.3c01016", "use": "lambda10 coupled-mode interpretation; no claim of full experimental reproduction"},
     {"url": "https://github.com/derb12/pybaselines", "use": "candidate for future method extension; not installed or used by these tasks"},
-    {"url": "https://github.com/lmfit/lmfit-py", "use": "candidate for future fitting extension; not installed or used by these tasks"}
+    {"url": "https://github.com/lmfit/lmfit-py", "use": "candidate for future fitting extension; not installed or used by these tasks"},
+    {"url": "https://journals.iucr.org/b/services/powder.html", "use": "primary powder diffraction data, measured/calculated/difference profile reporting"},
+    {"url": "https://www.iucr.org/__data/iucr/cifdic_html/1/cif_pd.dic/Cpd_meas.html", "use": "distinguish measured powder data from processed data; preserve instrument and scan metadata"},
+    {"url": "https://www.nist.gov/publications/poisson-errors-and-adaptive-rebinning-x-ray-powder-diffraction-data", "use": "counting uncertainty and care with rebinning"},
+    {"url": "https://catalog.data.gov/dataset/li-ion-battery-aging-datasets", "use": "NASA Ames battery cycle schema, measurement fields, test conditions and capacity definition"},
+    {"url": "https://www.sandia.gov/ess/tools-resources/rd-data-repository", "use": "DOE/Sandia public battery raw-data repository and dataset documentation"},
+    {"url": "https://goldbook.iupac.org/terms/view/T06295", "use": "IUPAC definition of thermal analysis"},
+    {"url": "https://www.nist.gov/news-events/news/2025/01/rm-temperature-and-enthalpy-calibration-differential-scanning-calorimeters", "use": "NIST DSC calibration and non-absolute measurement caveat"},
+    {"url": "https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication960-15.pdf", "use": "NIST recommended practice for DTA/heat-flux DSC; matching calibration and sample conditions"},
+    {"url": "https://store.astm.org/c0039_c0039m-23.html", "use": "ASTM C39 scope and specimen-condition dependence of concrete cylinder strength; standard text is not reproduced"},
+    {"url": "https://www.concrete.org/frequentlyaskedquestions/faqid/881.aspx", "use": "ACI guidance on sampling, curing age and purpose of acceptance strength tests"},
+    {"url": "https://www.nist.gov/publications/measurement-and-analysis-results-obtained-biological-substances-differential-scanning", "use": "NIST-published DSC measurement, calibration and scan-rate dependence recommendations"},
+    {"url": "https://www.repository.cam.ac.uk/items/5fb76156-d930-455c-98c5-3ee330e02fe7", "use": "Cambridge Research Data repository record for the source data supporting the DNA-origami plasmonic nanogap paper"},
+    {"url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10347698/", "use": "Open-access primary paper and supplementary context for NPoM, DNA origami, single-dye emission, Raman/fluorescence interpretation, controls and illumination effects"}
   ]
 }

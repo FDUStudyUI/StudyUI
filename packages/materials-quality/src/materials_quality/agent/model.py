@@ -48,6 +48,13 @@ class ChatModel:
     def deepseek_api(self):
         return urlsplit(self.base_url).hostname in {"api.deepseek.com", "api.deepseek.cn"}
 
+    @property
+    def supports_vision(self):
+        return self.deepseek_api and self.model.casefold() in {
+            "deepseek-flash",
+            "deepseek-v4-flash-vision-exp",
+        }
+
     def _endpoint(self):
         parsed = urlsplit(self.base_url)
         local = parsed.hostname in {"localhost", "127.0.0.1", "::1"}

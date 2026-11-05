@@ -196,6 +196,7 @@ def test_other_session_workflow_needs_explicit_reference(tmp_path):
     session = agent.new_session(project_id=project)
     agent.store.append_event(session, "workflow_created", {"flow_id": "own-flow"})
     agent.store.append_message(session, {"role": "user", "content": "请研究光谱数据"})
+    agent._turn_state.value = {"skill_preflight_complete": True}
     with pytest.raises(PermissionError, match="其他会话"):
         agent._authorize_tool(session, "run_workflow", {"flow_id": "other-flow"}, "请运行工作流")
     agent.store.append_message(session, {"role": "user", "content": "请运行 other-flow 工作流"})

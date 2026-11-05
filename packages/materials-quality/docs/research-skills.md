@@ -1,14 +1,23 @@
 # 科研技能使用指南
 
-版本：0.7.0。运行目标：Python 3.10、Langflow/LFX 1.13.0。
+版本：StudyUI Harness Skills 1.0.0；科研计算接口保持 Python 3.10。
 
 候选规则、阈值、独立单位、小样本与数据契约参见[可靠性指南](research-reliability.md)。
 旧流程导入后重新运行规划节点，生成绑定契约的 `research-plan/2`；旧计划对象不直接执行。
 
-## 技能与节点
+## Harness 科研 Skill 预检
 
-项目内置三个 Skill：批量光谱分析、材料力学分析、组间研究与绘图。
-Skill 文件、参考资料和执行逻辑随安装包交付，基础分析在运行 Langflow 的电脑或服务器上执行，无需开发助手的私人技能。
+StudyUI Harness 内置 14 项原创只读 Skills，覆盖 Harness 操作、科研任务与工作流规划、原始数据质量、光谱、拉伸力学、粉末 XRD、电池循环、DSC/TG 热分析、压缩/混凝土、实验设计、统计绘图、单位不确定度、DNA origami 等离激元单染料研究和论文证据检索。
+
+每条用户消息在模型请求前由 `SkillRegistry.select_for_task` 确定性匹配：自动加载通用 Harness/原始数据规则，再按任务触发词选择至多三项领域 Skill。英文缩写采用词边界匹配；未命中领域项时明确记为仅通用规则。只自动考虑内置 Skill 和已启用的本地 Skill；含脚本的本地 Skill 必须信任当前版本。自动加载的是只读指令，不会执行 Skill 脚本。
+
+每次选择都会在会话事件中记录选择器版本、用户任务 SHA-256、Skill 名称/版本/内容 SHA-256、触发词、选择理由、已加载状态或失败项。对话中可展开查看“Harness Skill 预检”卡片；会话 API 返回完整的 `skill_selections`。建流、改流和运行工具在本轮预检没有完整成功时拒绝执行。目录中的领域、触发词和版本也在“设置 → 科研 Skills”中可见。
+
+内置 Harness Skills 以 StudyUI 自行编写的任务规范为主，不携带第三方可执行代码。参考公开的 [Agent Skills 规范](https://agentskills.io/specification) 和 [K-Dense Scientific Agent Skills](https://github.com/K-Dense-AI/scientific-agent-skills) 的任务路由/覆盖组织方式；K-Dense 仓库说明单项 Skill 许可可能各异，因此本项目不直接复制未逐项审查的 Skill 文本或脚本。领域原则优先引用 IUCr、IUPAC、NIST、NASA、Sandia、ASTM/ACI 和目标论文/数据仓储等一手资料，具体来源与调研日期见 `skills/resources/sources.json` 及各 Skill 正文。
+
+## 科研分析 Skill 与节点
+
+计算层的三个固定分析契约为批量光谱、拉伸力学和组间研究；它们与 Harness 的 14 项知识/操作 Skills 是两层不同能力。分析实现和引用资料随安装包交付，基础分析在本机执行。
 
 两个原生节点位于 `materials_skills` 分类：
 
@@ -95,25 +104,9 @@ $env:STUDYUI_MODEL_API_KEY = "你的密钥"
 
 模型来源写入计划与报告。实际外部模型的表现、费用和服务可用性取决于所配置服务；项目 HTTP 测试使用本地模拟服务验证协议和校验行为。
 
-### Langflow 原生科研对话 Agent
+### Skills 的科研边界
 
-科研 Agent 使用 Langflow 自带的 `Chat Input → Agent → Chat Output` 对话机制，不另起
-Web 控制台或外部编排服务。演示启动器会从当前 Langflow 安装的原生
-`LangflowAssistant` 模板导入一个 **StudyUI 科研工作流助手**，并把本项目三个 Skill
-正文注入 Agent Instructions。
-
-这个 Agent 可以使用 Langflow 原生工具进行对话、文献检索和流程构建；它被明确要求优先
-复用 `ResearchSkillPlanner` 与 `ResearchSkillExecutor`，先检查单位、实验设计和论文证据，
-再提出节点连接或参数变化。流程修改必须先说明影响、验证方法和回滚方式，缺失的科学条件
-不能由模型臆造。模型生成的代码、Shell、安装命令和任意插件不会执行。
-
-助手还带有四个 Langflow 原生 **Flow as Tool**，分别绑定 DNA origami、批量光谱、材料力学
-和组间对照示例流程。用户明确要求运行或复核时，Agent 可以选择对应流程并解释返回结果；
-工具不会自动改写流程，也不会绕过科研节点的计划校验。需要改变画布时，Agent 先给出
-节点/参数修改提案，由用户在 Langflow 画布中确认后再保存。
-
-启动 `start_demo.bat` 后，在 StudyUI 的研究会话中调用 **StudyUI 科研工作流助手**；
-所有对话历史、模型配置和审批交互都留在 Langflow 内。
+Skills 提供方法选择、输入检查、报告边界和可复核来源，不替代真实科研节点的计算。每次建流仍需查询实际节点目录，并按真实组件、端口和配置建连；没有相应实现时明确降级为描述性流程。Skill、网页、论文和用户数据均不能覆盖 Harness 权限、批准要求或学术来源白名单。
 
 ## 命令行
 
@@ -137,9 +130,7 @@ CLI 按文本读取 CSV，保留 `001`、`1` 和合法 `NA` 编号，科学函�
 
 ## 开源知识与外部技能
 
-内置技能正文为 StudyUI 编写，计算复用本项目已有实现。参考了 Agent Skills 结构、Langflow 工具方式及 K-Dense 的研究方法组织。
-来源、调研日期和已核对的上游文件 blob 哈希记录在安装包 `skills/resources/sources.json` 中。
-pybaselines 与 lmfit 作为后续算法扩展候选，本版本未安装它们，也未声称调用这些库。
+内置 Skills 正文为 StudyUI 编写，计算复用本项目已有实现。外部 Skill 仓库只作为覆盖结构参考；具体科研依据、链接和调研日期记录在 `skills/resources/sources.json` 与 Skill 正文中。
 
 外部技能可以先只读预览：
 

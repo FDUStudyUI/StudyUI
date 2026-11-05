@@ -400,6 +400,25 @@ class SessionStore:
             rows = db.execute(query, params).fetchall()
         return [self._public_artifact(row) for row in rows]
 
+    def latest_artifacts(self, session_id):
+        """Return newest artifacts by name and content while keeping all history downloadable by id."""
+        latest = {}
+        for item in self.list_artifacts(session_id):
+            previous = latest.get(item["name"])
+            if previous is None or (item["created_at"], item["id"]) > (
+                previous["created_at"], previous["id"]
+            ):
+                latest[item["name"]] = item
+        unique_content = {}
+        for item in latest.values():
+            digest = item["sha256"]
+            previous = unique_content.get(digest)
+            if previous is None or (item["created_at"], item["id"]) > (
+                previous["created_at"], previous["id"]
+            ):
+                unique_content[digest] = item
+        return sorted(unique_content.values(), key=lambda item: (item["created_at"], item["id"]))
+
     def get_artifact(self, artifact_id, session_id):
         with self._connect() as db:
             row = db.execute(

@@ -120,6 +120,10 @@ class PermissionStore:
         script_execution: bool = False,
     ):
         preset = self.get_preset(project_id)
+        # Deterministic loading of enabled, read-only Skill instructions is a Harness
+        # preflight step, not a model-requested tool action or code execution.
+        if action == "skill.preflight":
+            return {"allowed": True, "requires_approval": False, "preset": preset}
         if script_execution:
             allowed = preset == "skill_sandbox" and trusted_skill and task_authorized and bool(project_id)
             return {

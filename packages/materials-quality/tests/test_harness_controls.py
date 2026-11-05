@@ -75,6 +75,27 @@ def test_report_artifact_requires_intent_and_obeys_project_permission(tmp_path):
 @pytest.mark.parametrize(
     "message",
     [
+        "报告需给出数据依据和限制，并提供可下载 Markdown 附件。",
+        "请完成实验分析，报告应包含来源、结果与方法。",
+        "请给我一份可下载的 Markdown 报告。",
+    ],
+)
+def test_explicit_report_intent_recognizes_report_requirements(message):
+    from materials_quality.agent.harness import _explicit_report_intent
+
+    assert _explicit_report_intent(message)
+
+
+@pytest.mark.parametrize("message", ["不要生成报告。", "不需要报告或附件。", "先别写报告。"])
+def test_explicit_report_intent_respects_negation(message):
+    from materials_quality.agent.harness import _explicit_report_intent
+
+    assert not _explicit_report_intent(message)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
         "请建立并运行一个真实原始数据工作流。",
         "请帮我建立工作流，完成数据导入和分析。",
         "搭建并运行 XRD 工作流。",
@@ -113,6 +134,7 @@ def test_negated_build_request_does_not_authorize_canvas_changes(message):
         "创建并运行工作流，处理当前数据。",
         "请直接修复并运行现有工作流。",
         "请修正现有 JSON 工作流并实际运行。",
+        "请建立新的工作流，运行并复核四份数据。",
         "Please build a workflow and run it.",
     ],
 )
@@ -138,6 +160,7 @@ def test_explicit_intent_allows_scientific_context_between_action_and_workflow()
         "暂不运行工作流，请先检查参数。",
         "暂不修复并运行现有工作流，只做只读排查。",
         "请不要修复或运行当前 BiFeO3 原始 XRD 工作流。",
+        "请建立工作流，暂不运行，只解释方法。",
         "Do not run the workflow yet.",
     ],
 )
@@ -145,6 +168,154 @@ def test_negated_run_request_does_not_authorize_execution(message):
     from materials_quality.agent.harness import _explicit_run_intent
 
     assert not _explicit_run_intent(message)
+
+
+def test_task_authorization_persists_for_same_project_session_but_ai_data_still_needs_approval(tmp_path):
+    from materials_quality.agent.harness import StudyUIAgent
+
+    flow = {"id": "flow-local", "folder_id": None, "data": {"nodes": [], "edges": []}}
+
+    class FakeWorkflows:
+        def get_flow(self, _flow_id):
+            return flow
+
+    agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=FakeWorkflows(), model=object())
+    project_id = agent.store.create_project("ongoing research")
+    session_id = agent.new_session(project_id=project_id)
+    flow["folder_id"] = project_id
+    agent.store.append_message(session_id, {
+        "role": "user",
+        "content": "请从零开始新建工作流、实际运行公开原始数据並交付研究报告。",
+    })
+    agent._turn_state.value = {"skill_preflight_complete": True, "canvas_run": None}
+
+    local = agent._authorize_tool(
+        session_id, "run_workflow", {"flow_id": "flow-local"}, "继续当前任务，只运行本地确定性节点。"
+    )
+    assert local["allowed"] is True
+    assert local["requires_approval"] is False
+
+    flow["data"]["nodes"].append({"id": "ai", "data": {"type": "StudyUIAIAnalysis"}})
+    ai = agent._authorize_tool(
+        session_id, "run_workflow", {"flow_id": "flow-local"}, "继续当前任务，只运行本地确定性节点。"
+    )
+    assert ai["allowed"] is False
+    assert ai["requires_approval"] is True
+    assert ai["external_data"] is True
+
+    revoked = agent._session_task_intent(
+        session_id, "撤销本次研究任务授权，不要继续运行工作流。", "run"
+    )
+    assert revoked is False
+
+
+def test_agent_can_cancel_only_a_user_declined_pending_approval_in_its_session(tmp_path):
+    from materials_quality.agent.harness import StudyUIAgent
+
+    agent = StudyUIAgent(tmp_path / "agent.sqlite3", model=object())
+    project_id = agent.store.create_project("approval cancellation")
+    session_id = agent.new_session(project_id=project_id)
+    other_session = agent.new_session(project_id=project_id)
+    approval_id = "approval-in-session"
+    agent.store.create_approval(
+        approval_id, session_id, project_id, "workflow.run", "AI data transfer",
+        {"tool": "run_workflow", "args": {}, "summary": {"title": "test"}},
+    )
+
+    assert agent._authorize_tool(session_id, "list_pending_approvals", {}, "继续")["allowed"]
+    listed = agent._dispatch(session_id, "list_pending_approvals", {}, "继续")
+    assert listed["count"] == 1
+    assert listed["approvals"][0]["id"] == approval_id
+
+    user_text = "我不批准這个子代理数据传输请求，请取消审批。"
+    decision = agent._authorize_tool(
+        session_id, "cancel_approval", {"approval_id": approval_id}, user_text
+    )
+    assert decision["allowed"] is True
+    result = agent._dispatch(session_id, "cancel_approval", {"approval_id": approval_id}, user_text)
+    assert result == {"status": "cancelled", "approval_id": approval_id}
+    assert agent.store.pending_approvals(session_id) == []
+    assert agent.store.events(session_id)[-1]["detail"]["decision"] == "cancelled"
+    audit = agent._dispatch(session_id, "list_pending_approvals", {}, "继续")
+    decision = audit["recent_decisions"][-1]
+    assert decision["approval_id"] == approval_id
+    assert decision["action"] == "workflow.run"
+    assert decision["decision"] == "cancelled"
+
+    with pytest.raises(PermissionError, match="当前研究会话"):
+        agent._authorize_tool(
+            other_session, "cancel_approval", {"approval_id": approval_id}, user_text
+        )
+
+
+def test_session_artifact_listing_shows_latest_same_name_and_keeps_prior_download(tmp_path):
+    store = SessionStore(tmp_path / "study.sqlite3")
+    project_id = store.create_project("artifact versions")
+    session_id = store.create_session("artifact run", project_id=project_id)
+    first_path = tmp_path / "first-chart.png"
+    second_path = tmp_path / "second-chart.png"
+    first_path.write_bytes(b"obsolete chart")
+    second_path.write_bytes(b"corrected chart")
+    first_id = "artifact-first"
+    second_id = "artifact-second"
+    store.register_artifact(
+        first_id, session_id, project_id, "spectra-line.png", first_path,
+        hashlib.sha256(first_path.read_bytes()).hexdigest(), first_path.stat().st_size,
+    )
+    store.register_artifact(
+        second_id, session_id, project_id, "spectra-line.png", second_path,
+        hashlib.sha256(second_path.read_bytes()).hexdigest(), second_path.stat().st_size,
+    )
+
+    assert [item["id"] for item in store.list_artifacts(session_id)] == [first_id, second_id]
+    assert [item["id"] for item in store.latest_artifacts(session_id)] == [second_id]
+    assert store.get_artifact(first_id, session_id)["path"] == str(first_path)
+
+
+def test_session_artifact_listing_deduplicates_identical_content_across_names(tmp_path):
+    store = SessionStore(tmp_path / "study.sqlite3")
+    project_id = store.create_project("artifact deduplication")
+    session_id = store.create_session("artifact run", project_id=project_id)
+    first_path = tmp_path / "missing-check.csv"
+    second_path = tmp_path / "missing-detail.csv"
+    first_path.write_bytes(b"row,reason\n1,missing\n")
+    second_path.write_bytes(first_path.read_bytes())
+    digest = hashlib.sha256(first_path.read_bytes()).hexdigest()
+    store.register_artifact(
+        "artifact-first", session_id, project_id, first_path.name, first_path, digest,
+        first_path.stat().st_size,
+    )
+    store.register_artifact(
+        "artifact-second", session_id, project_id, second_path.name, second_path, digest,
+        second_path.stat().st_size,
+    )
+
+    assert [item["id"] for item in store.latest_artifacts(session_id)] == ["artifact-second"]
+    assert store.get_artifact("artifact-first", session_id)["path"] == str(first_path)
+
+
+def test_skill_preflight_keeps_the_initial_research_domain_across_followup_turns(tmp_path):
+    from materials_quality.agent.harness import StudyUIAgent
+
+    agent = StudyUIAgent(tmp_path / "agent.sqlite3", model=object())
+    project_id = agent.store.create_project("DNA origami study")
+    session_id = agent.new_session(project_id=project_id)
+    agent.store.append_message(session_id, {
+        "role": "user",
+        "content": (
+            "复核 DNA origami plasmonic single-dye 原始实验数据，"
+            "新建并运行工作流，输出研究报告。"
+        ),
+    })
+    agent._turn_state.value = {"skill_selection": None, "skill_preflight_complete": False}
+
+    context, blocked = agent._prepare_skill_context(session_id, "继续，检查 HDF5 结构并运行本地节点。")
+    selected = {row["name"] for row in agent._turn_state.value["skill_selection"]["selected"]}
+
+    assert blocked is None
+    assert "studyui-dna-origami-plasmonics" in selected
+    assert "studyui-spectrum-analysis" in selected
+    assert "DNA origami" in context
 
 
 def test_graph_tool_schema_documents_only_valid_action_keys():
@@ -543,7 +714,11 @@ def test_lfx_serialized_data_wrappers_preserve_aggregate_metadata_and_real_artif
     assert raw_node["outputs"]["table"] == {"rows": 2, "columns": ["two_theta_deg", "intensity_counts"]}
     assert raw_node["outputs"]["features"] == {"rows": 1, "columns": ["peak_position", "height", "fwhm"]}
     assert raw_node["outputs"]["report"]["data"]["input_sha256"] == "a" * 64
-    assert raw_node["outputs"]["summary"] == {"text": "7624 行，1 列"}
+    assert raw_node["outputs"]["summary"] == {
+        "text": "7624 行，1 列",
+        "text_is_excerpt": False,
+        "text_characters": len("7624 行，1 列"),
+    }
     assert export_node["outputs"]["artifacts"] == {"count": 1, "files": ["processed.csv"]}
     assert "must-not-leak" not in rendered
     assert "display-only" not in rendered
@@ -566,6 +741,7 @@ def test_agent_run_blocks_cross_project_workflows(tmp_path):
     agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=FakeWorkflows(), model=object())
     project_id = agent.store.create_project("owned project")
     session_id = agent.new_session(project_id=project_id)
+    agent._turn_state.value = {"skill_preflight_complete": True}
     decision = agent._authorize_tool(
         session_id, "run_workflow", {"flow_id": flow["id"]}, "请运行现有工作流。"
     )
@@ -594,6 +770,7 @@ def test_ai_workflow_run_requests_single_use_external_data_approval(tmp_path):
     flow["folder_id"] = project_id
     session_id = agent.new_session(project_id=project_id)
     args = {"flow_id": flow["id"]}
+    agent._turn_state.value = {"skill_preflight_complete": True}
     decision = agent._authorize_tool(session_id, "run_workflow", args, "请运行 AI 分析工作流。")
 
     assert not decision["allowed"]
@@ -605,6 +782,413 @@ def test_ai_workflow_run_requests_single_use_external_data_approval(tmp_path):
     approval = agent.store.get_approval(approval_id)
     assert approval["request"]["external_data"] is True
     assert approval["request"]["flow_digest"] == decision["flow_digest"]
+
+
+def test_canvas_run_authorizes_exact_ai_workflow_once_and_agent_delivers_report(tmp_path):
+    from materials_quality.agent.harness import StudyUIAgent
+
+    flow = {
+        "id": "canvas-ai-flow",
+        "name": "Canvas AI workflow",
+        "folder_id": "project",
+        "data": {"nodes": [{"data": {"type": "StudyUIAIAnalysis"}}], "edges": []},
+    }
+    runs = []
+
+    class FakeWorkflows:
+        def get_flow(self, flow_id):
+            assert flow_id == flow["id"]
+            return flow
+
+        def run_flow(self, flow_id, **kwargs):
+            runs.append((flow_id, kwargs))
+            return {"outputs": [{"component_id": "analysis", "results": {"data": "verified"}}]}
+
+    class FakeModel:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, _messages, _tools, *, max_tokens=3000):
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "tool_calls": [{
+                        "id": "run-canvas-flow",
+                        "function": {
+                            "name": "run_workflow",
+                            "arguments": json.dumps({"flow_id": flow["id"]}),
+                        },
+                    }]
+                }
+            if self.calls == 2:
+                return {
+                    "tool_calls": [{
+                        "id": "write-canvas-report",
+                        "function": {
+                            "name": "write_research_report",
+                            "arguments": json.dumps({
+                                "title": "Canvas workflow report",
+                                "content": "# 运行报告\n\n## 结果\n已核对上游分析输出。\n\n## 限制\n仅依据本次执行结果。",
+                            }, ensure_ascii=False),
+                        },
+                    }]
+                }
+            return {"content": "# 运行报告\n\n已完成流程运行、结果核对和报告交付。"}
+
+    workflows = FakeWorkflows()
+    agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=workflows, model=FakeModel())
+    project_id = agent.store.create_project("canvas project")
+    flow["folder_id"] = project_id
+    session_id = agent.new_session(project_id=project_id)
+
+    result = agent.run_canvas_workflow(flow["id"], session_id=session_id)
+
+    assert result["canvas_run"]["contains_ai_subagent"] is True
+    assert result["workflow_result"]["outputs"][0]["component_id"] == "analysis"
+    assert result["artifacts"]
+    assert len(runs) == 1
+    assert runs[0][1]["external_data_approved"] is True
+    events = [event["kind"] for event in agent.store.events(session_id)]
+    assert "canvas_run_authorized" in events
+    assert any(event["kind"] == "tool_call" and event["detail"].get("name") == "run_workflow" for event in agent.store.events(session_id))
+
+
+def test_ai_analysis_sends_connected_image_to_vision_model_and_audits_coverage(monkeypatch, tmp_path):
+    from PIL import Image
+    from lfx.schema import Data
+
+    from components.materials_skills import ai_analysis
+    from components.materials_skills.ai_analysis import StudyUIAIAnalysis
+    from materials_quality.agent.execution_context import (
+        begin_upstream_image_scope,
+        external_data_approval,
+        reset_external_data_approval,
+        reset_upstream_image_scope,
+    )
+    from materials_quality.science.io_nodes import image_import
+
+    image_path = tmp_path / "specimen.png"
+    Image.new("RGB", (24, 18), color=(20, 80, 130)).save(image_path)
+
+    class FakeVisionModel:
+        supports_vision = True
+
+        def __init__(self):
+            self.image_requests = 0
+
+        def complete(self, messages, _tools, *, max_tokens=3000):
+            content = messages[-1]["content"]
+            if isinstance(content, list):
+                self.image_requests += 1
+                assert any(item.get("type") == "image_url" for item in content)
+                prompt = json.loads(next(item["text"] for item in content if item.get("type") == "text"))
+                assert prompt["image_reference"]["image_id"] == "image_1"
+                assert str(image_path) not in json.dumps(prompt)
+            result = {
+                "conclusions": ["图像中可见试样轮廓。"],
+                "evidence": [{"claim": "可见细长试样", "source_refs": ["image_1"]}],
+                "features": [{"feature": "轮廓连续性", "selected": True, "rationale": "边界可见"}],
+                "limitations": ["图像未提供标尺，不能估算实际尺寸。"],
+                "unresolved": [],
+                "report_markdown": "# 图像观察\n\n未依据像素估算物理尺寸。",
+            }
+            return {"content": json.dumps(result, ensure_ascii=False)}
+
+    model = FakeVisionModel()
+    monkeypatch.setattr(StudyUIAIAnalysis, "_model", lambda _node: model)
+    image_scope = begin_upstream_image_scope()
+    approval = None
+    try:
+        upstream_image = image_import(config={"path": str(image_path)})
+        node = StudyUIAIAnalysis().set(
+            input_data=Data(data=upstream_image.data),
+            analysis_request="检查试样图像中的可见特征，不推断物理尺寸。",
+        )
+        approval = external_data_approval(True)
+        result = node.build_analysis().data
+    finally:
+        if approval is not None:
+            reset_external_data_approval(approval)
+        reset_upstream_image_scope(image_scope)
+
+    assert model.image_requests == 1
+    assert result["coverage"]["images_analyzed"] == 1
+    assert result["coverage"]["image_references"][0]["width"] == 24
+    assert "不能估算实际尺寸" in result["limitations"][0]
+
+
+def test_ai_analysis_rejects_image_path_not_registered_by_upstream_import(tmp_path):
+    from PIL import Image
+    from lfx.schema import Data
+
+    from components.materials_skills.ai_analysis import StudyUIAIAnalysis
+    from materials_quality.agent.execution_context import begin_upstream_image_scope, reset_upstream_image_scope
+
+    image_path = tmp_path / "unconnected.png"
+    Image.new("RGB", (4, 4)).save(image_path)
+    token = begin_upstream_image_scope()
+    try:
+        node = StudyUIAIAnalysis().set(
+            input_data=Data(data={"file_path": str(image_path)}),
+            analysis_request="描述图像。",
+        )
+        with pytest.raises(ValueError, match="已登记图像导入节点"):
+            node._load_images(node._input_payload(node.input_data))
+    finally:
+        reset_upstream_image_scope(token)
+
+
+def test_ai_analysis_report_uses_computed_hashes_and_lists_candidate_features():
+    from components.materials_skills.ai_analysis import StudyUIAIAnalysis
+
+    fake_hash = "d" * 64
+    source_hash = "2" * 64
+    input_fingerprint = "3" * 64
+    report = StudyUIAIAnalysis._report_text("Describe the image", {
+        "report_markdown": f"# Observation\n\nModel claim SHA-256: {fake_hash}\nVisible: a specimen.",
+        "features": [{
+            "feature": "edge continuity",
+            "selected": True,
+            "rationale": "both visible edges remain continuous",
+            "evidence": ["image_1"],
+        }],
+        "coverage": {
+            "total_rows": 0,
+            "analyzed_rows": 0,
+            "omitted_rows": 0,
+            "chunk_count": 0,
+            "images_total": 1,
+            "images_analyzed": 1,
+            "input_sha256": input_fingerprint,
+            "image_references": [{
+                "image_id": "image_1", "source_sha256": source_hash, "width": 24, "height": 18,
+            }],
+        },
+    })
+
+    assert fake_hash not in report
+    assert input_fingerprint in report
+    assert source_hash in report
+    assert "edge continuity" in report
+    assert "AI 输入指纹" in report
+
+
+def test_ai_subagent_feature_rows_are_returned_to_main_agent():
+    from materials_quality.agent.harness import _compact_run_result
+
+    payload = {"outputs": [{"outputs": [{
+        "component_id": "ai",
+        "results": {"features": {"data": [{
+            "feature": "peak width", "selected": True, "rationale": "separates sample groups",
+            "evidence": "image_1", "confidence": 0.8,
+        }]}},
+    }]}]}
+    flow = {"data": {"nodes": [{"id": "ai", "data": {"type": "StudyUIAIAnalysis"}}]}}
+
+    result = _compact_run_result(payload, flow=flow)
+    features = result["outputs"][0]["outputs"]["features"]["generated_features"]
+    assert features[0]["feature"] == "peak width"
+    assert features[0]["selected"] is True
+    assert features[0]["rationale"] == "separates sample groups"
+
+
+def test_ai_feature_preview_reports_total_and_omitted_rows():
+    from materials_quality.agent.harness import _compact_run_result
+
+    records = [{"feature": f"feature_{index}", "selected": index % 2 == 0} for index in range(13)]
+    payload = {"outputs": [{"outputs": [{"component_id": "ai", "results": {"features": records}}]}]}
+    flow = {"data": {"nodes": [{"id": "ai", "data": {"type": "StudyUIAIAnalysis"}}]}}
+
+    features = _compact_run_result(payload, flow=flow)["outputs"][0]["outputs"]["features"]
+    assert features["generated_features_total"] == 13
+    assert features["generated_features_previewed"] == 12
+    assert features["generated_features_omitted"] == 1
+
+
+def test_message_summary_finds_nested_lfx_text_after_empty_wrapper():
+    from materials_quality.agent.harness import _message_or_report_summary
+
+    result = _message_or_report_summary({"text": "", "message": {"data": {"text": "Image import completed."}}})
+    assert result["text"] == "Image import completed."
+    assert result["text_is_excerpt"] is False
+
+
+def test_bounded_run_keeps_image_metadata_and_feature_preview_counts():
+    from materials_quality.agent.harness import _bounded_tool_content
+
+    outputs = [{
+        "node_id": "image_import",
+        "outputs": {
+            "report": {"format": "PNG", "width": 640, "height": 480, "mode": "RGBA", "frames": 1},
+            "summary": {"text": "", "text_characters": 0, "text_is_excerpt": False},
+        },
+    }, {
+        "node_id": "ai",
+        "outputs": {"features": {
+            "rows": 13,
+            "columns": ["feature", "selected"],
+            "generated_features": [{"feature": str(i), "selected": i % 2 == 0} for i in range(12)],
+            "generated_features_total": 13,
+            "generated_features_previewed": 12,
+            "generated_features_omitted": 1,
+        }},
+    }]
+    result = {
+        "status": "completed",
+        "result": {"outputs": outputs + [{"node_id": str(i), "outputs": {"analysis": {"text": "x" * 2000}}} for i in range(4)]},
+        "artifacts": [],
+    }
+
+    bounded = json.loads(_bounded_tool_content("run_workflow", result))
+    image_node = next(item for item in bounded["result"]["outputs"] if item["node_id"] == "image_import")
+    ai_node = next(item for item in bounded["result"]["outputs"] if item["node_id"] == "ai")
+    image = image_node["outputs"]["report"]
+    features = ai_node["outputs"]["features"]
+    assert image["format"] == "PNG" and image["width"] == 640 and image["height"] == 480
+    assert features["generated_features_total"] == 13
+    assert features["generated_features_previewed"] == 12
+    assert features["generated_features_omitted"] == 1
+
+
+def test_subagent_audit_exposes_trusted_image_provenance_without_paths():
+    from materials_quality.agent.harness import _bounded_run_workflow_result, _subagent_audit_summary
+
+    source_hash = "b" * 64
+    input_hash = "a" * 64
+    event = _subagent_audit_summary({
+        "status": "completed",
+        "task_sha256": "c" * 64,
+        "input_sha256": input_hash,
+        "rows_total": 0,
+        "rows_analyzed": 0,
+        "images_total": 1,
+        "model_calls": 2,
+        "coverage": {
+            "rows_total": 0,
+            "rows_analyzed": 0,
+            "rows_omitted": 0,
+            "images_total": 1,
+            "images_analyzed": 1,
+            "image_references": [{
+                "image_id": "image_1", "source_sha256": source_hash, "width": 640, "height": 480,
+                "file_path": r"D:\private\raw.png",
+            }],
+        },
+        "private_text": "must not be forwarded",
+    })
+    bounded = _bounded_run_workflow_result({
+        "status": "completed", "result": {"outputs": []}, "artifacts": [], "subagent_audit": [{
+            "event": "completed", **event,
+        }],
+    })
+    encoded = json.dumps(bounded, ensure_ascii=False)
+
+    assert bounded["subagent_audit"][0]["input_sha256"] == input_hash
+    assert bounded["subagent_audit"][0]["coverage"]["image_references"][0] == {
+        "image_id": "image_1", "source_sha256": source_hash, "width": 640, "height": 480,
+    }
+    assert r"D:\private" not in encoded
+    assert "must not be forwarded" not in encoded
+
+
+def test_hdf5_browse_summary_exposes_structure_but_drops_attribute_values():
+    from materials_quality.agent.harness import _bounded_run_workflow_result, _compact_run_result
+
+    rows = [
+        {
+            "path": f"ParticleScannerScan_0/Particle_{index}/alinger.z_scan_0",
+            "kind": "dataset",
+            "shape": "20,1044",
+            "dtype": "float64",
+            "attrs": {"background": ["private-measurement-array"]},
+            "readable": True,
+            "blocked_reason": "",
+            "chunks": "contiguous",
+        }
+        for index in range(1_360)
+    ]
+    payload = {"outputs": [{"outputs": [{
+        "component_id": "h5_browse", "results": {"table": {"text_key": "text", "data": rows}},
+    }]}]}
+    flow = {"data": {"nodes": [{"id": "h5_browse", "data": {"type": "ScienceIoInstrumentImport"}}]}}
+    compact = _compact_run_result(payload, flow=flow)
+    structure = compact["outputs"][0]["outputs"]["table"]["instrument_structure"]
+    bounded = _bounded_run_workflow_result({
+        "status": "completed", "flow_name": "HDF5 browse", "result": compact, "artifacts": [],
+    })
+    encoded = json.dumps(bounded, ensure_ascii=False)
+
+    assert structure["metadata_rows"] == 1_360
+    assert structure["readable_datasets"] == 1_360
+    assert structure["path_patterns"][0]["shape"] == "20×1044"
+    assert len(structure["path_patterns"][0]["example_paths"]) == 2
+    assert structure["attributes_values_included"] is False
+    assert "private-measurement-array" not in encoded
+
+
+def test_ai_subagent_structured_provenance_reaches_main_agent():
+    from materials_quality.agent.harness import _compact_run_result
+
+    payload = {
+        "outputs": [{
+            "outputs": [{
+                "component_id": "ai",
+                "results": {
+                    "analysis": {
+                        "data": {
+                            "coverage": {
+                                "total_rows": 0,
+                                "analyzed_rows": 0,
+                                "images_total": 1,
+                                "images_analyzed": 1,
+                                "input_sha256": "a" * 64,
+                                "image_references": [{
+                                    "image_id": "image_1",
+                                    "source_sha256": "b" * 64,
+                                    "width": 24,
+                                    "height": 18,
+                                }],
+                            },
+                            "limitations": ["No scale calibration was provided."],
+                            "private_unapproved_field": "must be omitted",
+                        }
+                    }
+                },
+            }]
+        }]
+    }
+    flow = {"data": {"nodes": [{"id": "ai", "data": {"type": "StudyUIAIAnalysis"}}]}}
+
+    analysis = _compact_run_result(payload, flow=flow)["outputs"][0]["outputs"]["analysis"]
+    assert analysis["coverage"]["input_sha256"] == "a" * 64
+    assert analysis["coverage"]["image_references"][0]["source_sha256"] == "b" * 64
+    assert analysis["limitations"] == ["No scale calibration was provided."]
+    assert "private_unapproved_field" not in json.dumps(analysis)
+
+
+def test_mechanics_skill_requires_mechanical_data_not_specimen_imagery(tmp_path):
+    registry = SkillRegistry(tmp_path / "skills")
+
+    image_selection = registry.select_for_task("观察拉伸试样图像的几何轮廓与表面标记")
+    data_selection = registry.select_for_task("分析公开拉伸数据的工程应力应变曲线并计算弹性模量")
+
+    assert "studyui-mechanics-analysis" not in {item["name"] for item in image_selection["selected"]}
+    assert "studyui-mechanics-analysis" in {item["name"] for item in data_selection["selected"]}
+
+
+def test_ai_analysis_inherits_the_active_studyui_model():
+    from components.materials_skills.ai_analysis import StudyUIAIAnalysis
+    from materials_quality.agent.execution_context import (
+        reset_subagent_model_scope,
+        subagent_model_scope,
+    )
+
+    configured_model = object()
+    token = subagent_model_scope(configured_model)
+    try:
+        assert StudyUIAIAnalysis()._model() is configured_model
+    finally:
+        reset_subagent_model_scope(token)
 
 
 def test_changed_workflow_invalidates_approval_before_execution(tmp_path):
@@ -850,6 +1434,48 @@ def test_known_aggregate_outputs_are_visible_while_raw_measurements_remain_hidde
     assert derived["aggregate_ranges"]["signal_count"] == {"min": 10, "max": 12}
 
 
+def test_oversized_workflow_run_keeps_compact_quantitative_summaries_and_artifacts():
+    import json
+
+    from materials_quality.agent.harness import _bounded_tool_content
+
+    outputs = []
+    for index in range(32):
+        ranges = {f"metric_{column}_mean": {"min": column + 0.25, "max": column + 1.75}
+                  for column in range(28)}
+        outputs.append({
+            "node_id": f"stats-{index}",
+            "outputs": {
+                "table": {
+                    "rows": 400,
+                    "columns": [f"column_{column}" for column in range(80)],
+                    "aggregate_total_rows": 400,
+                    "aggregate_suppressed_rows": 0,
+                    "aggregate_preview": [{"mean": 2.5, "raw_value": "private measurement"} for _ in range(8)],
+                    "aggregate_ranges": ranges,
+                    "scope": "derived aggregate output",
+                }
+            },
+        })
+    result = {
+        "status": "completed",
+        "flow_name": "experiment",
+        "result": {"session_id": "session", "outputs": outputs},
+        "artifacts": [{"id": f"artifact-{index}", "name": f"result-{index}.csv", "sha256": "a" * 64, "size": 100}
+                      for index in range(30)],
+    }
+
+    content = _bounded_tool_content("run_workflow", result)
+    parsed = json.loads(content)
+    assert len(content) <= 8_000
+    assert parsed["status"] == "completed"
+    preserved = parsed["result"]["outputs"][0]["outputs"]["table"]
+    assert preserved["aggregate_ranges"]["metric_0_mean"] == {"min": 0.25, "max": 1.75}
+    assert parsed["artifacts"][0]["sha256"] == "a" * 64
+    assert "private measurement" not in content
+    assert "result_keys" not in parsed
+
+
 def test_singleton_group_mean_is_not_exposed_as_aggregate():
     import json
     from materials_quality.agent.harness import _compact_run_result
@@ -863,6 +1489,27 @@ def test_singleton_group_mean_is_not_exposed_as_aggregate():
     assert "713.42" not in json.dumps(result)
     assert "private-id" not in json.dumps(result)
     assert result["outputs"][0]["outputs"]["table"]["aggregate_suppressed_rows"] == 1
+
+
+def test_runtime_message_wrapped_aggregate_is_available_for_reporting():
+    from materials_quality.agent.harness import _compact_run_result
+
+    payload = {"outputs": [{"outputs": [{"component_id": "stats", "results": {}, "outputs": {
+        "table": {"message": [{"time_point": "0s", "signal_count": 1600, "signal_mean": 0.25}], "type": "dataframe"}
+    }}]}]}
+    flow = {"data": {"nodes": [{"id": "stats", "data": {"type": "ScienceStatsGrouped"}}]}}
+    table = _compact_run_result(payload, flow=flow)["outputs"][0]["outputs"]["table"]
+    assert table["aggregate_preview"][0]["signal_mean"] == 0.25
+    assert table["aggregate_ranges"]["signal_count"] == {"min": 1600, "max": 1600}
+
+
+def test_long_node_report_is_marked_as_context_excerpt_not_source_truncation():
+    from materials_quality.agent.harness import _message_or_report_summary
+
+    summary = _message_or_report_summary({"text": "report text " * 300})
+    assert summary["text_is_excerpt"] is True
+    assert summary["text_characters"] == len("report text " * 300)
+    assert len(summary["text"]) == 2400
 
 
 def test_workflow_summary_and_tool_reply_omit_component_source_code():

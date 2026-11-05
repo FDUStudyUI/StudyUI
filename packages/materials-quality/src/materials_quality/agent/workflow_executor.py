@@ -45,9 +45,15 @@ class FileWorkflowExecutor:
         flow, revision = self.store.read(flow_id)
         if self.validator:
             flow = self.validator(flow) or flow
-        from .execution_context import external_data_approval, reset_external_data_approval
+        from .execution_context import (
+            begin_upstream_image_scope,
+            external_data_approval,
+            reset_external_data_approval,
+            reset_upstream_image_scope,
+        )
 
         token = external_data_approval(external_data_approved)
+        image_scope = begin_upstream_image_scope()
         try:
             outputs = run_flow_from_json(
                 flow,
@@ -58,6 +64,7 @@ class FileWorkflowExecutor:
             )
         finally:
             reset_external_data_approval(token)
+            reset_upstream_image_scope(image_scope)
         return {
             "flow_id": flow_id,
             "revision": revision,

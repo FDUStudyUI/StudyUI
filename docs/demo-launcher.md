@@ -4,6 +4,8 @@
 
 当前启动器以 Python 3.10 验收。Windows 需要 Python Launcher (`py`) 或 `python` 命令；macOS/Linux 需要 `python3.10` 或 `python3`。依赖安装使用专用 `.demo-venv`，首次安装需联网下载 LFX、画布资源和科学计算包。
 
+环境配置随源码维护：仓库根目录 `.python-version` 记录本机验收版本 3.10.22；组件包的 `pyproject.toml` 声明依赖范围，`requirements.lock` 保存跨平台解析结果，`requirements-tested-py310.txt` 和 `requirements-ui-tested-py310.txt` 保存 Python 3.10 验收快照。后者包含完整画布和科学计算环境。启动器仍根据 `pyproject.toml` 在专用 `.demo-venv` 中安装，锁文件用于复现已验收依赖与审查升级差异。更新依赖时应同步刷新相应锁文件并运行测试。
+
 服务只监听本机回环地址：StudyUI 主界面默认 `http://127.0.0.1:7880`，工作流画布通过同一服务的 `/canvas/` 提供。只需确保一个端口空闲。
 
 ## 首次安装

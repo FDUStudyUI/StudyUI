@@ -1,6 +1,6 @@
 # StudyUI Agent Harness
 
-StudyUI 是主 Agent 应用；LFX/Langflow 提供嵌入式科研工作流画布和图执行引擎。项目工作流写入 `workflows/<flow-id>.json`，项目和排序写入仓库根目录 `workspace.json`，会话、审批、工具调用事件保存在 `.demo-runtime/agent.sqlite3`。非密钥模型配置和权限设置写入 `.demo-runtime/studyui-settings.json`；Skills 位于 `.demo-runtime/skills/`，密钥进入系统凭据库。
+StudyUI 是主 Agent 应用，并在同一服务内提供科研工作流画布和图执行引擎。项目工作流写入 `workflows/<flow-id>.json`，项目和排序写入仓库根目录 `workspace.json`，会话、审批、工具调用事件保存在 `.demo-runtime/agent.sqlite3`。非密钥模型配置和权限设置写入 `.demo-runtime/studyui-settings.json`；Skills 位于 `.demo-runtime/skills/`，密钥进入系统凭据库。
 
 ```text
 研究者
