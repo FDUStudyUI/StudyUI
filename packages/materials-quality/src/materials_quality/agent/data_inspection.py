@@ -178,6 +178,27 @@ def inspect_file(path):
                 blocks.append({"start_row": start, "end_row": index - 1, "nonempty_numeric_cells_per_row": width})
             start, width = (index, len(values)) if numeric else (None, None)
     result["numeric_blocks"] = sorted(blocks, key=lambda b: b["end_row"] - b["start_row"], reverse=True)[:5]
+    for block in result["numeric_blocks"]:
+        selected = rows[block["start_row"] - 1:block["end_row"]]
+        values = []
+        for row in selected:
+            if not row or not NUMBER.fullmatch(row[0].strip()):
+                values = []
+                break
+            value = float(row[0])
+            if not math.isfinite(value):
+                values = []
+                break
+            values.append(value)
+        if len(values) >= 2:
+            differences = [b - a for a, b in zip(values, values[1:])]
+            block["first_column_order"] = {
+                "checked_rows": len(values),
+                "strictly_increasing": all(d > 0 for d in differences),
+                "strictly_decreasing": all(d < 0 for d in differences),
+                "adjacent_equal_count": sum(d == 0 for d in differences),
+            }
+            block["first_column_order_note"] = "仅为该数值区块第一列的顺序检查，不确定其物理含义。"
     result["numeric_blocks_note"] = "只统计每行非空数值单元格；空列被跳过，不一定是连续列或完整数据范围。"
     result["maximum_columns"] = max((len(row) for row in rows), default=0)
     return result

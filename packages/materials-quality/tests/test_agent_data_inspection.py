@@ -12,9 +12,21 @@ def test_user_named_csv_reports_structure_without_numeric_rows(tmp_path):
     result = inspect_file(authorized_file(str(file), f"请分析 {file}"))
     assert result["delimiter"] == ";"
     assert result["rows"] == 3
-    assert result["numeric_blocks"] == [{"start_row": 2, "end_row": 3, "nonempty_numeric_cells_per_row": 2}]
+    block = result["numeric_blocks"][0]
+    assert (block["start_row"], block["end_row"], block["nonempty_numeric_cells_per_row"]) == (2, 3, 2)
+    assert block["first_column_order"]["strictly_increasing"] is True
     assert [cell["label"] for cell in result["first_row_text_labels"]] == ["time", "signal"]
     assert "99.75" not in json.dumps(result)
+
+
+def test_numeric_block_reports_nonmonotonic_order_without_values(tmp_path):
+    file = tmp_path / "series.csv"
+    file.write_text("x,y\n1.25,9.75\n1.25,8.75\n0.5,7.75\n", encoding="utf-8")
+    result = inspect_file(file)
+    order = result["numeric_blocks"][0]["first_column_order"]
+    assert order == {"checked_rows": 3, "strictly_increasing": False,
+                     "strictly_decreasing": False, "adjacent_equal_count": 1}
+    assert "9.75" not in json.dumps(result)
 
 
 def test_inspection_rejects_unmentioned_and_non_data_files(tmp_path):

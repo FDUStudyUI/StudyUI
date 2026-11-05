@@ -323,6 +323,26 @@ class SessionStore:
             ).fetchall()
         return [json.loads(row[0]) for row in reversed(rows)]
 
+    def user_messages(self, session_id):
+        """Keep the initial research request and recent user corrections across long tool histories."""
+        with self._connect() as db:
+            first = db.execute(
+                "SELECT id,message_json FROM messages WHERE session_id=? AND json_extract(message_json,'$.role')='user' ORDER BY id LIMIT 1",
+                (session_id,),
+            ).fetchall()
+            recent = db.execute(
+                "SELECT id,message_json FROM messages WHERE session_id=? AND json_extract(message_json,'$.role')='user' ORDER BY id DESC LIMIT 8",
+                (session_id,),
+            ).fetchall()
+        return [json.loads(row[1]) for row in sorted({row[0]: row for row in first + recent}.values(), key=lambda row: row[0])]
+
+    def session_created_flow_ids(self, session_id):
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT detail_json FROM events WHERE session_id=? AND kind='workflow_created'", (session_id,)
+            ).fetchall()
+        return {json.loads(row[0]).get("flow_id") for row in rows} - {None}
+
     def append_event(self, session_id, kind, detail):
         with self._connect() as db:
             db.execute(
