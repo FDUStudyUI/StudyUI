@@ -5,10 +5,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import html
+import io
 import json
 import mimetypes
 import os
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from email.message import Message
+from fastapi import FastAPI, Request
+from fastapi.responses import Response
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
@@ -48,8 +52,8 @@ dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface)
     <footer class="composer"><div class="compose-inner"><textarea id="input" placeholder="描述研究目标，或告诉 StudyUI 你希望检查、搭建或运行什么……"></textarea><button id="send">发送</button></div><div class="hint">文献检索当前返回 Crossref 元数据，不代表已获取论文全文。请勿粘贴密钥或未授权的敏感数据。</div></footer>
   </section>
   <section id="flow-view" class="view" hidden>
-    <header class="top flow-top"><div><h1>工作流画布</h1><p>在 StudyUI 工作区中查看、编辑和运行材料科学流程。</p></div><a id="open-langflow" href="__LANGFLOW_BASE_URL__" class="external" target="_blank" rel="noopener">单独打开画布 ↗</a></header>
-    <iframe id="flow-frame" data-src="__LANGFLOW_BASE_URL__/" title="Langflow 工作流画布" loading="lazy" referrerpolicy="no-referrer"></iframe>
+    <header class="top flow-top"><div><h1>工作流画布</h1><p>在 StudyUI 工作区中查看、编辑和运行材料科学流程。</p></div><a id="open-canvas" href="__CANVAS_BASE_PATH__/" class="external" target="_blank" rel="noopener">新标签打开画布 ↗</a></header>
+    <iframe id="flow-frame" data-src="__CANVAS_BASE_PATH__/" title="StudyUI 工作流画布" loading="lazy" referrerpolicy="no-referrer"></iframe>
   </section>
 </main>
 </div>
@@ -109,12 +113,7 @@ document.querySelector('#delete-model-profile').onclick=async()=>{const id=profi
 )
 
 
-class StudyUIHTTPServer(ThreadingHTTPServer):
-    daemon_threads = True
-    allow_reuse_address = True
-
-
-def make_handler(harness, langflow_url):
+def make_handler(harness, canvas_path):
     class Handler(BaseHTTPRequestHandler):
         server_version = "StudyUI/0.1"
 
@@ -166,7 +165,7 @@ def make_handler(harness, langflow_url):
             path = urlsplit(self.path).path
             if path == "/":
                 page = PAGE.replace(
-                    "__LANGFLOW_BASE_URL__", html.escape(langflow_url.rstrip("/"), quote=True)
+                    "__CANVAS_BASE_PATH__", html.escape(canvas_path.rstrip("/"), quote=True)
                 )
                 return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
             if path == "/api/health":
@@ -177,7 +176,7 @@ def make_handler(harness, langflow_url):
                         "status": "ok",
                         "service": "StudyUI",
                         "model_configured": bool(profile.get("configured")),
-                        "langflow_url": getattr(harness.langflow, "base_url", langflow_url),
+                        "canvas_url": canvas_path,
                         "workflow_storage": "json"
                         if isinstance(harness.langflow, FileWorkflowClient)
                         else "database",
@@ -542,29 +541,100 @@ def make_handler(harness, langflow_url):
     return Handler
 
 
+def _dispatch_studyui_handler(handler_type, method, path, headers, body):
+    """Run the existing StudyUI route handler behind the shared ASGI listener."""
+    handler = object.__new__(handler_type)
+    handler.command = method
+    handler.path = path
+    handler.headers = Message()
+    for name, value in headers.items():
+        handler.headers.add_header(name, value)
+    handler.rfile = io.BytesIO(body)
+    handler.wfile = io.BytesIO()
+    response = {"status": 500, "headers": {}}
+
+    def send_response(status, message=None):
+        response["status"] = int(status)
+
+    def send_header(name, value):
+        response["headers"][name] = value
+
+    handler.send_response = send_response
+    handler.send_header = send_header
+    handler.end_headers = lambda: None
+    handler.log_message = lambda *args: None
+    route = getattr(handler, "do_" + method, None)
+    if route is None:
+        handler._send(405, {"error": "Method not allowed"})
+    else:
+        route()
+    return response["status"], response["headers"], handler.wfile.getvalue()
+
+
+def create_app(database, workflows, components, frontend):
+    """Serve the StudyUI agent and its workflow canvas through one local listener."""
+    from starlette.concurrency import run_in_threadpool
+
+    from .workbench import create_app as create_workbench_app
+
+    project_root = Path(__file__).resolve().parents[5]
+    workflow_client = FileWorkflowClient(
+        workflows or project_root / "workflows",
+        components or project_root / ".demo-runtime" / "components",
+    )
+    harness = StudyUIAgent(database, langflow=workflow_client)
+    handler_type = make_handler(harness, "/canvas")
+    app = FastAPI(title="StudyUI")
+    app.state.harness = harness
+    app.mount(
+        "/canvas",
+        create_workbench_app(
+            Path(workflows or project_root / "workflows"),
+            Path(components or project_root / ".demo-runtime" / "components"),
+            Path(frontend or project_root / ".demo-runtime" / "workbench-ui"),
+        ),
+    )
+
+    @app.api_route(
+        "/{path:path}", methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS", "PUT"]
+    )
+    async def studyui_routes(request: Request, path: str = ""):
+        request_path = request.url.path
+        if request.url.query:
+            request_path += "?" + request.url.query
+        status, response_headers, content = await run_in_threadpool(
+            _dispatch_studyui_handler,
+            handler_type,
+            request.method,
+            request_path,
+            dict(request.headers.items()),
+            await request.body(),
+        )
+        headers = {
+            name: value
+            for name, value in response_headers.items()
+            if name.lower() not in {"content-length", "transfer-encoding"}
+        }
+        return Response(content=content, status_code=status, headers=headers)
+
+    return app
+
+
 def serve(
     host="127.0.0.1",
     port=7880,
     database=".demo-runtime/agent.sqlite3",
-    langflow_url="http://127.0.0.1:7881",
     workflows=None,
     components=None,
+    frontend=None,
 ):
+    import uvicorn
+
     if host not in {"127.0.0.1", "localhost", "::1"}:
         raise ValueError("StudyUI must bind to loopback")
-    project_root = Path(__file__).resolve().parents[5]
-    workflow_client = FileWorkflowClient(
-        workflows or project_root / "workflows", components or project_root / ".demo-runtime" / "components"
-    )
-    harness = StudyUIAgent(database, langflow=workflow_client)
-    server = StudyUIHTTPServer((host, port), make_handler(harness, langflow_url))
+    app = create_app(database, workflows, components, frontend)
     print(f"StudyUI ready: http://{host}:{port}", flush=True)
-    try:
-        server.serve_forever(poll_interval=0.5)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.server_close()
+    uvicorn.run(app, host=host, port=port, access_log=False)
 
 
 def main(argv=None):
@@ -574,15 +644,13 @@ def main(argv=None):
     parser.add_argument(
         "--database", default=os.environ.get("STUDYUI_DATABASE", ".demo-runtime/agent.sqlite3")
     )
-    parser.add_argument(
-        "--langflow-url", default=os.environ.get("STUDYUI_LANGFLOW_URL", "http://127.0.0.1:7881")
-    )
     parser.add_argument("--workflows", default=os.environ.get("STUDYUI_WORKFLOWS_DIR"))
     parser.add_argument("--components", default=os.environ.get("STUDYUI_COMPONENTS_DIR"))
+    parser.add_argument("--frontend", default=os.environ.get("STUDYUI_FRONTEND_DIR"))
     args = parser.parse_args(argv)
     if not 1 <= args.port <= 65535:
         parser.error("port must be between 1 and 65535")
-    serve(args.host, args.port, args.database, args.langflow_url, args.workflows, args.components)
+    serve(args.host, args.port, args.database, args.workflows, args.components, args.frontend)
     return 0
 
 

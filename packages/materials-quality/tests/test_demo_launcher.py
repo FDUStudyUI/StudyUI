@@ -268,27 +268,13 @@ def test_running_server_wait_remains_interruptible(tmp_path, monkeypatch):
         def terminate(self):
             self.stopped = True
 
-    class Healthy:
-        status = 200
-
-        def open(self, *args, **kwargs):
-            return self
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            pass
-
     process = Process()
-    monkeypatch.setattr(demo.subprocess, "Popen", lambda *a, **k: process)
-    monkeypatch.setattr(demo, "build_opener", lambda *a: Healthy())
-    monkeypatch.setattr(demo, "start_studyui_service", lambda *a: Process())
+    monkeypatch.setattr(demo, "start_studyui_service", lambda *a: process)
     monkeypatch.setattr(demo.time, "sleep", lambda *a: (_ for _ in ()).throw(KeyboardInterrupt()))
     if os.name != "nt":
         process.pid = 12345
         monkeypatch.setattr(demo.os, "killpg", lambda *a: process.kill())
-    assert demo.start_system(Path(sys.executable), tmp_path, 7880, 7881, 10) == 0
+    assert demo.start_system(Path(sys.executable), tmp_path, 7880, 10) == 0
     assert process.stopped
 
 

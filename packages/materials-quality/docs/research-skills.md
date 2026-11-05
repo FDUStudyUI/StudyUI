@@ -112,7 +112,7 @@ Web 控制台或外部编排服务。演示启动器会从当前 Langflow 安装
 工具不会自动改写流程，也不会绕过科研节点的计划校验。需要改变画布时，Agent 先给出
 节点/参数修改提案，由用户在 Langflow 画布中确认后再保存。
 
-启动 `start_demo.bat` 后，在 Langflow 的 Playground 中选择 **StudyUI 科研工作流助手**；
+启动 `start_demo.bat` 后，在 StudyUI 的研究会话中调用 **StudyUI 科研工作流助手**；
 所有对话历史、模型配置和审批交互都留在 Langflow 内。
 
 ## 命令行

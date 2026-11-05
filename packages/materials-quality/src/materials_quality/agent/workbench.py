@@ -311,7 +311,7 @@ def main():
     import uvicorn
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--port", type=int, default=7881)
+    parser.add_argument("--port", type=int, default=7880)
     parser.add_argument("--workflows", type=Path, required=True)
     parser.add_argument("--components", type=Path, required=True)
     parser.add_argument("--frontend", type=Path, required=True)

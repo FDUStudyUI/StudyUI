@@ -94,6 +94,7 @@ def test_negated_build_request_does_not_authorize_canvas_changes(message):
         "请搭建并运行一个真实原始数据工作流。",
         "创建并运行工作流，处理当前数据。",
         "请直接修复并运行现有工作流。",
+        "请修正现有 JSON 工作流并实际运行。",
         "Please build a workflow and run it.",
     ],
 )
@@ -635,3 +636,218 @@ def test_successful_tool_calls_are_written_to_the_audit_log(tmp_path):
 
     assert len(calls) == 1
     assert calls[0]["detail"] == {"name": "list_research_skills", "ok": True, "action": "skill.list"}
+
+
+def test_component_catalog_queries_are_cached_and_bounded_per_turn(tmp_path):
+    from materials_quality.agent.harness import StudyUIAgent
+
+    class FakeWorkflows:
+        catalog_calls = 0
+
+        def component_catalog(self):
+            self.catalog_calls += 1
+            return {
+                "materials_analysis": {
+                    "ScienceMaterialsXrd": {
+                        "display_name": "XRD analysis",
+                        "description": "XRD curve and peak analysis",
+                        "template": {"cfg_x": {"type": "str", "display_name": "X axis"}},
+                        "outputs": [{"name": "features", "display_name": "Features", "types": ["Table"]}],
+                    }
+                }
+            }
+
+    workflows = FakeWorkflows()
+    agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=workflows, model=object())
+    project_id = agent.store.create_project("component lookup")
+    session_id = agent.new_session(project_id=project_id)
+    agent._turn_state.value = {
+        "component_queries": 0,
+        "component_cache": {},
+        "last_components": [],
+    }
+    try:
+        first = agent._dispatch(session_id, "list_components", {"query": "XRD", "limit": 5}, "")
+        cached = agent._dispatch(session_id, "list_components", {"query": "xrd", "limit": 5}, "")
+        assert first["components"][0]["type"] == "ScienceMaterialsXrd"
+        assert cached["cached"] is True
+
+        for query in ("one", "two", "three"):
+            agent._dispatch(session_id, "list_components", {"query": query, "limit": 5}, "")
+        exhausted = agent._dispatch(session_id, "list_components", {"query": "four", "limit": 5}, "")
+        assert exhausted["search_budget_reached"] is True
+        assert "components" not in exhausted
+        assert workflows.catalog_calls == 4
+    finally:
+        del agent._turn_state.value
+
+
+def test_component_search_ranks_exact_fields_and_keeps_tool_json_valid(tmp_path):
+    import json
+
+    from materials_quality.agent.harness import _bounded_tool_content
+    from materials_quality.agent.workflow import component_catalog_summary
+
+    catalog = {
+        "materials_sources": {
+            "ScienceIoDatabaseImport": {
+                "display_name": "Database import",
+                "description": "Read a database table",
+                "template": {"cfg_path": {"type": "str", "display_name": "Path"}},
+                "outputs": [{"name": "table", "types": ["Table"]}],
+            },
+            "ScienceIoTableImport": {
+                "display_name": "Raw table import",
+                "description": "Import raw delimited experimental files",
+                "template": {
+                    **{
+                        f"cfg_field_{index}": {
+                            "type": "str",
+                            "display_name": f"Field {index}",
+                            "value": "x" * 200,
+                        }
+                        for index in range(20)
+                    },
+                    "cfg_delimiter": {"type": "str", "display_name": "Delimiter"},
+                    "code": {"type": "code", "display_name": "Code", "value": "secret-code"},
+                },
+                "outputs": [{"name": "table", "types": ["Table"]}],
+            },
+        }
+    }
+    rows = component_catalog_summary(catalog, "CSV import delimiter", limit=5)
+    assert rows[0]["type"] == "ScienceIoTableImport"
+    assert all(row["name"] != "code" for row in rows[0]["inputs"])
+
+    content = _bounded_tool_content("list_components", {"components": rows})
+    assert len(content) <= 8_000
+    assert json.loads(content)["components"][0]["type"] == "ScienceIoTableImport"
+
+    plots = component_catalog_summary(
+        {
+            "materials_visualization": {
+                "ScienceVizSpectra": {
+                    "display_name": "Curve plot",
+                    "description": "Plot selected x-y series",
+                    "template": {
+                        "cfg_x": {"type": "str", "display_name": "X"},
+                        "cfg_columns": {"type": "str", "list": True, "display_name": "Y series"},
+                    },
+                    "outputs": [{"name": "artifacts", "types": ["File"]}],
+                },
+                "ScienceExportReport": {
+                    "display_name": "Report export",
+                    "description": "Export a report",
+                    "template": {"cfg_format": {"type": "str", "display_name": "Format"}},
+                    "outputs": [],
+                },
+            }
+        },
+        "line chart plot",
+        limit=5,
+    )
+    assert plots[0]["type"] == "ScienceVizSpectra"
+    assert next(field for field in plots[0]["inputs"] if field["name"] == "cfg_columns")["is_list"] is True
+
+
+def test_oversized_tool_result_is_valid_json():
+    import json
+
+    from materials_quality.agent.harness import _bounded_tool_content
+
+    content = _bounded_tool_content("search_literature", {"detail": "x" * 20_000})
+    parsed = json.loads(content)
+    assert parsed["truncated"] is True
+    assert parsed["tool"] == "search_literature"
+
+
+def test_missing_report_preserves_per_column_counts_without_rows():
+    from materials_quality.agent.harness import _message_or_report_summary
+
+    report = {"data": {"metrics": {"columns": {"voltage": {"missing_count": 3, "missing_ratio": 0.3}},
+                                    "rows": [{"row_position": 1, "value": "private"}]},
+                       "provenance": {"mode": "shared", "source": {"source_name": "raw.csv", "source_sha256": "abc"}}}}
+    result = _message_or_report_summary(report)
+    assert result["metrics"]["columns"]["voltage"] == {"missing_count": 3, "missing_ratio": 0.3}
+    assert "rows" not in result["metrics"]
+    assert result["provenance"]["source"]["source_name"] == "raw.csv"
+    assert "private" not in str(result)
+
+
+def test_workflow_summary_and_tool_reply_omit_component_source_code():
+    import json
+
+    from materials_quality.agent.harness import _bounded_tool_content
+    from materials_quality.agent.workflow import flow_summary
+
+    flow = {
+        "id": "flow-1",
+        "name": "test",
+        "data": {
+            "nodes": [
+                {
+                    "id": "import",
+                    "data": {
+                        "type": "ScienceIoTableImport",
+                        "node": {
+                            "display_name": "Table import",
+                            "template": {
+                                "cfg_path": {"value": "D:\\data\\raw.csv"},
+                                "input_data": {"value": "private table payload"},
+                                "code": {"value": "x" * 20_000},
+                                "config_json": {"value": '{"raw":"x"}'},
+                            },
+                            "outputs": [],
+                        },
+                    },
+                }
+            ],
+            "edges": [],
+        },
+    }
+    summary = flow_summary(flow)
+    assert "code" not in summary["nodes"][0]["config"]
+    assert "input_data" not in summary["nodes"][0]["config"]
+    assert "config_json" not in summary["nodes"][0]["config"]
+    assert "code" not in summary["nodes"][0]["inputs"]
+
+    content = _bounded_tool_content("inspect_workflow", summary)
+    assert len(content) < 8_000
+    assert "private table payload" not in content
+    assert "x" * 2_000 not in content
+    assert json.loads(content)["node_count"] == 1
+
+
+def test_tool_round_limit_requests_a_final_summary_without_more_tools(tmp_path, monkeypatch):
+    from materials_quality.agent import harness as harness_module
+    from materials_quality.agent.harness import StudyUIAgent
+
+    class FakeWorkflows:
+        pass
+
+    class FakeModel:
+        calls = 0
+
+        def complete(self, _messages, tools, *, max_tokens=3000):
+            self.calls += 1
+            if tools:
+                return {
+                    "tool_calls": [
+                        {
+                            "id": "call-skills",
+                            "function": {"name": "list_research_skills", "arguments": "{}"},
+                        }
+                    ]
+                }
+            return {"content": "已完成的结果已核验；当前没有未完成审批。"}
+
+    monkeypatch.setattr(harness_module, "MAX_TOOL_ROUNDS", 1)
+    agent = StudyUIAgent(
+        tmp_path / "agent.sqlite3", langflow=FakeWorkflows(), model=FakeModel()
+    )
+    project_id = agent.store.create_project("final summary")
+    session_id = agent.new_session(project_id=project_id)
+    result = agent.run_turn(session_id, "列出科研 Skill。")
+
+    assert "已核验" in result["message"]
+    assert "工具调用轮数已达上限" in result["message"]

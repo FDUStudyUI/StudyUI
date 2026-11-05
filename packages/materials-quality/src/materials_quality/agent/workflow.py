@@ -132,7 +132,12 @@ def flow_summary(flow):
         config = {}
         if isinstance(template, dict):
             for name, field in template.items():
-                if isinstance(field, dict) and "value" in field and not _is_secret(name, field):
+                if (
+                    name not in {"code", "config_json", "input_data"}
+                    and isinstance(field, dict)
+                    and "value" in field
+                    and not _is_secret(name, field)
+                ):
                     config[name] = _safe_value(name, field, field["value"])
         summaries.append(
             {
@@ -141,7 +146,11 @@ def flow_summary(flow):
                 "name": _safe_value("display_name", {}, component.get("display_name", node_id)),
                 "description": _safe_value("description", {}, str(component.get("description", ""))[:240]),
                 "config": config,
-                "inputs": list(template) if isinstance(template, dict) else [],
+                "inputs": [
+                    name for name in template if name not in {"code", "config_json", "input_data"}
+                ]
+                if isinstance(template, dict)
+                else [],
                 "outputs": [
                     {"name": item.get("name"), "display_name": item.get("display_name")}
                     for item in component.get("outputs", [])
@@ -176,6 +185,7 @@ def component_catalog_summary(catalog, query="", limit=40):
     """Return only project science components and basic data-import components."""
     query = str(query or "").casefold().strip()
     limit = max(1, min(int(limit), 80))
+    query_tokens = [token for token in re.findall(r"[a-z0-9_]+|[\u4e00-\u9fff]+", query) if len(token) > 1]
     groups = {
         "materials_quality",
         "materials_sources",
@@ -188,9 +198,17 @@ def component_catalog_summary(catalog, query="", limit=40):
         "materials_skills",
         "data_source",
     }
-    result = []
+    search_aliases = {
+        "ScienceIoTableImport": "csv tsv xlsx excel raw table file delimiter header",
+        "MaterialMissingCheck": "missingness missing values null blank empty cells quality",
+        "ScienceVizSpectra": "line chart plot curve x y series",
+        "ScienceVizPerformance": "scatter chart plot x y performance",
+        "ScienceVizMechanics": "stress strain chart plot curve",
+        "ScienceVizStatistics": "statistics chart plot distribution",
+    }
+    ranked = []
     if not isinstance(catalog, dict):
-        return result
+        return []
     for category, components in catalog.items():
         if category not in groups or not isinstance(components, dict):
             continue
@@ -202,7 +220,7 @@ def component_catalog_summary(catalog, query="", limit=40):
             fields = component["template"]
             field_rows = []
             for field_name, field in fields.items():
-                if not isinstance(field, dict) or field.get("show", True) is False:
+                if field_name == "code" or not isinstance(field, dict) or field.get("show", True) is False:
                     continue
                 row = {
                     "name": field_name,
@@ -210,9 +228,17 @@ def component_catalog_summary(catalog, query="", limit=40):
                     "required": bool(field.get("required", False)),
                     "display_name": field.get("display_name", field_name),
                 }
+                if field.get("list") is True:
+                    row["is_list"] = True
                 if "options" in field and isinstance(field["options"], list):
-                    row["options"] = field["options"][:40]
-                if "value" in field and not _is_secret(field_name, field):
+                    row["options"] = [str(option)[:80] for option in field["options"][:12]]
+                if (
+                    field_name != "code"
+                    and "value" in field
+                    and not _is_secret(field_name, field)
+                    and isinstance(field["value"], (str, int, float, bool, type(None)))
+                    and len(str(field["value"])) <= 120
+                ):
                     row["default"] = _safe_value(field_name, field, field["value"])
                 field_rows.append(row)
             outputs = [
@@ -225,24 +251,41 @@ def component_catalog_summary(catalog, query="", limit=40):
                 if isinstance(output, dict)
             ]
             haystack = " ".join(
-                [category, type_name, str(name), description]
+                [category, type_name, str(name), description, search_aliases.get(type_name, "")]
                 + [field["name"] + " " + field["display_name"] for field in field_rows]
             ).casefold()
-            if query and query not in haystack:
+            tokens_found = sum(token in haystack for token in query_tokens)
+            if query and not tokens_found and query not in haystack:
                 continue
-            result.append(
+            type_text = str(type_name).casefold()
+            name_text = str(name).casefold()
+            type_hits = sum(token in type_text for token in query_tokens)
+            name_hits = sum(token in name_text for token in query_tokens)
+            exact_query = query == type_text or query == name_text
+            score = (
+                (100 if exact_query else 0)
+                + (30 if query and query in type_text else 0)
+                + (20 if query and query in name_text else 0)
+                + 25 * type_hits
+                + 12 * name_hits
+                + 3 * tokens_found
+                + (12 if query_tokens and all(token in haystack for token in query_tokens) else 0)
+            )
+            ranked.append(
+                (
+                    score,
                 {
                     "category": category,
                     "type": type_name,
                     "name": name,
-                    "description": description[:400],
-                    "inputs": field_rows[:80],
-                    "outputs": outputs[:40],
-                }
+                    "description": description[:240],
+                    "inputs": field_rows[:48],
+                    "outputs": outputs[:16],
+                },
+                )
             )
-            if len(result) >= limit:
-                return result
-    return result
+    ranked.sort(key=lambda row: row[0], reverse=True)
+    return [component for _, component in ranked[:limit]]
 
 
 def _component_map(catalog):

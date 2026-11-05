@@ -4,7 +4,7 @@
 
 当前启动器以 Python 3.10 验收。Windows 需要 Python Launcher (`py`) 或 `python` 命令；macOS/Linux 需要 `python3.10` 或 `python3`。依赖安装使用专用 `.demo-venv`，首次安装需联网下载 LFX、画布资源和科学计算包。
 
-服务只监听本机回环地址：StudyUI 主界面默认 `http://127.0.0.1:7880`，内部工作流画布默认 `http://127.0.0.1:7881`。若指定其他端口，两者必须不同且空闲。
+服务只监听本机回环地址：StudyUI 主界面默认 `http://127.0.0.1:7880`，工作流画布通过同一服务的 `/canvas/` 提供。只需确保一个端口空闲。
 
 ## 首次安装
 
@@ -36,7 +36,7 @@ macOS/Linux：
 sh ./start_demo.sh
 ```
 
-浏览器打开 `http://127.0.0.1:7880`，在 StudyUI 左侧进入“工作流画布”。启动终端显示 `StudyUI ready` 后，保持终端开启；在该窗口按 `Ctrl+C` 停止这次启动的两个服务。启动器只停止自己创建的进程，不接管同端口的既有服务。
+浏览器打开 `http://127.0.0.1:7880`，在 StudyUI 左侧进入“工作流画布”。启动终端显示 `StudyUI and workflow canvas ready` 后，保持终端开启；在该窗口按 `Ctrl+C` 停止服务。启动器只停止自己创建的进程，不接管同端口的既有服务。
 
 ## 检查环境
 
@@ -78,7 +78,7 @@ sh ./start_demo.sh --check
 | 找不到 Python 3.10 | 安装 Python 3.10，并确认 `py -3.10`（Windows）或 `python3.10`（macOS/Linux）可用。 |
 | `required_missing` 非空 | 在仓库根目录执行 `--setup`；若依赖安装中断，处理网络或编译依赖后重试。 |
 | `optional_missing` 非空 | 仅在需要相应仪器数组格式时执行 `--setup` 更新环境；普通科研示例不受影响。 |
-| 7880 或 7881 已占用 | 选择空闲端口，例如 `--port 7886 --langflow-port 7887`。启动器不会复用或终止该端口现有服务。 |
+| 7880 已占用 | 选择空闲端口，例如 `--port 7886`。启动器不会复用或终止该端口现有服务。 |
 | StudyUI 界面打开但模型不可用 | 检查设置中的 API 地址、模型名与凭据，然后使用“测试连接”；远端地址必须 HTTPS。 |
 | 含脚本 Skill 无法运行 | 选择“审核后沙箱 Skill”，对当前版本进行信任审批，并确保 Docker 已安装、镜像已预拉取。无 Docker 时会拒绝执行。 |
 | 内部画布打不开或工作流报错 | 查看 `.demo-runtime/logs/studyui-launcher.log` 与 `.demo-runtime/logs/studyui-server.log`；确认工作流节点都来自已安装 StudyUI 组件，并检查项目归属与输入文件路径。 |
@@ -88,7 +88,7 @@ sh ./start_demo.sh --check
 启动器默认目录均按仓库路径解析。可以更换运行目录和端口：
 
 ```powershell
-.\start_demo.bat --runtime "D:\StudyUI运行数据" --port 7886 --langflow-port 7887
+.\start_demo.bat --runtime "D:\StudyUI运行数据" --port 7886
 ```
 
 已有依赖齐全的 Python 3.10 环境可只读运行：

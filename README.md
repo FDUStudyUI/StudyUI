@@ -25,10 +25,10 @@ macOS/Linux：
 sh ./start_demo.sh --setup
 ```
 
-启动器只在项目专用 `.demo-venv` 中安装依赖。安装完成后，它会启动 StudyUI 和内部工作流画布服务。浏览器访问：
+启动器只在项目专用 `.demo-venv` 中安装依赖。StudyUI 与工作流画布由同一服务、同一端口提供：
 
 - StudyUI：<http://127.0.0.1:7880>
-- 内部工作流画布：<http://127.0.0.1:7881>（通常从 StudyUI 左侧进入）
+- 工作流画布：<http://127.0.0.1:7880/canvas/>（也可从 StudyUI 左侧进入）
 
 ## 后续启动、环境检查与停止
 
@@ -80,6 +80,8 @@ python -m venv .venv
 Linux/macOS 将最后两行替换为 `.venv/bin/python -m pip ...` 和 `.venv/bin/python -m pytest -q`。
 
 更详细的运行方式、模型设置、权限与故障排除见[启动说明](docs/demo-launcher.md)和[Agent Harness 说明](docs/agent-harness.md)。材料节点目录、实验输入约定与示例见[组件包说明](packages/materials-quality/README.md)。
+
+五组公开原始数据的实际 Agent 建流、运行结果与局限见[原始数据实验验收记录](docs/raw-data-agent-experiments.md)。
 
 ## 仓库与本机数据
 

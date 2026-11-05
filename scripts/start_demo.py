@@ -283,6 +283,12 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
     if not index_path.is_file():
         raise RuntimeError(f"Langflow frontend entry was not found: {index_path}")
     index = index_path.read_text(encoding="utf-8").replace("<title>Langflow</title>", "<title>StudyUI Workbench</title>")
+    if '<base href="/canvas/"' not in index:
+        index, base_count = re.subn(
+            r'<base href="/"\s*/?>', '<base href="/canvas/" />', index, count=1
+        )
+        if base_count != 1:
+            raise RuntimeError(f"Unexpected workbench base URL in {index_path}")
     index = re.sub(
         r'\s*<script id="studyui-clean-chrome">.*?</script>\s*',
         "\n",
@@ -563,12 +569,11 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
     )
 
 
-def start_studyui_service(python: Path, runtime: Path, langflow_url: str, port: int):
+def start_studyui_service(python: Path, runtime: Path, port: int, ready_timeout: float = 240):
     url = f"http://127.0.0.1:{port}"
     env = runtime_environment(runtime)
     env["STUDYUI_PORT"] = str(port)
     env["STUDYUI_DATABASE"] = str(runtime / "agent.sqlite3")
-    env["STUDYUI_LANGFLOW_URL"] = langflow_url
     command = [
         str(python),
         "-B",
@@ -580,12 +585,12 @@ def start_studyui_service(python: Path, runtime: Path, langflow_url: str, port: 
         str(port),
         "--database",
         str(runtime / "agent.sqlite3"),
-        "--langflow-url",
-        langflow_url,
         "--workflows",
         str(ROOT / "workflows"),
         "--components",
         str(runtime / "components"),
+        "--frontend",
+        str(runtime / "workbench-ui"),
     ]
     options = (
         {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW}
@@ -601,17 +606,17 @@ def start_studyui_service(python: Path, runtime: Path, langflow_url: str, port: 
             stderr=subprocess.STDOUT,
             **options,
         )
-    deadline = time.monotonic() + 20
+    deadline = time.monotonic() + ready_timeout
     while process.poll() is None and time.monotonic() < deadline:
         try:
-            with build_opener(ProxyHandler({})).open(url + "/api/health", timeout=2) as response:
+            with build_opener(ProxyHandler({})).open(url + "/api/health", timeout=3) as response:
                 if response.status == 200:
                     return process
         except (URLError, OSError):
             pass
         time.sleep(0.25)
     stop_studyui_service(process)
-    raise RuntimeError("StudyUI did not start; read .demo-runtime/logs/studyui-server.log")
+    raise RuntimeError("StudyUI did not start on the shared port; read .demo-runtime/logs/studyui-server.log")
 
 
 def stop_studyui_service(process: subprocess.Popen) -> None:
@@ -625,90 +630,28 @@ def stop_studyui_service(process: subprocess.Popen) -> None:
         process.wait(timeout=10)
 
 
-def start_system(
-    python: Path, runtime: Path, studyui_port: int, langflow_port: int, ready_timeout: float
-) -> int:
-    langflow_url = f"http://127.0.0.1:{langflow_port}"
-    studyui_url = f"http://127.0.0.1:{studyui_port}"
-    log_path = runtime / "logs" / "studyui-launcher.log"
-    flow_dir = PACKAGE / "examples" / "skill_flows"
-    env = runtime_environment(runtime)
-    env["LANGFLOW_PORT"] = str(langflow_port)
-    env["LANGFLOW_AGENTIC_EXPERIENCE"] = "false"
-    command = [
-        str(python),
-        "-B",
-        "-m",
-        "materials_quality.agent.workbench",
-        "--port",
-        str(langflow_port),
-        "--workflows",
-        str(ROOT / "workflows"),
-        "--components",
-        str(runtime / "components"),
-        "--frontend",
-        str(runtime / "workbench-ui"),
-    ]
+def start_system(python: Path, runtime: Path, port: int, ready_timeout: float) -> int:
+    url = f"http://127.0.0.1:{port}"
+    log_path = runtime / "logs" / "studyui-server.log"
     print(
-        f"Starting StudyUI: {studyui_url}\nLangflow workspace: {langflow_url}\n"
+        f"Starting StudyUI: {url}\nWorkflow canvas: {url}/canvas/\n"
         f"Logs: {log_path}\nPress Ctrl+C here to stop this demo.",
         flush=True,
     )
-    with log_path.open("a", encoding="utf-8") as log:
-        # A new process group permits Ctrl+C to stop our child without signaling unrelated services.
-        options = (
-            {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
-            if os.name == "nt"
-            else {"start_new_session": True}
-        )
-        process = subprocess.Popen(
-            command,
-            cwd=runtime,
-            env=env,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            **options,
-        )
-        studyui_process = None
-        try:
-            deadline = time.monotonic() + ready_timeout
-            ready = False
-            while process.poll() is None and time.monotonic() < deadline:
-                try:
-                    opener = build_opener(ProxyHandler({}))
-                    with opener.open(langflow_url + "/health", timeout=2) as response:
-                        ready = response.status == 200
-                    if ready:
-                        break
-                except (URLError, OSError):
-                    pass
-                time.sleep(0.5)
-            if not ready:
-                print(
-                    "Server did not become ready. Read the log above; no flows were preloaded.",
-                    flush=True,
-                )
-                import_instructions(flow_dir, PACKAGE / "examples" / "research_flows")
-                return process.returncode or 2
-            print(f"File-backed workflow workspace ready: {langflow_url}", flush=True)
-            studyui_process = start_studyui_service(python, runtime, langflow_url, studyui_port)
-            print(
-                f"StudyUI ready: {studyui_url} (Langflow is embedded in the StudyUI workspace)",
-                flush=True,
-            )
-            while process.poll() is None and studyui_process.poll() is None:
-                time.sleep(0.5)
-            if studyui_process.poll() is not None:
-                print("StudyUI stopped unexpectedly; check logs/studyui-server.log", flush=True)
-                return studyui_process.returncode or 2
-            print("Langflow stopped unexpectedly; stopping StudyUI.", flush=True)
-            return process.returncode or 2
-        except KeyboardInterrupt:
-            print("Stopping this demo...", flush=True)
-            return 0
-        finally:
-            if studyui_process is not None:
-                stop_studyui_service(studyui_process)
+    process = None
+    try:
+        process = start_studyui_service(python, runtime, port, ready_timeout)
+        print(f"StudyUI and workflow canvas ready: {url}", flush=True)
+        while process.poll() is None:
+            time.sleep(0.5)
+        if process.returncode:
+            print("StudyUI stopped unexpectedly; check logs/studyui-server.log", flush=True)
+        return process.returncode or 0
+    except KeyboardInterrupt:
+        print("Stopping this demo...", flush=True)
+        return 0
+    finally:
+        if process is not None:
             stop_server(process)
 
 
@@ -764,7 +707,6 @@ def main(argv: list[str] | None = None) -> int:
         help="Use an existing Python 3.10 environment read-only; incompatible with --setup",
     )
     parser.add_argument("--port", type=valid_port, default=7880, help="StudyUI main application port")
-    parser.add_argument("--langflow-port", type=valid_port, default=7881, help="Embedded Langflow workspace port")
     parser.add_argument("--runtime", type=Path, default=ROOT / ".demo-runtime")
     parser.add_argument(
         "--ready-timeout",
@@ -780,8 +722,7 @@ def main(argv: list[str] | None = None) -> int:
         else venv_python(ROOT / ".demo-venv")
     )
     print(
-        f"Python: {python}\nRuntime: {runtime}\nStudyUI URL: http://127.0.0.1:{args.port}"
-        f"\nEmbedded Langflow URL: http://127.0.0.1:{args.langflow_port}",
+        f"Python: {python}\nRuntime: {runtime}\nStudyUI URL: http://127.0.0.1:{args.port}",
         flush=True,
     )
     if args.setup and args.python and not args.check:
@@ -837,12 +778,6 @@ def main(argv: list[str] | None = None) -> int:
                 "no existing service will be reused."
             )
             return 2
-        if args.langflow_port == args.port or not port_available(args.langflow_port):
-            print(
-                f"Langflow port {args.langflow_port} must be distinct and available; "
-                "choose another value with --langflow-port."
-            )
-            return 2
         print("Prerequisites OK. Loopback port is available.")
         if args.check:
             print(
@@ -853,7 +788,7 @@ def main(argv: list[str] | None = None) -> int:
         prepare_runtime(runtime)
         initialize_file_workflows(ROOT)
         apply_studyui_langflow_theme(python, runtime)
-        return start_system(python, runtime, args.port, args.langflow_port, args.ready_timeout)
+        return start_system(python, runtime, args.port, args.ready_timeout)
     except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
         print(f"Demo launcher failed: {exc}")
         return 2
