@@ -375,7 +375,7 @@ def test_model_profiles_keep_credentials_out_of_json_and_public_api(tmp_path, mo
     path = tmp_path / "settings.json"
     profiles = ModelProfiles(path)
     first = profiles.save(
-        name="DeepSeek", base_url="https://api.deepseek.com", model="deepseek-flash", api_key="test-secret"
+        name="DeepSeek", base_url="https://api.deepseek.com", model="deepseek-flash", api_key="test-secret", reasoning_effort="max"
     )
     profiles.save(name="Local", base_url="http://127.0.0.1:1234/v1", model="local-model", create_new=True)
     assert len(profiles.list_profiles()) == 2
@@ -384,6 +384,11 @@ def test_model_profiles_keep_credentials_out_of_json_and_public_api(tmp_path, mo
     assert "test-secret" not in public
     assert "test-secret" not in path.read_text(encoding="utf-8")
     assert profiles.public()["model"] == "deepseek-flash"
+    assert profiles.public()["reasoning_effort"] == "max"
+    profiles.save(name="DeepSeek", base_url="https://api.deepseek.com", model="deepseek-flash")
+    assert profiles.public()["reasoning_effort"] == "max"
+    with pytest.raises(ValueError, match="思考等级"):
+        profiles.save(name="DeepSeek", base_url="https://api.deepseek.com", model="deepseek-flash", reasoning_effort="extreme")
     profiles.remove(profiles.list_profiles()[1]["id"])
     assert len(profiles.list_profiles()) == 1
 

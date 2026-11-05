@@ -470,6 +470,8 @@ class StudyUIAgent:
                 "role": "assistant",
                 "content": response.get("content") or "",
             }
+            if isinstance(response.get("reasoning_content"), str):
+                assistant_message["reasoning_content"] = response["reasoning_content"]
             if tool_calls:
                 if not isinstance(tool_calls, list) or len(tool_calls) > MAX_TOOL_CALLS_PER_ROUND:
                     raise ValueError("Model requested too many tools in one round")
@@ -760,6 +762,7 @@ class StudyUIAgent:
             base_url=profile.get("base_url", ""),
             model=profile.get("model", ""),
             api_key=self.model_profiles.api_key(),
+            reasoning_effort=profile.get("reasoning_effort", "default"),
         )
 
     def _store_generated_artifacts(self, result, session_id, *, flow=None):

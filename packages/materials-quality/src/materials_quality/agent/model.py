@@ -35,11 +35,18 @@ class _NoRedirect(HTTPRedirectHandler):
 
 
 class ChatModel:
-    def __init__(self, *, base_url=None, model=None, api_key=None, timeout=60):
+    def __init__(self, *, base_url=None, model=None, api_key=None, timeout=120, reasoning_effort="default"):
         self.base_url = base_url or os.environ.get("STUDYUI_MODEL_BASE_URL", "")
         self.model = model or os.environ.get("STUDYUI_MODEL", "")
         self.api_key = api_key if api_key is not None else os.environ.get("STUDYUI_MODEL_API_KEY", "")
         self.timeout = timeout
+        if reasoning_effort not in {"default", "none", "low", "high", "max"}:
+            raise ValueError("Invalid reasoning effort")
+        self.reasoning_effort = reasoning_effort
+
+    @property
+    def deepseek_api(self):
+        return urlsplit(self.base_url).hostname in {"api.deepseek.com", "api.deepseek.cn"}
 
     def _endpoint(self):
         parsed = urlsplit(self.base_url)
@@ -60,12 +67,28 @@ class ChatModel:
         return self.base_url.rstrip("/") + "/chat/completions"
 
     def complete(self, messages, tools, *, max_tokens=3000):
+        # DeepSeek requires each previous assistant reasoning field when tools
+        # are present. Older StudyUI sessions did not persist it; an empty field
+        # represents unavailable historical reasoning, never invented text.
+        if self.deepseek_api or self.reasoning_effort in {"low", "high", "max"}:
+            messages = [
+                {**m, "reasoning_content": m.get("reasoning_content") or ""}
+                if m.get("role") == "assistant" else m for m in messages
+            ]
+        else:
+            messages = [{k: v for k, v in m.items() if k != "reasoning_content"} for m in messages]
         payload = {
             "model": self.model,
             "messages": messages,
             "temperature": 0,
             "max_tokens": max_tokens,
         }
+        if self.reasoning_effort != "default":
+            payload["thinking"] = {"type": "disabled" if self.reasoning_effort == "none" else "enabled"}
+            if self.reasoning_effort != "none":
+                payload["reasoning_effort"] = self.reasoning_effort
+        if self.deepseek_api and self.reasoning_effort != "none":
+            payload["max_tokens"] = max(max_tokens, 65536 if self.reasoning_effort == "max" else 32768)
         if tools:
             payload["tools"] = tools
             payload["tool_choice"] = "auto"

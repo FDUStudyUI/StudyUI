@@ -56,6 +56,8 @@ sh ./start_demo.sh
 
 在 StudyUI 右上角打开“设置 → 模型管理”，填写配置名称、API 地址、模型名和 API 密钥，然后点击“保存模型”或“测试连接”。DeepSeek 默认地址为 `https://api.deepseek.com`，模型名可填写 `deepseek-flash`。密钥进入系统凭据库，不进入工作流 JSON、会话数据库或 Git。设置支持保存和切换多个模型配置。
 
+每个模型配置可选择思考等级：跟随服务默认、关闭、低、高、最高。DeepSeek 官方 API 的默认等级为高；更高等级可能增加耗时和费用。该设置用于主 Agent 和 AI 分析子代理，并在下一次模型调用时生效；其他兼容服务应先确认支持 DeepSeek 的思考参数，不支持时选择“跟随服务默认”。
+
 模型需兼容 OpenAI Chat Completions 工具调用接口。远端 API 必须使用 HTTPS；HTTP 仅允许本机回环服务。
 
 ## Harness 与工作流

@@ -57,7 +57,8 @@ class StudyUIAIAnalysis(Component):
         if not profile.get("configured"):
             raise ValueError("请先在 StudyUI 设置中配置可用模型")
         return ChatModel(
-            base_url=profile.get("base_url"), model=profile.get("model"), api_key=profiles.api_key()
+            base_url=profile.get("base_url"), model=profile.get("model"), api_key=profiles.api_key(),
+            reasoning_effort=profile.get("reasoning_effort", "default"),
         )
 
     def _records(self):

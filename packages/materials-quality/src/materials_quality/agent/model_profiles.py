@@ -34,6 +34,7 @@ class ModelProfiles:
                 "provider": "openai-compatible",
                 "base_url": os.environ.get("STUDYUI_MODEL_BASE_URL", ""),
                 "model": os.environ.get("STUDYUI_MODEL", ""),
+                "reasoning_effort": "default",
                 "credential_ref": "environment",
             }
             has_key = bool(os.environ.get("STUDYUI_MODEL_API_KEY"))
@@ -52,6 +53,7 @@ class ModelProfiles:
         local = urlsplit(profile.get("base_url", "")).hostname in {"localhost", "127.0.0.1", "::1"}
         return {
             **profile,
+            "reasoning_effort": profile.get("reasoning_effort", "default"),
             "configured": bool(profile.get("base_url") and profile.get("model") and (has_key or local)),
             "has_api_key": has_key,
         }
@@ -68,7 +70,7 @@ class ModelProfiles:
         except Exception:
             return ""
 
-    def save(self, *, name, base_url, model, api_key=None, profile_id=None, create_new=False):
+    def save(self, *, name, base_url, model, api_key=None, profile_id=None, create_new=False, reasoning_effort=None):
         name, base_url, model = (
             str(name).strip()[:80],
             str(base_url).strip().rstrip("/"),
@@ -91,6 +93,9 @@ class ModelProfiles:
             uuid.uuid4() if create_new else (profile_id or current.get("active_model_id") or uuid.uuid4())
         )
         old = current.get("models", {}).get(profile_id, {})
+        reasoning_effort = old.get("reasoning_effort", "default") if reasoning_effort is None else reasoning_effort
+        if reasoning_effort not in {"default", "none", "low", "high", "max"}:
+            raise ValueError("思考等级无效。")
         credential_ref = old.get("credential_ref") or "studyui-model-" + profile_id
         if api_key:
             self._keyring().set_password(KEYRING_SERVICE, credential_ref, str(api_key))
@@ -100,6 +105,7 @@ class ModelProfiles:
             "provider": "openai-compatible",
             "base_url": base_url,
             "model": model,
+            "reasoning_effort": reasoning_effort,
             "credential_ref": credential_ref,
         }
         with self.settings.lock:
@@ -131,6 +137,7 @@ class ModelProfiles:
                     "name": profile.get("name", "模型"),
                     "base_url": base_url,
                     "model": profile.get("model", ""),
+                    "reasoning_effort": profile.get("reasoning_effort", "default"),
                     "active": profile_id == active_id,
                     "configured": bool(base_url and profile.get("model") and (has_key or local)),
                     "credential_saved": has_key,
