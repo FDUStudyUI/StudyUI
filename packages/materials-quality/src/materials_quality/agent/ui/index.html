@@ -545,6 +545,7 @@ async function openSession(id){
   renderSessions();
   try{
     const data=await api(`/api/sessions/${id}`);
+    if(active!==id)return;
     const visible=(data.messages||[]).filter(m=>m.role==='user'||m.role==='assistant');
     recoverTask(id);
     if(visible.length){for(const m of visible)addMessage(m.role,m.content||'',{reasoning_content:m.reasoning_content,tool_steps:m.tool_steps,model:m.model||activeModelName})}else showWelcome();
@@ -586,6 +587,7 @@ async function watchTask(sessionId,taskId){
   try{
     while(active===sessionId&&generation===taskPollGeneration){
       const task=await api(`/api/sessions/${sessionId}/tasks/${taskId}`);
+      if(active!==sessionId||generation!==taskPollGeneration)return;
       status.textContent=taskLabels[task.status]||task.status;
       detail.textContent=task.progress?.step?.summary||task.error||`任务 ${task.id} · 刷新后可继续查看`;
       cancel.disabled=task.status==='cancelling'||task.terminal;
@@ -634,7 +636,7 @@ async function submit(){
   const sessionId=active;send.disabled=true;input.value='';addMessage('user',text);
   const requestKey=crypto.randomUUID();
   try{const task=await api(`/api/sessions/${sessionId}/tasks`,{method:'POST',body:{message:text,request_key:requestKey}});
-    localStorage.setItem('studyui-task-'+sessionId,task.id);await watchTask(sessionId,task.id);
+    localStorage.setItem('studyui-task-'+sessionId,task.id);if(active===sessionId)await watchTask(sessionId,task.id);
   }catch(e){if(active===sessionId){addMessage('assistant',`任务未确认启动：${e.message}。可重新打开会话查询后台状态。`);send.disabled=false}}
 }
 function syncFlowProject(){const frame=document.querySelector('#flow-frame');const project=allProjects.some(p=>p.id===selectedProject)?selectedProject:'';const url=new URL(frame.dataset.src,location.origin);if(project)url.pathname=url.pathname.replace(/\/$/,'')+'/all/folder/'+encodeURIComponent(project);if(active)url.searchParams.set('studyui_session_id',active);else url.searchParams.delete('studyui_session_id');const context=project+'|'+active;const changed=frame.dataset.context!==context;frame.dataset.context=context;if(frame.dataset.loaded&&(changed||!frame.hasAttribute('src')))frame.src=url.href;document.querySelector('#open-canvas').href=url.href}

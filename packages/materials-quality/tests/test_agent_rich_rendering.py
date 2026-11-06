@@ -219,3 +219,14 @@ def test_chat_partial_math_and_failed_answer_survive_refresh(page, assets_url):
     playwright.expect(live).to_contain_text("未完成的回答 · 失败")
     playwright.expect(live.locator(".katex")).to_have_count(1)
     assert live.evaluate("element => element.markdownSource") == task["partial_content"]
+    # A late response from the previous session must not appear in a new chat.
+    page.evaluate("""() => {
+        api = () => new Promise(resolve => {window.releaseOldTask = resolve;});
+        active = 's1';
+        window.oldTaskPoll = watchTask('s1', 'delayed');
+        active = 's2';
+        feed.textContent = 'Different session';
+        releaseOldTask({status:'completed',terminal:true,result:{message:'old private answer'}});
+    }""")
+    page.evaluate("window.oldTaskPoll")
+    assert page.locator("#feed").inner_text() == "Different session"
