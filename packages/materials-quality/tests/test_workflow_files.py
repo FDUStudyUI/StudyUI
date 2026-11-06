@@ -331,7 +331,8 @@ def test_agent_and_canvas_share_projects_and_preserve_existing_sessions(tmp_path
 
 
 @pytest.mark.parametrize("changed_field", ["name", "folder_id"])
-def test_external_run_rejects_a_replaced_snapshot(tmp_path, monkeypatch, changed_field):
+@pytest.mark.parametrize("external", [True, False])
+def test_external_run_rejects_a_replaced_snapshot(tmp_path, monkeypatch, changed_field, external):
     import lfx.load
 
     from materials_quality.agent.file_workflow_client import FileWorkflowClient
@@ -349,7 +350,7 @@ def test_external_run_rejects_a_replaced_snapshot(tmp_path, monkeypatch, changed
     with pytest.raises(ValueError, match="审批"):
         client.run_flow(
             first["id"],
-            external_data_approved=True,
+            external_data_approved=external,
             expected_digest=flow_digest(first),
             expected_project_id=first["folder_id"],
         )

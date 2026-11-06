@@ -9,6 +9,7 @@ import io
 import json
 import mimetypes
 import os
+import uuid
 from email.message import Message
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
@@ -26,74 +27,17 @@ if __package__ is None or __package__ == "":
         sys.path.insert(0, str(_src_dir))
     __package__ = "materials_quality.agent"
 
+from materials_quality.demos.catalog import get_dataset, list_datasets, read_demo_bytes
+
+from .demo_reference import create_reference_workflow
 from .file_workflow_client import FileWorkflowClient
 from .harness import StudyUIAgent
 from .task_api import task_router
 from .tasks import SessionBusy
 from .uploads import save_code_draft, save_upload
 
-DEMO_DATASETS = [
-    {
-        "id": "ti64_tensile",
-        "icon": "📈",
-        "title": "钛合金拉伸力学性能",
-        "format": "CSV",
-        "filename": "01_钛合金拉伸力学性能_Ti64.csv",
-        "desc": "20 个钛合金试样拉伸测试，计算弹性模量、0.2% 屈服强度与抗拉性能，绘制应力-应变曲线",
-        "prompt": (
-            "请读取钛合金拉伸测试数据 {path}，计算各试样弹性模量与0.2%屈服强度，"
-            "搭建力学分析工作流并绘制应力-应变图与实验报告。"
-        ),
-    },
-    {
-        "id": "raman_spectra",
-        "icon": "🌈",
-        "title": "多通道光谱寻峰与校正",
-        "format": "CSV",
-        "filename": "02_多通道光谱寻峰与校正_Spectra.csv",
-        "desc": "包含 A/B 两组共 8 条光谱曲线，进行基线校正、窗口特征峰检测与多曲线拟合",
-        "prompt": (
-            "请分析多曲线光谱数据 {path}，对 A/B 两组曲线执行基线校正与寻峰分析，"
-            "绘制光谱拟合图并统计峰位分布。"
-        ),
-    },
-    {
-        "id": "material_contrast",
-        "icon": "📊",
-        "title": "材料组间试验与显著性",
-        "format": "CSV",
-        "filename": "03_材料组间试验与显著性_Contrast.csv",
-        "desc": "聚合试样内技术重复测量，消除伪重复误差，执行方差分析与显著性多重比较",
-        "prompt": (
-            "请分析材料组间对比实验数据 {path}，先聚合单位内技术重复，"
-            "再进行独立样本方差分析与显著性检验，并出具对比图表。"
-        ),
-    },
-    {
-        "id": "zirconia_xrd",
-        "icon": "⚡",
-        "title": "3YSZ 氧化锆 XRD 衍射谱",
-        "format": "TXT",
-        "filename": "04_3YSZ氧化锆XRD衍射_带仪器头.txt",
-        "desc": "前置 20 行仪器元数据文本，测试智能连续数值块嗅探与 2θ 多峰拟合分析",
-        "prompt": (
-            "请检视氧化锆 XRD 原始测量文本 {path}，自动识别并跳过前置仪器头，"
-            "搭建衍射分析工作流并对衍射峰进行高斯/洛伦兹拟合。"
-        ),
-    },
-    {
-        "id": "battery_cycle",
-        "icon": "🔋",
-        "title": "锂电池充放电循环特性",
-        "format": "CSV",
-        "filename": "05_锂电池充放电循环特性.csv",
-        "desc": "多通道循环测试，测试“主干保留 + 派生分支”拓扑，绘制 SOC-电压充放电特征图",
-        "prompt": (
-            "请处理锂电池充放电数据 {path}，采用主干保留加派生分支结构，"
-            "分别绘制充电支路与放电支路的 SOC-电压关系曲线。"
-        ),
-    },
-]
+# Kept as a compatibility export; the packaged catalog is the single source of truth.
+DEMO_DATASETS = list_datasets()
 
 PAGE = (Path(__file__).parent / "ui" / "index.html").read_text(encoding="utf-8")
 
@@ -342,36 +286,44 @@ def make_handler(harness, canvas_path, task_manager):
                         },
                     )
                 data = self._body()
-                if path == "/api/demo-datasets/load":
-                    dataset_id = data.get("id", "")
-                    session_id = data.get("session_id", "").strip()
-                    item = next((d for d in DEMO_DATASETS if d["id"] == dataset_id), None)
-                    if not item:
-                        return self._error("未找到指定的演示数据集", 404)
-                    project_root = (
-                        getattr(harness, "project_root", None) or Path(__file__).resolve().parents[5]
-                    )
-                    candidate_dirs = [
-                        project_root / "demo_datasets",
-                        Path(__file__).resolve().parents[5] / "demo_datasets",
-                        Path(__file__).resolve().parents[1] / "demo_datasets",
-                    ]
-                    demo_file = None
-                    for cdir in candidate_dirs:
-                        if cdir and (cdir / item["filename"]).exists():
-                            demo_file = cdir / item["filename"]
-                            break
-                    if not demo_file or not demo_file.exists():
-                        return self._error(f"演示数据文件不存在: {item['filename']}", 404)
+                if path in {"/api/demo-datasets/load", "/api/demo-datasets/reference"}:
+                    if set(data) != {"id", "session_id"}:
+                        return self._error("只接受演示数据 ID 与研究会话 ID。")
+                    dataset_id, session_id = data["id"], data["session_id"]
+                    if not isinstance(dataset_id, str) or not isinstance(session_id, str):
+                        return self._error("演示数据与研究会话标识无效。")
                     try:
-                        uploaded = save_upload(harness, session_id, item["filename"], demo_file.read_bytes())
+                        item = get_dataset(dataset_id)
+                    except ValueError:
+                        return self._error("未找到指定的演示数据集", 404)
+                    try:
+                        if str(uuid.UUID(session_id)) != session_id:
+                            raise ValueError
+                    except ValueError:
+                        return self._error("请先打开有效的研究会话。")
+                    if not harness.store.has_session(session_id):
+                        return self._error("研究会话不存在。", 404)
+                    try:
+                        if path.endswith("/reference"):
+                            result = task_manager.run_legacy(
+                                session_id, create_reference_workflow, harness, dataset_id, session_id
+                            )
+                            return self._send(201, result)
+                        uploaded = task_manager.run_legacy(
+                            session_id,
+                            save_upload,
+                            harness,
+                            session_id,
+                            item["filename"],
+                            read_demo_bytes(dataset_id),
+                        )
+                    except SessionBusy as exc:
+                        return self._error(exc, 409)
                     except PermissionError as exc:
                         return self._error(exc, 403)
+                    except LookupError as exc:
+                        return self._error(exc, 404)
                     saved_path = uploaded["path"]
-                    prompt_template = (
-                        item.get("prompt") or "请分析材料实验数据文件 {path}，搭建相应的数据处理工作流。"
-                    )
-                    prompt = prompt_template.format(path=f'"{saved_path}"')
                     return self._send(
                         200,
                         {
@@ -380,7 +332,8 @@ def make_handler(harness, canvas_path, task_manager):
                             "title": item["title"],
                             "filename": item["filename"],
                             "path": saved_path,
-                            "prompt": prompt,
+                            "sha256": uploaded["sha256"],
+                            "prompt": item["prompt"].format(path=f'"{saved_path}"'),
                         },
                     )
                 if path == "/api/canvas/insert-node":
@@ -483,8 +436,7 @@ def make_handler(harness, canvas_path, task_manager):
                         summary = {
                             "title": "提升项目 Agent 权限",
                             "impact": (
-                                f"权限档位将从「{PRESETS[old]['label']}」"
-                                f"改为「{PRESETS[preset]['label']}」。"
+                                f"权限档位将从「{PRESETS[old]['label']}」改为「{PRESETS[preset]['label']}」。"
                             ),
                             "reason": PRESETS[preset]["description"],
                         }
@@ -831,7 +783,11 @@ def create_app(database, workflows, components, frontend):
             async def runner():
                 try:
                     res = await run_in_threadpool(
-                        manager.run_legacy, clean_id, harness.run_turn, clean_id, user_msg,
+                        manager.run_legacy,
+                        clean_id,
+                        harness.run_turn,
+                        clean_id,
+                        user_msg,
                         on_progress=progress_cb,
                     )
                     loop.call_soon_threadsafe(queue.put_nowait, {"type": "done", "result": res})

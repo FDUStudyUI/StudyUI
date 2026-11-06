@@ -69,12 +69,13 @@ main.split-mode #flow-view{border-right:0}
 .demo-section{margin:22px auto 0;max-width:760px;text-align:left}
 .demo-heading{font-size:12px;font-weight:650;color:#525b67;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .demo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
-.demo-card{background:#fffdf8;border:1px solid #ded8cc;border-radius:11px;padding:12px;cursor:pointer;transition:all .18s;display:flex;flex-direction:column;gap:5px;text-align:left}
+.demo-card{background:#fffdf8;border:1px solid #ded8cc;border-radius:11px;padding:12px;transition:all .18s;display:flex;flex-direction:column;gap:5px;text-align:left}
 .demo-card:hover{border-color:#29476f;background:#fff;box-shadow:0 4px 14px rgba(41,71,111,.1);transform:translateY(-1px)}
 .demo-card-head{display:flex;align-items:center;gap:7px}
 .demo-card-icon{font-size:16px}
 .demo-card-title{font-size:12.5px;font-weight:650;color:#28313e;flex:1}
 .demo-card-badge{font-size:9.5px;padding:2px 6px;border-radius:5px;background:#e8edf5;color:var(--blue);font-weight:600}
+.demo-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:7px}.demo-actions button{font-size:11px}.demo-provenance,.demo-facts{font-size:11px;color:#626972;line-height:1.5;overflow-wrap:anywhere}.demo-facts summary{cursor:pointer}.demo-guidance{padding:9px 20px;background:#eef3f8;color:#29476f;font-size:12px;line-height:1.5}.demo-guidance[hidden]{display:none}#demo-dialog{width:min(850px,calc(100vw - 32px));max-height:88vh;overflow:auto}#demo-dialog .dialog-actions{position:sticky;bottom:-22px;background:var(--surface);padding:10px 0}button:focus-visible{outline:2px solid #29476f;outline-offset:3px}
 .demo-card-desc{font-size:11px;color:#777b83;line-height:1.45}
 #feed{flex:1;min-height:0;overflow:auto;padding:28px max(24px,calc((100% - 820px)/2));display:flex;flex-direction:column;gap:14px}.msg{max-width:820px;padding:13px 16px;border-radius:14px;white-space:pre-wrap;line-height:1.65;overflow-wrap:anywhere;font-size:13px}.user{align-self:flex-end;background:#e5ebf3;color:#29374a;border:1px solid #dce3ed}.assistant{align-self:flex-start;background:var(--surface);border:1px solid var(--line);color:#343941}.artifact-card{align-self:flex-start;width:min(820px,100%);background:#fffefa;border:1px solid #ded8cc;border-radius:12px;padding:13px 15px}.artifact-card h3{margin:0 0 9px;font-size:12px;color:#4d5662}.artifact-row{padding:8px 0;border-top:1px solid #eee9e0;font-size:11px;overflow-wrap:anywhere}.artifact-row a{color:var(--blue);font-weight:650;text-decoration:none}.artifact-row a:hover{text-decoration:underline}.artifact-hash{display:block;margin-top:4px;color:#85878b;font:10px ui-monospace,monospace}.proposal{max-width:820px;background:#fffdf7;border:1px solid #d9d0bd;border-radius:12px;padding:15px}.proposal h3{margin:0 0 8px;font-size:14px}.proposal ul{margin:8px 0;padding-left:20px}.proposal p{margin:6px 0;color:#62646a;font-size:12px}.actions{display:flex;gap:8px;margin-top:12px}.actions button{border:0;border-radius:7px;padding:9px 13px;cursor:pointer;font-size:12px}.approve{background:var(--blue);color:white}.reject{background:#ece9e1;color:#333b46}
 .welcome{margin:auto;max-width:590px;text-align:center;padding:36px 20px 48px}.welcome-mark{width:43px;height:43px;margin:0 auto 17px;border-radius:14px;background:var(--blue);color:white;display:grid;place-items:center;font:700 23px Georgia,serif;box-shadow:0 6px 20px #29476f26}.welcome h2{font:500 25px Georgia,"Microsoft YaHei",serif;color:#283342;margin:0 0 10px}.welcome p{font-size:13px;line-height:1.75;color:#777a80;margin:0 auto 23px;max-width:500px}.prompts{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}.prompt-chip{border:1px solid #e0dbd0;background:#fffdf8;border-radius:999px;padding:8px 12px;color:#4c5868;font-size:11px;cursor:pointer}.prompt-chip:hover{border-color:#b9c5d3;color:var(--blue);background:#fff}
@@ -210,14 +211,17 @@ main.split-mode .top{padding:8px 12px;min-height:52px}
     <div id="drop-overlay" class="dropzone-overlay" style="display:none" hidden><div class="drop-icon">📂</div><div class="drop-title">释放文件以导入 StudyUI 并自动分析</div><div class="drop-desc">支持拖拽 CSV、TXT、RAS、Excel 等材料数据文件</div></div>
     <header class="top"><div><h1 id="view-title">研究对话</h1><p id="view-subtitle">围绕当前研究项目讨论目标、证据、数据与工作流。</p></div><div class="top-actions"><div class="view-mode-toggle" id="view-mode-toggle" title="视图模式"><button type="button" class="mode-btn btn-mode-chat active" id="btn-mode-chat" onclick="showView('chat')">💬 对话</button><button type="button" class="mode-btn btn-mode-split" id="btn-mode-split" onclick="showView('split')">◫ 双栏</button><button type="button" class="mode-btn btn-mode-flow" id="btn-mode-flow" onclick="showView('flow')">▦ 画布</button></div><button type="button" class="prompt-chip" id="btn-export-brief" title="导出当前研究成果简报">📑 导出简报</button><span id="model-status" class="model-status">AI 模型未配置</span><button id="settings-open" class="prompt-chip">设置</button></div></header>
     <section id="feed"></section>
-    <footer class="composer"><div class="compose-inner"><textarea id="input" placeholder="描述研究目标，或告诉 StudyUI 你希望检查、搭建或运行什么……（支持拖拽文件直接导入）"></textarea><button id="send">发送</button></div><div class="hint" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px"><span>文献检索当前返回 Crossref/arXiv/OpenAlex 等元数据。拖拽文件到窗口可快速导入。</span><button type="button" class="prompt-chip" id="demo-quick-btn" style="margin-left:auto;padding:3px 9px;font-size:10px">⚡ 载入竞赛演示数据 ▾</button></div></footer>
+    <div id="demo-guidance" class="demo-guidance" role="status" hidden></div>
+    <footer class="composer"><div class="compose-inner"><textarea id="input" placeholder="描述研究目标，或告诉 StudyUI 你希望检查、搭建或运行什么……（支持拖拽文件直接导入）"></textarea><button id="send">发送</button></div><div class="hint" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px"><span>文献检索当前返回 Crossref/arXiv/OpenAlex 等元数据。拖拽文件到窗口可快速导入。</span><button type="button" class="prompt-chip" id="demo-quick-btn" style="margin-left:auto;padding:3px 9px;font-size:10px">⚡ 选择演示案例 ▾</button></div></footer>
   </section>
   <section id="flow-view" class="view" hidden>
     <header class="top flow-top"><div><h1>工作流画布</h1><p>在 StudyUI 工作区中查看、编辑和运行材料科学流程。</p></div><div class="top-actions"><button type="button" class="prompt-chip" id="btn-back-chat" onclick="showView('chat')" style="font-weight:600;background:#29476f;color:#fff;border-color:#29476f">← 返回研究对话</button><div class="view-mode-toggle" title="视图模式"><button type="button" class="mode-btn btn-mode-chat" onclick="showView('chat')">💬 对话</button><button type="button" class="mode-btn btn-mode-split" onclick="showView('split')">◫ 双栏</button><button type="button" class="mode-btn btn-mode-flow active" onclick="showView('flow')">▦ 画布</button></div><a id="open-canvas" href="__CANVAS_BASE_PATH__/" class="external" target="_blank" rel="noopener">新标签打开 ↗</a></div></header>
+    <div id="demo-run-guidance" class="demo-guidance" role="status" hidden></div>
     <iframe id="flow-frame" data-src="__CANVAS_BASE_PATH__/" title="StudyUI 工作流画布" loading="lazy" referrerpolicy="no-referrer"></iframe>
   </section>
 </main>
 </div>
+<dialog id="demo-dialog" aria-labelledby="demo-dialog-title"><h2 id="demo-dialog-title">选择演示案例</h2><p>载入数据后可检查并发送提示词；参考工作流无需模型密钥，打开后由你点击运行。</p><div id="demo-picker-grid" class="demo-grid"></div><p id="demo-picker-status" role="status" aria-live="polite"></p><div class="dialog-actions"><button type="button" class="cancel" id="demo-close">关闭</button></div></dialog>
 <dialog id="project-dialog"><form id="project-form"><h2>新建研究项目</h2><p>按课题整理研究会话，后续新建的会话会归入当前项目。</p><label for="project-title">项目名称</label><input id="project-title" name="title" maxlength="120" placeholder="例如：DNA Origami 纳米间隙单染料" required><div class="dialog-actions"><button type="button" class="cancel" id="cancel-project">取消</button><button class="primary" type="submit">创建项目</button></div></form></dialog>
 <style>#settings-dialog{width:min(700px,calc(100vw - 32px));max-height:88vh;overflow:auto}#settings-dialog input,#settings-dialog select{margin-bottom:12px}#settings-dialog .skill-row{padding:12px;border:1px solid var(--line);border-radius:10px;margin:8px 0;background:#fffdf8}#settings-dialog .skill-row p{margin:5px 0 8px;line-height:1.5}#settings-dialog .skill-actions{display:flex;gap:7px;flex-wrap:wrap}#settings-dialog .skill-actions button{border:1px solid #ded9cf;background:#fff;border-radius:7px;padding:6px 9px;color:#3d4d64;cursor:pointer}#settings-dialog .settings-section{border-top:1px solid var(--line);padding-top:13px;margin-top:14px}#settings-dialog .settings-note{font-size:11px;line-height:1.5;color:var(--muted)}.skill-selection{max-width:860px;margin:12px auto;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#fbfaf6;color:#42516a;font-size:12px}.skill-selection summary{cursor:pointer;font-weight:600;color:#243b5a}.skill-selection .skill-audit-row{margin-top:8px;padding-top:7px;border-top:1px solid var(--line);line-height:1.55}.skill-selection .skill-audit-hash{font-family:ui-monospace,monospace;color:var(--muted);word-break:break-all}</style>
 <dialog id="settings-dialog"><div class="dialog-header-bar"><div><h2>StudyUI 设置</h2><p>模型密钥写入本机系统凭据库；项目权限、Skills 和模型设置保存在本机。</p></div><button type="button" class="modal-close-x" onclick="document.querySelector('#settings-dialog').close()" title="关闭 (Esc)">✕</button></div>
@@ -336,8 +340,81 @@ function showSkillSelection(event){const item=event?.detail||event;if(!item||!it
 function exportResearchBrief(){const projectTitle=selectedTitle();const sessionData=allSessions.find(s=>s.id===active);const sessionTitle=sessionData?sessionData.title:'科研简报';const nowStr=new Date().toLocaleString('zh-CN');let reportMd=`# StudyUI 材料科研简报 · ${sessionTitle}\n\n> **所属工作区**: ${projectTitle}  \n> **生成时间**: ${nowStr}  \n> **系统服务**: StudyUI Agent Harness (材料科学自动化)\n\n---\n\n## 一、 研究目标与课题背景\n\n围绕当前研究任务，本简报汇集当前会话及产物；分析覆盖范围与验证状态以实际执行记录和证据为准。\n\n## 二、 核心研究对话与科学推演推导\n\n`;const msgs=feed.querySelectorAll('.msg');if(!msgs.length){reportMd+=`暂无对话记录。\n`}else{msgs.forEach((m,idx)=>{const isUser=m.classList.contains('user');const text=m.markdownSource??(isUser?m.innerText:StudyUIRich.source(m.querySelector('.rich-content')));reportMd+=`### ${isUser?'👤 研究者提问':'⚡ StudyUI 智能体分析'} [步骤 ${idx+1}]\n\n${text}\n\n`})}reportMd+=`## 三、 生成成果与实验产物清单\n\n`;const artifacts=feed.querySelectorAll('.artifact-row');if(!artifacts.length){reportMd+=`本次未导出独立生成文件。\n`}else{artifacts.forEach(a=>{reportMd+=`- ${a.innerText.replace(/\n/g,' ')}\n`})}reportMd+=`\n---\n*由 StudyUI 智慧学习与科研助手智能体自动生成并导出*  \n`;const choice=window.prompt(`导出科研简报：\n1. 下载 Markdown 报告 (.md)\n2. 打印 / 保存为 PDF`,'1');if(choice==='1'){const blob=new Blob([reportMd],{type:'text/markdown;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`StudyUI_简报_${sessionTitle.replace(/[/\\?%*:|"<>]/g,'_')}.md`;a.click();URL.revokeObjectURL(url);toast('科研简报已下载！')}else if(choice==='2'){window.print()}}
 async function insertCanvasNode(code,lang){if(!active){toast('请先打开或新建研究会话');return}const nodeName=window.prompt('为代码审核草稿命名：','CustomMaterialsNode');if(!nodeName)return;try{toast('正在保存待审核代码草稿...');const res=await api('/api/canvas/insert-node',{method:'POST',body:{code,name:nodeName,session_id:active}});toast(res.message);if(res.artifact)showArtifacts([res.artifact])}catch(e){toast('草稿保存失败：'+e.message)}}
 function showSkillSelections(rows){for(const row of rows||[])showSkillSelection(row)}
-async function showWelcome(){feed.replaceChildren();const welcome=el('div','welcome');welcome.append(el('div','welcome-mark','S'),el('h2','',selectedProject==='all'?'让研究从这里开始':`继续探索「${selectedTitle()}」`),el('p','',`把研究问题、论文依据或原始数据的处理目标告诉 StudyUI。你可以先从一个具体问题开始，或直接载入经典材料实验数据进行分析。`));const prompts=el('div','prompts');for(const text of ['梳理 DNA Origami 纳米间隙研究的复现条件','检查从原始测量数据到结果图的处理链','根据研究目标规划工作流']){const b=el('button','prompt-chip',text);b.onclick=()=>{input.value=text;input.focus()};prompts.append(b)}welcome.append(prompts);feed.append(welcome);try{const res=await api('/api/demo-datasets');if(res.datasets&&res.datasets.length){const sec=el('div','demo-section');sec.append(el('div','demo-heading','⚡ 预置竞赛经典实验演示数据（一键载入并分析）'));const grid=el('div','demo-grid');for(const d of res.datasets){const card=el('div','demo-card');card.onclick=()=>loadDemoDataset(d.id);const head=el('div','demo-card-head');head.append(el('span','demo-card-icon',d.icon||'📊'),el('span','demo-card-title',d.title),el('span','demo-card-badge',d.format||'CSV'));card.append(head,el('div','demo-card-desc',d.desc));grid.append(card)}sec.append(grid);feed.append(sec)}}catch(e){}}
-async function loadDemoDataset(id){if(!active)await newSession();try{toast('正在载入预置数据集...');const res=await api('/api/demo-datasets/load',{method:'POST',body:{id,session_id:active}});input.value=res.prompt||`请分析材料实验数据文件 ${res.path}，检查其数据质量与物理特征，并给出建议的处理与分析工作流。`;input.focus();toast(`已载入：${res.title||'演示数据集'}`)}catch(e){toast('载入失败：'+e.message)}}
+function demoCards(datasets){
+  const grid=el('div','demo-grid');
+  for(const d of datasets){
+    const card=el('article','demo-card');card.dataset.demoId=d.id;
+    const head=el('div','demo-card-head');head.append(el('span','demo-card-icon',d.icon||'📊'),el('h3','demo-card-title',d.title),el('span','demo-card-badge',d.format||'CSV'));
+    card.append(head,el('div','demo-card-desc',d.desc),el('div','demo-card-desc',d.scope||''));
+    card.append(el('div','demo-provenance',d.provenance?.description||'演示样例；实验来源未核验。'));
+    const facts=el('details','demo-facts');facts.append(el('summary','',`输入信息：${d.row_count} 行 · ${(d.columns||[]).length} 列`));
+    facts.append(el('div','',d.filename),el('div','',`列：${(d.columns||[]).join('、')}`),el('div','',`SHA-256：${d.sha256||''}`));
+    for(const line of d.limitations||[])facts.append(el('div','',line));
+    if(d.expected_summary?.length)facts.append(el('div','',`原始参数预期：${Array.isArray(d.expected_summary)?d.expected_summary.join('；'):d.expected_summary}`));
+    card.append(facts);
+    const actions=el('div','demo-actions');
+    const agent=el('button','prompt-chip','载入数据，交给 Agent');agent.type='button';agent.onclick=()=>loadDemoDataset(d.id);
+    const reference=el('button','prompt-chip','打开参考工作流');reference.type='button';reference.onclick=()=>openDemoReference(d.id);
+    actions.append(agent,reference);card.append(actions);grid.append(card);
+  }
+  return grid;
+}
+async function showWelcome(){
+  feed.replaceChildren();const welcome=el('div','welcome');
+  welcome.append(el('div','welcome-mark','S'),el('h2','',selectedProject==='all'?'让研究从这里开始':`继续探索「${selectedTitle()}」`),el('p','','把研究问题、论文依据或原始数据的处理目标告诉 StudyUI，也可以先打开下面的材料演示参考工作流。'));
+  const prompts=el('div','prompts');for(const text of ['梳理 DNA Origami 纳米间隙研究的复现条件','检查从原始测量数据到结果图的处理链','根据研究目标规划工作流']){const b=el('button','prompt-chip',text);b.onclick=()=>{input.value=text;input.focus()};prompts.append(b)}
+  welcome.append(prompts);feed.append(welcome);
+  try{const res=await api('/api/demo-datasets');if(res.datasets?.length){const sec=el('div','demo-section');sec.append(el('div','demo-heading','⚡ 材料演示案例 · 参考流程可直接在画布运行'),demoCards(res.datasets));feed.append(sec)}}catch(e){toast('演示案例暂未载入：'+e.message)}
+}
+let demoActionRunning=false;
+function demoStatus(text){const status=document.querySelector('#demo-picker-status');status.textContent=text;const guidance=document.querySelector('#demo-guidance');guidance.textContent=text;guidance.hidden=false;}
+function demoButtonsDisabled(disabled){document.querySelectorAll('.demo-actions button').forEach(b=>b.disabled=disabled)}
+async function loadDemoDataset(id){
+  if(demoActionRunning)return;demoActionRunning=true;demoButtonsDisabled(true);
+  try{
+    if(!active)await newSession();const sessionId=active;
+    demoStatus('正在载入演示数据…');
+    const res=await api('/api/demo-datasets/load',{method:'POST',body:{id,session_id:sessionId}});
+    if(active!==sessionId){toast('数据已载入原会话，请返回该会话继续。');return}
+    input.value=res.prompt;document.querySelector('#demo-dialog').close();showView('chat');input.focus();
+    demoStatus(`已载入「${res.title}」。请核对输入框中的文件路径与分析范围，需要时修改提示词，再点击“发送”交给 Agent。`);
+  }catch(e){demoStatus('载入失败：'+e.message)}finally{demoActionRunning=false;demoButtonsDisabled(false)}
+}
+async function ensureDemoProjectSession(){
+  const current=allSessions.find(s=>s.id===active);
+  if(current?.project_id)return {sessionId:active,notice:''};
+  const originalSession=active;
+  demoStatus('正在为参考案例新建演示项目及会话；原会话会保留。');
+  const project=await api('/api/projects',{method:'POST',body:{title:'材料演示',description:'五个材料案例的可修改参考工作流'}});
+  let session;
+  try{session=await api('/api/sessions',{method:'POST',body:{title:'材料演示参考工作流',project_id:project.id}})}
+  catch(e){await refresh();throw new Error('演示项目已创建，请在“材料演示”项目中新建会话后重试：'+e.message)}
+  await refresh();
+  if(active!==originalSession)throw new Error('演示项目及会话已创建；请在“材料演示”项目中打开新会话继续。');
+  selectedProject=project.id;localStorage.setItem('studyui.project',project.id);expandedProjects.add(project.id);
+  await openSession(session.id);
+  return {sessionId:session.id,notice:'已为参考案例新建演示项目及会话，原会话保留。'};
+}
+async function openDemoReference(id){
+  if(demoActionRunning)return;demoActionRunning=true;demoButtonsDisabled(true);
+  try{
+    const {sessionId,notice}=await ensureDemoProjectSession();
+    demoStatus('正在准备参考工作流…');
+    const res=await api('/api/demo-datasets/reference',{method:'POST',body:{id,session_id:sessionId}});
+    if(active!==sessionId){toast('参考工作流已建入原会话项目，请返回该项目查看。');return}
+    document.querySelector('#demo-dialog').close();showView('flow');
+    const frame=document.querySelector('#flow-frame');frame.dataset.loaded='1';frame.src=res.url;
+    document.querySelector('#open-canvas').href=res.url;
+    const guidance=document.querySelector('#demo-run-guidance');guidance.replaceChildren(el('strong','',res.title+'：'),el('span','',notice+res.instructions));
+    const expected=Array.isArray(res.expected_summary)?res.expected_summary.join('；'):res.expected_summary;
+    guidance.append(el('div','',`原始参数预期：${expected}。修改参数后结果可能变化。`));guidance.hidden=false;
+    demoStatus(notice+res.instructions);
+  }catch(e){demoStatus('打开失败：'+e.message)}finally{demoActionRunning=false;demoButtonsDisabled(false)}
+}
+async function showDemoPicker(){
+  const picker=document.querySelector('#demo-dialog');document.querySelector('#demo-picker-status').textContent='正在载入案例…';picker.showModal();
+  try{const res=await api('/api/demo-datasets');document.querySelector('#demo-picker-grid').replaceChildren(demoCards(res.datasets||[]));document.querySelector('#demo-picker-status').textContent='选择载入数据或打开参考工作流。';demoButtonsDisabled(demoActionRunning)}catch(e){document.querySelector('#demo-picker-status').textContent='载入失败：'+e.message}
+}
 function toast(text){const item=el('div','toast',text);const openDialog=document.querySelector('dialog[open]');if(openDialog){openDialog.append(item)}else{document.body.append(item)}setTimeout(()=>item.remove(),3200)}
 let currentActionMenu=null;
 function closeActionMenu(){if(currentActionMenu){currentActionMenu.remove();currentActionMenu=null}}
@@ -654,7 +731,8 @@ document.querySelector('#data-preview-close')?.addEventListener('click',()=>docu
 document.querySelector('#new').onclick=newSession;
 send.onclick=submit;
 input.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit()}};
-document.querySelector('#demo-quick-btn')?.addEventListener('click',async()=>{try{const res=await api('/api/demo-datasets');const list=res.datasets||[];const text=list.map((d,i)=>`${i+1}. ${d.title} (${d.filename})`).join('\n');const choice=window.prompt(`选择要载入的材料科学经典演示数据（输入 1-${list.length}）：\n${text}`,'1');if(choice){const idx=parseInt(choice,10)-1;if(list[idx])await loadDemoDataset(list[idx].id)}}catch(e){toast(e.message)}});
+document.querySelector('#demo-quick-btn')?.addEventListener('click',showDemoPicker);
+document.querySelector('#demo-close').onclick=()=>document.querySelector('#demo-dialog').close();
 const dropOverlay=document.querySelector('#drop-overlay');
 let dragCounter=0;
 window.addEventListener('dragenter',e=>{if(e.dataTransfer&&e.dataTransfer.types&&Array.from(e.dataTransfer.types).includes('Files')){dragCounter++;if(dropOverlay){dropOverlay.classList.add('active');dropOverlay.style.display='flex';dropOverlay.hidden=false}}});

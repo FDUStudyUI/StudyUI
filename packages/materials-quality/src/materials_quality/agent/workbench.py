@@ -8,8 +8,10 @@ import json
 import math
 import os
 import re
+import sys
 import tempfile
 import uuid
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import urlsplit
@@ -32,6 +34,21 @@ from .permissions import PermissionStore
 from .workflow_api import create_workflow_router
 from .workflow_files import WorkflowFileStore
 from .workflow_host import create_file_execution_router
+
+
+def _batch_spectrum_form_class():
+    """Load one fixed trusted module from an installed wheel or source checkout."""
+    relative = Path("materials_batch") / "batch_spectrum_analyzer.py"
+    packaged = Path(__file__).resolve().parents[1] / "component_sources"
+    # An installed package must not fall back to an unrelated neighboring directory.
+    root = packaged if packaged.is_dir() else Path(__file__).resolve().parents[3] / "components"
+    path = root / relative
+    name = "materials_quality._native_batch_spectrum_form"
+    spec = spec_from_file_location(name, path)
+    module = module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module.BatchSpectrumAnalyzer
 
 
 def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_handler=None) -> FastAPI:
@@ -270,8 +287,14 @@ def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_han
         if not isinstance(trusted_code, str) or payload.get("code") != trusted_code:
             raise HTTPException(403, "仅允许更新已安装的 StudyUI 科研组件。")
         operation = re.search(r'ui_operation_key\s*=\s*["\']([^"\']+)["\']', trusted_code)
+        native_update = None
         if not operation:
-            raise HTTPException(403, "此组件不支持动态更新。")
+            # Explicitly allow a packaged, metadata-only form updater. Do not execute
+            # catalog/request source or dynamically import a client-selected class.
+            # Other native updaters may read local files and need separate authorization.
+            if name != "BatchSpectrumAnalyzer":
+                raise HTTPException(403, "此组件不支持动态更新。")
+            native_update = _batch_spectrum_form_class()().update_build_config
         template = copy.deepcopy(trusted_template)
         supplied = payload.get("template")
         if not isinstance(supplied, dict):
@@ -282,13 +305,27 @@ def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_han
                 if value.get("advanced") is False:
                     template[key]["advanced"] = False
         field = payload.get("field")
-        if field not in template:
-            raise HTTPException(422, "未知组件字段。")
+        if not isinstance(field, str) or field == "code" or not isinstance(template.get(field), dict):
+            raise HTTPException(422, "未知或不可更新的组件字段。")
         from materials_quality.science.ui_schema import refresh_config
 
         try:
-            refresh_config(SimpleNamespace(input_table=None), operation.group(1), template,
-                           payload.get("field_value"), field)
+            if native_update is not None:
+                template[field]["value"] = payload.get("field_value")
+                native_update(template, payload.get("field_value"), field)
+                for config in template.values():
+                    if not isinstance(config, dict):
+                        continue
+                    selected = config.get("value")
+                    options = config.get("options")
+                    if (config.get("_input_type") == "DropdownInput" and config.get("combobox") is True
+                            and isinstance(selected, str) and isinstance(options, list)
+                            and selected not in options):
+                        # Preserve a configured column until upstream data supplies its schema.
+                        options.append(selected)
+            else:
+                refresh_config(SimpleNamespace(input_table=None), operation.group(1), template,
+                               payload.get("field_value"), field)
         except (TypeError, ValueError, KeyError) as exc:
             raise HTTPException(422, str(exc)) from exc
         return {"template": template, "outputs": component.get("outputs", [])}

@@ -6,7 +6,7 @@
           if (!root) {
             root = document.createElement("aside");
             root.id = "studyui-agent-run-status";
-            root.style.cssText = "position:fixed;right:18px;bottom:18px;z-index:2147483647;max-width:min(520px,calc(100vw - 36px));max-height:45vh;overflow:auto;padding:14px 16px;border:1px solid #d8d1c5;border-radius:12px;background:#fffdf8;color:#263246;box-shadow:0 8px 28px #1f293322;font:13px/1.55 system-ui,sans-serif;white-space:pre-wrap";
+            root.style.cssText = "position:fixed;right:18px;bottom:100px;z-index:2147483647;max-width:min(520px,calc(100vw - 36px));max-height:45vh;overflow:auto;padding:14px 16px;border:1px solid #d8d1c5;border-radius:12px;background:#fffdf8;color:#263246;box-shadow:0 8px 28px #1f293322;font:13px/1.55 system-ui,sans-serif;white-space:pre-wrap";
             document.body.append(root);
           }
           return root;
@@ -37,9 +37,9 @@
         const complete = (value) => {
           const meta = value && value.studyui_run;
           if (!meta || !meta.session_id) return;
-          const key = meta.session_id + ":" + meta.flow_id;
-          if (pending.has(key)) return;
-          pending.add(key);
+          const key = meta.run_id ? meta.session_id + ":" + meta.run_id : null;
+          if (key && pending.has(key)) return;
+          if (key) pending.add(key);
           const summary = meta.status === "completed" ? "StudyUI Agent 已完成工作流运行。" : "StudyUI Agent 已处理本次运行请求。";
           show(summary + "\n\n" + (meta.message || "请打开研究会话查看 Agent 结果。"), meta);
           if (window.parent !== window) {
@@ -58,7 +58,7 @@
           const send = xhr.send;
           xhr.send = function(body) {
             if (runRequest) {
-              show("StudyUI 主 Agent 正在检查流程、编排子代理并整理运行结果……");
+              show("StudyUI 正在按保存的工作流执行并整理结果……");
               xhr.addEventListener("load", () => {
                 try {
                   const value = typeof xhr.response === "string" ? JSON.parse(xhr.response) : (xhr.response || JSON.parse(xhr.responseText));
@@ -84,7 +84,7 @@
               runRequest = String(init.method || (input && input.method) || "GET").toUpperCase() === "POST" && /\/api\/v1\/run\/[^/?]+/.test(url.pathname);
             } catch (_) {}
             if (!runRequest) return originalFetch(input, init);
-            show("StudyUI 主 Agent 正在检查流程、编排子代理并整理运行结果……");
+            show("StudyUI 正在按保存的工作流执行并整理结果……");
             init = {...init, body:bodyWithSession(init.body)};
             const response = await originalFetch(input, init);
             try { complete(await response.clone().json()); } catch (_) {}
@@ -117,7 +117,10 @@
             let task = null;
             let sessionId = new URLSearchParams(location.search).get('studyui_session_id');
             const taskApi = async (path, body) => {
-              const response = await fetch(path, body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {});
+              // Langflow's locale wrapper attaches Accept-Language to init.headers.
+              const options = {headers:{'Accept':'application/json'}};
+              if (body) Object.assign(options, {method:'POST', headers:{...options.headers,'Content-Type':'application/json'}, body:JSON.stringify(body)});
+              const response = await fetch(path, options);
               const value = await response.json();
               if (!response.ok) throw new Error(value.detail || value.error || '请求失败');
               return value;
@@ -140,7 +143,7 @@
                 }
                 if(task.status==='completed') {
                   const result=task.result||{};
-                  complete({...result.workflow_result,studyui_run:result});
+                  complete({...result.workflow_result,studyui_run:{...result,status:task.status,run_id:task.id,flow_id:result.canvas_run?.flow_id}});
                 } else { show(task.error || ({cancelled:'已取消，已完成产物保留',waiting_approval:'等待审批，请回到研究会话',interrupted:'任务已中断，请查看已有结果'}[task.status]) || task.status); }
               } catch(error) { show('连接中断，后台任务状态待确认。刷新或回到研究会话可继续查看：'+error.message); }
               finally {runBtn.disabled=false;cancelBtn.style.display='none';timerSpan.style.display='none';}

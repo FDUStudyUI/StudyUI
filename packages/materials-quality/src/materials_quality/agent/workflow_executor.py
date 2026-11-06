@@ -47,13 +47,13 @@ class FileWorkflowExecutor:
         flow, revision = self.store.read(flow_id)
         if self.validator:
             flow = self.validator(flow) or flow
-        if external_data_approved:
+        if expected_digest is not None or external_data_approved:
             from .workflow import flow_digest
 
             if not expected_digest or (
                 flow_digest(flow) != expected_digest or flow.get("folder_id") != expected_project_id
             ):
-                raise ValueError("审批后工作流内容或所属项目已变化；请重新申请数据传输审批。")
+                raise ValueError("运行授权后工作流内容或所属项目已变化；请重新确认运行或数据传输审批。")
         from .execution_context import (
             begin_upstream_image_scope,
             external_data_approval,

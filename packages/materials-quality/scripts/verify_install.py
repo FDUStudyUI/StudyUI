@@ -1,4 +1,4 @@
-"""Verify a regular wheel install, native discovery and both stored flow JSONs."""
+"""Verify wheel assets, native discovery and stored quality/demo workflows."""
 
 import argparse
 import json
@@ -10,6 +10,7 @@ from lfx.schema import Data, DataFrame
 
 import materials_quality
 from materials_quality.component_manifest import verify_discovery
+from scripts.evaluate_demo_references import evaluate as evaluate_demos
 
 
 def main():
@@ -57,9 +58,25 @@ def main():
     node = component_class("preprocess.filter")().set(input_table=DataFrame({"x": [1, 2]}))
     if node.build_table()["x"].tolist() != [1, 2]:
         raise RuntimeError("Wheel-native science component did not execute")
+    demos = evaluate_demos()
+    if not demos["passed"] or len(demos["cases"]) != 5:
+        raise RuntimeError("Wheel demonstration data or reference workflows failed verification")
+    from materials_quality.agent.workbench import _batch_spectrum_form_class
+
+    batch = _batch_spectrum_form_class()()
+    form = batch.to_frontend_node()["data"]["node"]["template"]
+    batch.update_build_config(form, True, "lambda10_enabled")
+    if not form["lambda10_min_nm"]["show"]:
+        raise RuntimeError("Installed batch spectrum form failed dynamic update")
     print(
         json.dumps(
-            {"wheel": "site-packages" in package.parts, "components": count, "flows": results},
+            {
+                "wheel": "site-packages" in package.parts,
+                "components": count,
+                "flows": results,
+                "demo_references": {case["dataset_id"]: case["passed"] for case in demos["cases"]},
+                "batch_form_update": True,
+            },
             ensure_ascii=False,
         )
     )

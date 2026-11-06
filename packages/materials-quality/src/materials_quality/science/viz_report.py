@@ -53,6 +53,33 @@ def _evidence_html(bundle):
     )
 
 
+def _results_html(results):
+    """Present existing scalar values; retain the complete payload in a disclosure."""
+    entries = results if isinstance(results, list) else [{"data": results}]
+    summaries = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        values = entry.get("data", entry)
+        if not isinstance(values, dict):
+            continue
+        rows = "".join(
+            "<tr><td>" + html.escape(str(key)) + "</td><td>" + html.escape(_text(value)) + "</td></tr>"
+            for key, value in values.items()
+            if (value is None or isinstance(value, (str, int, float, bool))) and len(_text(value)) <= 160
+        )
+        if rows:
+            label = html.escape(str(entry.get("operation", "Results")))
+            summaries.append(f'<h3>{label}</h3><div class="report-table"><table>{rows}</table></div>')
+    return (
+        "<section><h2>Results</h2>"
+        + "".join(summaries)
+        + "<details><summary>Complete results</summary><pre>"
+        + html.escape(_text(results))
+        + "</pre></details></section>"
+    )
+
+
 def build_report(table, c, data):
     if not isinstance(data, dict):
         raise ValueError(
@@ -113,13 +140,14 @@ def build_report(table, c, data):
     if data.get("evidence_bundle") is not None:
         sections.append(("Evidence-linked claims", data["evidence_bundle"]))
     if format == "html":
-        body = "\n".join(
-            _evidence_html(value)
-            if name == "Evidence-linked claims"
-            else (f"<details><summary>{name}</summary><pre>{html.escape(_text(value))}</pre></details>"
-                  if data.get("evidence_bundle") is not None else
-                  f"<section><h2>{name}</h2><pre>{html.escape(_text(value))}</pre></section>")
-            for name, value in sections
+        trace = "\n".join(
+            f"<details><summary>{name}</summary><pre>{html.escape(_text(value))}</pre></details>"
+            for name, value in (("Data sources", sources), ("Node parameters", parameters))
+        )
+        warning_html = (
+            '<section><h2>Warnings</h2><ul class="warnings">'
+            + "".join("<li>" + html.escape(_text(warning)) + "</li>" for warning in warnings)
+            + "</ul></section>"
         )
         plots = "\n".join(
             f'<figure><img alt="{html.escape(str(f["caption"]), quote=True)}" '
@@ -136,15 +164,22 @@ def build_report(table, c, data):
             "td,th{padding:8px;border-bottom:1px solid #ccd7db}"
             ".claims{max-height:480px;overflow:auto}details{margin:12px 0}summary{cursor:pointer;"
             "font-weight:600}small{color:#536773}.report-table{overflow:auto;max-height:560px}"
-            "img{max-width:100%;height:auto}figure{margin:24px 0}</style><body><h1>"
+            "img{max-width:100%;max-height:65vh;object-fit:contain;height:auto}figure{margin:24px 0}"
+            ".warnings li{margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere}"
+            "details pre{max-height:480px;overflow:auto}</style><body><h1>"
             + html.escape(str(title))
             + "</h1>"
-            + body
-            + '<section><h2>Result table</h2><div class="report-table">'
-            + table_html
-            + "</div></section><section><h2>Figures</h2>"
-            + plots
-            + "</section></body></html>"
+            + ("<section><h2>Figures</h2>" + plots + "</section>" if plots else "")
+            + (
+                '<section><h2>Result table</h2><div class="report-table">' + table_html + "</div></section>"
+                if table_html
+                else ""
+            )
+            + _results_html(results)
+            + (_evidence_html(data["evidence_bundle"]) if data.get("evidence_bundle") is not None else "")
+            + warning_html
+            + trace
+            + "</body></html>"
         )
         extension = "html"
     else:

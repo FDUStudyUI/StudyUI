@@ -691,6 +691,11 @@ class StudyUIAgent:
         else:
             session_id = self.new_session(f"运行：{str(flow.get('name') or '科研工作流')[:100]}", project_id)
 
+        if flow.get("studyui_demo") is not None:
+            from .reference_execution import run_reference_canvas
+
+            return run_reference_canvas(self, flow, session_id, on_progress=on_progress)
+
         has_ai = any(
             isinstance(node, dict) and node.get("data", {}).get("type") == "StudyUIAIAnalysis"
             for node in flow.get("data", {}).get("nodes", [])
