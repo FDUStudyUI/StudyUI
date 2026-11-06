@@ -65,7 +65,8 @@ Files: science catalog/form 注册和生成组件、Agent 工具、报告生成�
 - [x] 报告加入观察/文献解释/待验证推测及可核对结果和方法来源。
 - [x] 复用 Corn/Tecator 本地数据建立显式样品划分参考；下载数据不随意入库，保留来源、SHA256 和可复现获取说明。
 - [x] 提交无需外网的合成科学验收及中间决策评测，明确不属于在线 LLM 提升实验。
-- [ ] 运行相关/全量测试、静态检查、示例工作流和真实浏览器验收，独立审查后提交 PR。
+
+交付验收要求：运行相关/全量测试、静态检查、示例工作流和真实浏览器验收，独立审查后提交 PR。具体结果见 [验证记录](../../evidence-guided-validation.md) 及 [PR #9](https://github.com/FDUStudyUI/StudyUI/pull/9) 对应提交的检查状态；提交草稿不代表验收通过。
 
 ## Design Decisions
 
