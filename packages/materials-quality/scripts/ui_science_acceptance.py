@@ -10,6 +10,7 @@ from uuid import uuid4
 from playwright.sync_api import expect, sync_playwright
 
 from scripts.ui_acceptance import _home, _output_dialog, _write_json
+from scripts.ui_forms_acceptance import _read_report_section
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -91,7 +92,7 @@ def accept_ui(base_url, output, executable=None):
                     "(images)=>images.map(im=>({complete:im.complete,width:im.naturalWidth}))"
                 )
                 assert all(im["complete"] and im["width"] > 0 for im in image_check)
-                expect(report_page.get_by_role("heading", name="Data sources", exact=True)).to_be_visible()
+                assert _read_report_section(report_page, "Data sources")
                 report_page.screenshot(path=str(output / (path.stem + "-html.png")), animations="disabled")
                 report_page.close()
                 results["cases"][path.stem] = {

@@ -172,23 +172,30 @@ def _assert_form_templates(templates, classes):
     return seen
 
 
+def _read_report_section(page, title):
+    """Exercise a report disclosure and read the preserved structured payload."""
+    section = page.locator("details").filter(has=page.get_by_text(title, exact=True))
+    toggle = section.locator("summary")
+    expect(toggle).to_be_visible()
+    toggle.click()
+    expect(section.locator("pre")).to_be_visible()
+    value = json.loads(section.locator("pre").inner_text())
+    toggle.click()
+    return value
+
+
 def _html(context, envelope, output, image_size=None):
     path = Path(envelope["data"]["file_path"])
     assert path.is_file()
     page = context.new_page()
     page.goto(path.as_uri(), wait_until="load")
-    expect(page.get_by_role("heading", name="Data sources", exact=True)).to_be_visible()
+    assert _read_report_section(page, "Data sources")
     images = page.locator("img").evaluate_all(
         "ims=>ims.map(im=>({complete:im.complete,width:im.naturalWidth,height:im.naturalHeight}))"
     )
     assert all(im["complete"] and im["width"] and im["height"] for im in images)
     if image_size:
-        results = json.loads(
-            page.locator("section")
-            .filter(has=page.get_by_role("heading", name="Results", exact=True))
-            .locator("pre")
-            .inner_text()
-        )
+        results = _read_report_section(page, "Complete results")
         assert any(
             item.get("operation") == "io.image_import"
             and (item["data"]["width"], item["data"]["height"]) == image_size

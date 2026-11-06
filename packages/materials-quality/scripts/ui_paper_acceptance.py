@@ -7,7 +7,7 @@ from time import monotonic
 from urllib.parse import urlparse
 
 import numpy as np
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import sync_playwright
 
 from scripts.build_paper_examples import build_examples
 from scripts.ui_acceptance import _write_json
@@ -18,6 +18,7 @@ from scripts.ui_forms_acceptance import (
     _copy_report,
     _import,
     _node,
+    _read_report_section,
     _run,
 )
 
@@ -27,7 +28,7 @@ def _report_views(context, report, output, case):
     page = context.new_page()
     try:
         page.goto(Path(report["data"]["file_path"]).as_uri(), wait_until="load")
-        expect(page.get_by_text("Data sources", exact=True)).to_be_visible()
+        assert _read_report_section(page, "Data sources")
         images = page.locator("img").evaluate_all(
             "ims=>ims.map(im=>({complete:im.complete,width:im.naturalWidth,height:im.naturalHeight}))"
         )
