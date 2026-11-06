@@ -27,6 +27,32 @@ def _md(value):
     return text
 
 
+def _evidence_html(bundle):
+    """Readable claim groups with an expandable machine-auditable snapshot."""
+    groups = []
+    for kind, title in [
+        ("observation", "数据观察"),
+        ("literature_explanation", "文献解释（待复核）"),
+        ("hypothesis", "待验证推测"),
+    ]:
+        rows = [claim for claim in bundle.get("claims", []) if claim.get("kind") == kind]
+        if not rows:
+            continue
+        items = "".join(
+            f'<li data-evidence-kind="{kind}"><p>{html.escape(str(claim.get("text", "")))}</p>'
+            f"<small>{html.escape(str(claim.get('status', '')))}</small></li>"
+            for claim in rows
+        )
+        groups.append(f'<h3>{title}</h3><ul class="claims">{items}</ul>')
+    return (
+        "<section><h2>Evidence-linked claims</h2>"
+        + "".join(groups)
+        + "<details><summary>查看结果行、来源与指纹</summary><pre>"
+        + html.escape(_text(bundle))
+        + "</pre></details></section>"
+    )
+
+
 def build_report(table, c, data):
     if not isinstance(data, dict):
         raise ValueError(
@@ -84,9 +110,15 @@ def build_report(table, c, data):
         ("Results", results),
         ("Warnings", warnings),
     ]
+    if data.get("evidence_bundle") is not None:
+        sections.append(("Evidence-linked claims", data["evidence_bundle"]))
     if format == "html":
         body = "\n".join(
-            f"<section><h2>{name}</h2><pre>{html.escape(_text(value))}</pre></section>"
+            _evidence_html(value)
+            if name == "Evidence-linked claims"
+            else (f"<details><summary>{name}</summary><pre>{html.escape(_text(value))}</pre></details>"
+                  if data.get("evidence_bundle") is not None else
+                  f"<section><h2>{name}</h2><pre>{html.escape(_text(value))}</pre></section>")
             for name, value in sections
         )
         plots = "\n".join(
@@ -102,13 +134,15 @@ def build_report(table, c, data):
             "padding:0 24px}h1,h2{color:#1d607b}pre{white-space:pre-wrap;background:#f4f7f8;padding:16px;"
             "overflow-wrap:anywhere}table{border-collapse:collapse;width:100%}"
             "td,th{padding:8px;border-bottom:1px solid #ccd7db}"
+            ".claims{max-height:480px;overflow:auto}details{margin:12px 0}summary{cursor:pointer;"
+            "font-weight:600}small{color:#536773}.report-table{overflow:auto;max-height:560px}"
             "img{max-width:100%;height:auto}figure{margin:24px 0}</style><body><h1>"
             + html.escape(str(title))
             + "</h1>"
             + body
-            + "<section><h2>Result table</h2>"
+            + '<section><h2>Result table</h2><div class="report-table">'
             + table_html
-            + "</section><section><h2>Figures</h2>"
+            + "</div></section><section><h2>Figures</h2>"
             + plots
             + "</section></body></html>"
         )

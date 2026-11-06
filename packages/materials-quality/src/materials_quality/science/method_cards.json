@@ -1,0 +1,684 @@
+[
+  {
+    "id": "sg_smooth",
+    "name": "Savitzky–Golay 平滑",
+    "goals": [
+      "smooth",
+      "平滑",
+      "denoise"
+    ],
+    "signal_types": [
+      "nir_absorbance",
+      "nir_reflectance",
+      "ftir_absorbance",
+      "raman_intensity",
+      "darkfield_intensity"
+    ],
+    "coordinate_units": [
+      "nm",
+      "um",
+      "cm^-1",
+      "1/cm"
+    ],
+    "requirements": {
+      "equally_spaced": true,
+      "smooth_window": "present",
+      "smooth_order": "present"
+    },
+    "source": {
+      "title": "SciPy savgol_filter",
+      "url": "https://docs.scipy.org/doc/scipy-1.15.3/reference/generated/scipy.signal.savgol_filter.html",
+      "version": "SciPy 1.15.3",
+      "locator": "Parameters: window_length, polyorder; introductory sentence",
+      "quote": "Apply a Savitzky-Golay filter to an array.",
+      "kind": "algorithm_documentation",
+      "verification_scope": "Official algorithm documentation read; no material-specific experimental validation",
+      "verified_on": "2026-11-06"
+    },
+    "operation": "materials.spectra",
+    "planned": false,
+    "default_config": {
+      "normalization": "none"
+    },
+    "config_fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit",
+      "smooth_window",
+      "smooth_order"
+    ],
+    "parameter_origin": "StudyUI adaptation; not an experimental recipe",
+    "limitations": [
+      "须检查处理前后曲线及参数敏感性；来源未验证当前材料与实验。"
+    ],
+    "fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit",
+      "smooth_window",
+      "smooth_order"
+    ]
+  },
+  {
+    "id": "sg_derivative1",
+    "name": "SG 一阶导数",
+    "goals": [
+      "derivative",
+      "导数",
+      "overlap"
+    ],
+    "signal_types": [
+      "nir_absorbance",
+      "nir_reflectance",
+      "ftir_absorbance",
+      "raman_intensity",
+      "darkfield_intensity"
+    ],
+    "coordinate_units": [
+      "nm",
+      "um",
+      "cm^-1",
+      "1/cm"
+    ],
+    "requirements": {
+      "equally_spaced": true,
+      "smooth_window": "present",
+      "smooth_order": "present"
+    },
+    "source": {
+      "title": "SciPy savgol_filter derivative",
+      "url": "https://docs.scipy.org/doc/scipy-1.15.3/reference/generated/scipy.signal.savgol_filter.html",
+      "version": "SciPy 1.15.3",
+      "locator": "Parameters: deriv, delta",
+      "quote": "The order of the derivative to compute.",
+      "kind": "algorithm_documentation",
+      "verification_scope": "Official algorithm documentation read; no material-specific experimental validation",
+      "verified_on": "2026-11-06"
+    },
+    "operation": "materials.spectra",
+    "planned": false,
+    "default_config": {
+      "derivative_order": 1,
+      "normalization": "none"
+    },
+    "config_fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit",
+      "smooth_window",
+      "smooth_order"
+    ],
+    "parameter_origin": "StudyUI adaptation; not an experimental recipe",
+    "limitations": [
+      "输出单位为 y_unit/x_unit；边界由局部拟合处理，必须检查噪声放大。"
+    ],
+    "fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit",
+      "smooth_window",
+      "smooth_order"
+    ]
+  },
+  {
+    "id": "sg_derivative2",
+    "name": "SG 二阶导数",
+    "goals": [
+      "derivative",
+      "导数",
+      "overlap"
+    ],
+    "signal_types": [
+      "nir_absorbance",
+      "nir_reflectance",
+      "ftir_absorbance",
+      "raman_intensity",
+      "darkfield_intensity"
+    ],
+    "coordinate_units": [
+      "nm",
+      "um",
+      "cm^-1",
+      "1/cm"
+    ],
+    "requirements": {
+      "equally_spaced": true,
+      "smooth_window": "present",
+      "smooth_order": "present"
+    },
+    "source": {
+      "title": "SciPy savgol_filter second derivative",
+      "url": "https://docs.scipy.org/doc/scipy-1.15.3/reference/generated/scipy.signal.savgol_filter.html",
+      "version": "SciPy 1.15.3",
+      "locator": "Parameters: deriv",
+      "quote": "This must be a nonnegative integer.",
+      "kind": "algorithm_documentation",
+      "verification_scope": "Official algorithm documentation read; no material-specific experimental validation",
+      "verified_on": "2026-11-06"
+    },
+    "operation": "materials.spectra",
+    "planned": false,
+    "default_config": {
+      "derivative_order": 2,
+      "normalization": "none"
+    },
+    "config_fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit",
+      "smooth_window",
+      "smooth_order"
+    ],
+    "parameter_origin": "StudyUI adaptation; not an experimental recipe",
+    "limitations": [
+      "输出单位为 y_unit/x_unit^2；导数不保留原峰高、面积和物理峰宽。"
+    ],
+    "fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit",
+      "smooth_window",
+      "smooth_order"
+    ]
+  },
+  {
+    "id": "snv",
+    "name": "SNV 逐谱标准化",
+    "goals": [
+      "normalization",
+      "scatter",
+      "标准化",
+      "散射",
+      "regression"
+    ],
+    "signal_types": [
+      "nir_absorbance",
+      "nir_reflectance"
+    ],
+    "coordinate_units": [
+      "nm",
+      "um",
+      "cm^-1",
+      "1/cm"
+    ],
+    "requirements": {
+      "allow_intensity_loss": true,
+      "nonzero_variance": true
+    },
+    "source": {
+      "title": "Standard Normal Variate Transformation and De-trending of Near-Infrared Diffuse Reflectance Spectra",
+      "url": "https://opg.optica.org/as/abstract.cfm?uri=as-43-5-772",
+      "version": "Applied Spectroscopy 43(5), 772–777 (1989); DOI 10.1366/0003702894202201",
+      "locator": "Abstract, paragraph 2",
+      "quote": "The standard normal variate approach effectively removes the multiplicative interferences of scatter and particle size.",
+      "kind": "original_research",
+      "verification_scope": "Publisher abstract read, not paywalled full text; NIR applicability only",
+      "verified_on": "2026-11-06"
+    },
+    "operation": "materials.spectra",
+    "planned": false,
+    "default_config": {
+      "normalization": "snv",
+      "allow_intensity_loss": true
+    },
+    "config_fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit"
+    ],
+    "parameter_origin": "StudyUI adaptation; not an experimental recipe",
+    "limitations": [
+      "去除逐谱均值及尺度，不能用于绝对峰高或面积比较；零方差光谱不能标准化。",
+      "NIR 吸光度是 StudyUI 候选适配范围；原摘要未给出可照搬的实验参数。"
+    ],
+    "signals": [
+      "nir_absorbance",
+      "nir_reflectance"
+    ],
+    "implementation_source": {
+      "title": "prospectr standardNormalVariate",
+      "url": "https://search.r-project.org/CRAN/refmans/prospectr/html/standardNormalVariate.html",
+      "version": "prospectr 0.2.7",
+      "locator": "Details: row-wise SNV equation",
+      "quote": "It operates row-wise:",
+      "kind": "algorithm_documentation",
+      "verification_scope": "Official algorithm documentation read; no material-specific experimental validation",
+      "verified_on": "2026-11-06"
+    }
+  },
+  {
+    "id": "asls",
+    "name": "AsLS 非对称最小二乘基线",
+    "goals": [
+      "baseline",
+      "基线"
+    ],
+    "signal_types": [
+      "nir_absorbance",
+      "nir_reflectance",
+      "ftir_absorbance",
+      "raman_intensity",
+      "darkfield_intensity"
+    ],
+    "coordinate_units": [
+      "nm",
+      "um",
+      "cm^-1",
+      "1/cm"
+    ],
+    "requirements": {
+      "equally_spaced": true,
+      "positive_peaks": true
+    },
+    "source": {
+      "title": "pybaselines Whittaker Baselines",
+      "url": "https://pybaselines.readthedocs.io/en/stable/algorithms/whittaker.html",
+      "version": "pybaselines 1.2.1 (stable page observed 2026-11-06)",
+      "locator": "Algorithms / asls: minimized function, linear system, weighting",
+      "quote": "The asls() (sometimes called \"ALS\" in literature) function is the original implementation of Whittaker smoothing for baseline fitting.",
+      "kind": "algorithm_documentation",
+      "verification_scope": "Official algorithm documentation read; no material-specific experimental validation",
+      "verified_on": "2026-11-06"
+    },
+    "operation": "materials.spectra",
+    "planned": false,
+    "default_config": {
+      "baseline": {
+        "method": "asls",
+        "lambda": 100000,
+        "p": 0.01,
+        "iterations": 20
+      },
+      "normalization": "none"
+    },
+    "config_fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit"
+    ],
+    "parameter_origin": "StudyUI adaptation; not an experimental recipe",
+    "limitations": [
+      "lambda=1e5、p=.01、20 次迭代是可调整的工程起点；不是当前实验验证参数。",
+      "宽峰可能被基线吸收；索引二阶差分要求等间距坐标，负向吸收谷不自动反转。"
+    ]
+  },
+  {
+    "id": "pca",
+    "name": "PCA 主成分分析",
+    "goals": [
+      "pca",
+      "dimensionality",
+      "降维",
+      "overview"
+    ],
+    "signal_types": [
+      "nir_absorbance",
+      "nir_reflectance",
+      "ftir_absorbance",
+      "raman_intensity",
+      "darkfield_intensity"
+    ],
+    "coordinate_units": [
+      "nm",
+      "um",
+      "cm^-1",
+      "1/cm"
+    ],
+    "requirements": {
+      "fit_scope": "train_only",
+      "split_confirmed": true,
+      "groups_disjoint": true,
+      "feature_columns": "present",
+      "sample_column": "present",
+      "split_column": "present",
+      "n_components": "present"
+    },
+    "source": {
+      "title": "scikit-learn PCA",
+      "url": "https://scikit-learn.org/1.6/modules/generated/sklearn.decomposition.PCA.html",
+      "version": "scikit-learn 1.6.1",
+      "locator": "PCA introductory paragraph; fit and transform",
+      "quote": "The input data is centered but not scaled for each feature before applying the SVD.",
+      "kind": "algorithm_documentation",
+      "verification_scope": "Official algorithm documentation read; no material-specific experimental validation",
+      "verified_on": "2026-11-06"
+    },
+    "operation": "materials.chemometrics",
+    "planned": false,
+    "default_config": {
+      "method": "pca",
+      "scale": true,
+      "cv_folds": 0
+    },
+    "config_fields": [
+      "feature_columns",
+      "target_column",
+      "sample_column",
+      "split_column",
+      "group_column",
+      "n_components",
+      "scale",
+      "cv_folds"
+    ],
+    "parameter_origin": "StudyUI adaptation; not an experimental recipe",
+    "limitations": [
+      "只在训练样品拟合；高方差方向不等于化学重要性，重复样品必须同侧分组。"
+    ],
+    "fields": [
+      "feature_columns",
+      "target_column",
+      "sample_column",
+      "split_column",
+      "group_column",
+      "n_components",
+      "scale",
+      "cv_folds"
+    ]
+  },
+  {
+    "id": "pls",
+    "name": "PLS 偏最小二乘回归",
+    "goals": [
+      "pls",
+      "regression",
+      "回归",
+      "concentration"
+    ],
+    "signal_types": [
+      "nir_absorbance",
+      "nir_reflectance",
+      "ftir_absorbance",
+      "raman_intensity",
+      "darkfield_intensity"
+    ],
+    "coordinate_units": [
+      "nm",
+      "um",
+      "cm^-1",
+      "1/cm"
+    ],
+    "requirements": {
+      "fit_scope": "train_only",
+      "split_confirmed": true,
+      "groups_disjoint": true,
+      "feature_columns": "present",
+      "sample_column": "present",
+      "split_column": "present",
+      "n_components": "present",
+      "target_column": "present"
+    },
+    "source": {
+      "title": "scikit-learn PLSRegression",
+      "url": "https://scikit-learn.org/1.6/modules/generated/sklearn.cross_decomposition.PLSRegression.html",
+      "version": "scikit-learn 1.6.1",
+      "locator": "PLSRegression introduction; Parameters and fit",
+      "quote": "PLSRegression is also known as PLS2 or PLS1, depending on the number of targets.",
+      "kind": "algorithm_documentation",
+      "verification_scope": "Official algorithm documentation read; no material-specific experimental validation",
+      "verified_on": "2026-11-06"
+    },
+    "operation": "materials.chemometrics",
+    "planned": false,
+    "default_config": {
+      "method": "pls",
+      "scale": true,
+      "cv_folds": 0
+    },
+    "config_fields": [
+      "feature_columns",
+      "target_column",
+      "sample_column",
+      "split_column",
+      "group_column",
+      "n_components",
+      "scale",
+      "cv_folds"
+    ],
+    "parameter_origin": "StudyUI adaptation; not an experimental recipe",
+    "limitations": [
+      "需要实测参考目标；成分数在训练数据中决定，独立测试集不得用于选择方法。"
+    ],
+    "fields": [
+      "feature_columns",
+      "target_column",
+      "sample_column",
+      "split_column",
+      "group_column",
+      "n_components",
+      "scale",
+      "cv_folds"
+    ]
+  },
+  {
+    "id": "peak_detection",
+    "name": "物理坐标局部峰检测",
+    "goals": [
+      "peaks",
+      "peak_position",
+      "峰位",
+      "峰检测",
+      "absolute_intensity"
+    ],
+    "signal_types": [
+      "nir_absorbance",
+      "nir_reflectance",
+      "ftir_absorbance",
+      "raman_intensity",
+      "darkfield_intensity"
+    ],
+    "coordinate_units": [
+      "nm",
+      "um",
+      "cm^-1",
+      "1/cm"
+    ],
+    "requirements": {
+      "positive_peaks": true,
+      "prominence": "present"
+    },
+    "source": {
+      "title": "SciPy find_peaks",
+      "url": "https://docs.scipy.org/doc/scipy-1.15.3/reference/generated/scipy.signal.find_peaks.html",
+      "version": "SciPy 1.15.3",
+      "locator": "Introductory paragraph; Parameters: distance and prominence",
+      "quote": "Find peaks inside a signal based on peak properties.",
+      "kind": "algorithm_documentation",
+      "verification_scope": "Official algorithm documentation read; no material-specific experimental validation",
+      "verified_on": "2026-11-06"
+    },
+    "operation": "materials.spectra",
+    "planned": false,
+    "default_config": {
+      "normalization": "none",
+      "prominence_mode": "absolute"
+    },
+    "config_fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit",
+      "prominence",
+      "peak_distance_x"
+    ],
+    "parameter_origin": "StudyUI adaptation; not an experimental recipe",
+    "limitations": [
+      "候选局部极大值不是物质鉴定；阈值使用信号单位，peak_distance_x 使用物理坐标单位。"
+    ],
+    "fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit",
+      "prominence",
+      "peak_distance_x"
+    ]
+  },
+  {
+    "id": "trapezoid",
+    "name": "指定物理窗口梯形积分",
+    "goals": [
+      "area",
+      "integrate",
+      "积分",
+      "面积",
+      "absolute_intensity"
+    ],
+    "signal_types": [
+      "nir_absorbance",
+      "nir_reflectance",
+      "ftir_absorbance",
+      "raman_intensity",
+      "darkfield_intensity"
+    ],
+    "coordinate_units": [
+      "nm",
+      "um",
+      "cm^-1",
+      "1/cm"
+    ],
+    "requirements": {
+      "area_ranges": "present"
+    },
+    "source": {
+      "title": "SciPy integrate.trapezoid",
+      "url": "https://docs.scipy.org/doc/scipy-1.15.3/reference/generated/scipy.integrate.trapezoid.html",
+      "version": "SciPy 1.15.3",
+      "locator": "Introductory paragraph; Parameters: x",
+      "quote": "Integrate along the given axis using the composite trapezoidal rule.",
+      "kind": "algorithm_documentation",
+      "verification_scope": "Official algorithm documentation read; no material-specific experimental validation",
+      "verified_on": "2026-11-06"
+    },
+    "operation": "materials.spectra",
+    "planned": false,
+    "default_config": {
+      "normalization": "none"
+    },
+    "config_fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit",
+      "area_ranges"
+    ],
+    "parameter_origin": "StudyUI adaptation; not an experimental recipe",
+    "limitations": [
+      "用户必须指定积分窗口；输出单位 y_unit*x_unit，积分发生在归一化前。"
+    ],
+    "fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit",
+      "area_ranges"
+    ]
+  },
+  {
+    "id": "nmf",
+    "name": "NMF 非负矩阵分解（待接入）",
+    "goals": [
+      "nmf",
+      "decomposition",
+      "分解"
+    ],
+    "signal_types": [
+      "nir_absorbance",
+      "nir_reflectance",
+      "ftir_absorbance",
+      "raman_intensity",
+      "darkfield_intensity"
+    ],
+    "coordinate_units": [
+      "nm",
+      "um",
+      "cm^-1",
+      "1/cm"
+    ],
+    "requirements": {
+      "nonnegative": true,
+      "fit_scope": "train_only"
+    },
+    "source": {
+      "title": "scikit-learn NMF",
+      "url": "https://scikit-learn.org/1.6/modules/generated/sklearn.decomposition.NMF.html",
+      "version": "scikit-learn 1.6.1",
+      "locator": "Introductory definition of W, H and non-negative X",
+      "quote": "Non-Negative Matrix Factorization (NMF).",
+      "kind": "algorithm_documentation",
+      "verification_scope": "Official algorithm documentation read; no material-specific experimental validation",
+      "verified_on": "2026-11-06"
+    },
+    "operation": null,
+    "planned": true,
+    "default_config": {},
+    "config_fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit"
+    ],
+    "parameter_origin": "StudyUI adaptation; not an experimental recipe",
+    "limitations": [
+      "尚无已登记的 StudyUI 执行操作；SNV、中心化和导数可能产生负值，禁止直接自动组合。"
+    ]
+  },
+  {
+    "id": "msc",
+    "name": "MSC 参考谱散射校正（待接入）",
+    "goals": [
+      "msc",
+      "scatter",
+      "散射"
+    ],
+    "signal_types": [
+      "nir_absorbance",
+      "nir_reflectance"
+    ],
+    "coordinate_units": [
+      "nm",
+      "um",
+      "cm^-1",
+      "1/cm"
+    ],
+    "requirements": {
+      "allow_intensity_loss": true,
+      "fit_scope": "train_only",
+      "reference_source": "present"
+    },
+    "source": {
+      "title": "prospectr Multiplicative Scatter Correction",
+      "url": "https://search.r-project.org/CRAN/refmans/prospectr/html/msc.html",
+      "version": "prospectr 0.2.7",
+      "locator": "Arguments: ref_spectrum; Examples: spectra_a/spectra_b",
+      "quote": "By default the function uses the mean spectrum of the input X.",
+      "kind": "algorithm_documentation",
+      "verification_scope": "Official algorithm documentation read; no material-specific experimental validation",
+      "verified_on": "2026-11-06"
+    },
+    "operation": null,
+    "planned": true,
+    "default_config": {},
+    "config_fields": [
+      "x",
+      "y",
+      "x_unit",
+      "y_unit"
+    ],
+    "parameter_origin": "StudyUI adaptation; not an experimental recipe",
+    "limitations": [
+      "尚无已登记的 StudyUI 执行操作；参考谱必须来自训练集或独立校准集，不能用全体样品均值。"
+    ],
+    "signals": [
+      "nir_absorbance",
+      "nir_reflectance"
+    ]
+  }
+]

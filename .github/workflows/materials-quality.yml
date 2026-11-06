@@ -42,6 +42,8 @@ jobs:
       - run: python -m scripts.build_skill_examples
       - run: python -m scripts.build_reliability_examples
       - run: python -m scripts.build_expansion_examples
+      - run: python -m scripts.build_paper_examples
+      - run: python -m scripts.evaluate_paper_methods --output artifacts/paper-evaluation/synthetic.json
       - run: python -m scripts.evaluate_reliability --output artifacts/reliability-evaluation
       - run: python -m scripts.evaluate_design --output artifacts/design-evaluation
       - run: python -m scripts.evaluate_agent_boundaries > artifacts/agent-boundaries.json
@@ -63,6 +65,7 @@ jobs:
             packages/materials-quality/dist/*.whl
             packages/materials-quality/artifacts/reliability-evaluation/
             packages/materials-quality/artifacts/design-evaluation/
+            packages/materials-quality/artifacts/paper-evaluation/
   ui:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -112,6 +115,7 @@ jobs:
       - run: python -m scripts.ui_skill_acceptance --base-url http://127.0.0.1:7867
       - run: python -m scripts.ui_reliability_acceptance --base-url http://127.0.0.1:7867
       - run: python -m scripts.ui_expansion_acceptance --base-url http://127.0.0.1:7867
+      - run: python -m scripts.ui_paper_acceptance --base-url http://127.0.0.1:7867
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -125,5 +129,6 @@ jobs:
             packages/materials-quality/artifacts/ui-skill-acceptance/
             packages/materials-quality/artifacts/ui-reliability-acceptance/
             packages/materials-quality/artifacts/ui-expansion-acceptance/
+            packages/materials-quality/artifacts/ui-paper-acceptance/
             packages/materials-quality/artifacts/ui-server.log
             packages/materials-quality/artifacts/ui-acceptance.log

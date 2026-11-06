@@ -451,13 +451,14 @@ def test_cli_keeps_original_and_refuses_existing_output(tmp_path):
 
 
 def test_hash_registry_covers_every_science_and_original_quality_class():
-    from materials_quality.science.catalog import entries
+    from materials_quality.science.catalog import PAPER_OPERATIONS, entries
 
     module = importlib.import_module("materials_quality.science.flow_migration")
     registry = json.loads(
         Path(module.__file__).with_name("legacy_component_hashes.json").read_text(encoding="utf-8")
     )
-    expected = {entry["class_name"] for entry in entries()} | {
+    # New native-only nodes have no code in the pinned 0262f0d legacy release.
+    expected = {entry["class_name"] for entry in entries() if entry["key"] not in PAPER_OPERATIONS} | {
         "MaterialQualityContext",
         "MaterialQualitySummary",
         "MaterialSchemaCheck",
@@ -491,7 +492,7 @@ def test_shared_quality_context_legacy_rules_are_not_reset_to_form_defaults():
 
 
 def test_all_nine_old_science_examples_upgrade_all_forty_four_operations_and_keep_edges():
-    from materials_quality.science.catalog import entries
+    from materials_quality.science.catalog import PAPER_OPERATIONS, entries
 
     covered = set()
     for name in (
@@ -511,7 +512,7 @@ def test_all_nine_old_science_examples_upgrade_all_forty_four_operations_and_kee
         assert len(report["upgraded"]) == len(original["data"]["nodes"]) - 1
         assert len(updated["data"]["edges"]) == len(original["data"]["edges"])
         covered.update(node["class_name"] for node in report["upgraded"])
-    assert covered == {entry["class_name"] for entry in entries()}
+    assert covered == {entry["class_name"] for entry in entries() if entry["key"] not in PAPER_OPERATIONS}
 
 
 def test_connected_advanced_provenance_ports_stay_visible_and_handle_labels_refresh():

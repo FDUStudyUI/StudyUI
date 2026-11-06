@@ -376,7 +376,8 @@ def _restore_contract(table, upstream):
     cached = read_contract(table)
     candidates = []
     for field, preview_field in (
-        ("table_contract", "table_preview"), ("features_contract", "features_preview")
+        ("table_contract", "table_preview"),
+        ("features_contract", "features_preview"),
     ):
         if upstream.get(field) is not None:
             metadata = upstream.get(preview_field) or {}
@@ -386,13 +387,17 @@ def _restore_contract(table, upstream):
     if upstream.get("schema_version") == "research-result/1":
         for item in upstream.get("tables", {}).values():
             if isinstance(item, dict) and item.get("contract") is not None:
-                candidates.append((item["contract"], item.get("columns"), item.get("units", {}),
-                                   item.get("fingerprint")))
+                candidates.append(
+                    (item["contract"], item.get("columns"), item.get("units", {}), item.get("fingerprint"))
+                )
     if not candidates:
         return table if cached is None else restore_contract_units(table, cached)
     if cached is not None:
-        candidates = [(contract, columns, units, binding) for contract, columns, units, binding in candidates
-                      if cached == contract and (columns is None or columns == list(table.columns))]
+        candidates = [
+            (contract, columns, units, binding)
+            for contract, columns, units, binding in candidates
+            if cached == contract and (columns is None or columns == list(table.columns))
+        ]
         if not candidates:
             raise ValueError("input table contract mismatch with upstream result envelope")
     matched = {}
@@ -490,7 +495,7 @@ def _execute_single(component, key, config_override=None):
     # Component.ctx is graph-global and returns a fresh {} for standalone calls.
     # Keep this transient cache per component, never in the serialized graph.
     cached = component._ctx.get("science_execution")
-    if cached and cached["signature"] == signature:
+    if key != "materials.analysis_plan" and cached and cached["signature"] == signature:
         # Missing or changed generated files require a fresh execution.
         if _file_hashes(cached["envelope"]["artifacts"], paths=True) == cached["artifact_hashes"]:
             return cached["result"], cached["envelope"]
@@ -512,8 +517,23 @@ def _execute_single(component, key, config_override=None):
             ],
         }
     operation = get(key)["callable"]
+    if key == "lit.result_evidence" and upstream.get("schema_version") == "science-result/1":
+        current_table = table_fingerprint(table) if table is not None else None
+        if current_table not in {upstream.get("table_fingerprint"), upstream.get("features_fingerprint")}:
+            raise ValueError("结果表与接入的上游报告不一致，请连接产生该表的节点报告。")
+        data = {**data, "upstream_execution": {
+            "operation": upstream.get("operation"), "provenance": upstream.get("provenance", {}),
+            "execution_status": upstream.get("execution_status"), "warnings": upstream.get("warnings", []),
+            "table_fingerprint": current_table,
+        }}
     try:
-        result = operation(table, config=config, data=data, tables=tables)
+        if key == "materials.analysis_plan":
+            from .research_plan import run_research_plan
+
+            result, run = run_research_plan(table, config, component._ctx.get("analysis_plan_previous"))
+            component._ctx["analysis_plan_previous"] = run
+        else:
+            result = operation(table, config=config, data=data, tables=tables)
     except ImportError as exc:
         raise ValueError(
             "This method needs the science dependencies: pip install '.[science]' — " + str(exc)
@@ -522,8 +542,11 @@ def _execute_single(component, key, config_override=None):
         raise TypeError(f"{key} returned an invalid operation result")
     if result.table is not None and read_contract(table) is not None:
         preserving = {
-            "preprocess.filter": "filter", "preprocess.normalize": "normalize",
-            "preprocess.units": "units", "stats.grouped": "grouped", "export.table": "identity",
+            "preprocess.filter": "filter",
+            "preprocess.normalize": "normalize",
+            "preprocess.units": "units",
+            "stats.grouped": "grouped",
+            "export.table": "identity",
         }
         # Explicit declarations made by the operation take precedence. Stale
         # pandas attrs copied from its input must instead be transformed.
@@ -561,13 +584,14 @@ def _execute_single(component, key, config_override=None):
             {
                 "schema_version": "science-result/1",
                 "operation": key,
-                "execution_status": "completed",
+                "execution_status": result_data.get("execution_status", "completed"),
                 "data": result_data,
                 "table_contract": read_contract(result.table),
                 "features_contract": read_contract(result.features),
                 "table_fingerprint": None if result.table is None else table_fingerprint(result.table),
                 "features_fingerprint": None
-                if result.features is None else table_fingerprint(result.features),
+                if result.features is None
+                else table_fingerprint(result.features),
                 "warnings": result.warnings,
                 "artifacts": result.artifacts,
                 "elapsed_seconds": perf_counter() - started,
@@ -603,7 +627,8 @@ def _execute_single(component, key, config_override=None):
         "envelope": envelope,
         "artifact_hashes": _file_hashes(result.artifacts, paths=True),
     }
-    component.status = f"{get(key)['title']}：完成；{len(result.warnings)} 条提示"
+    state = "完成" if result_data.get("execution_status", "completed") == "completed" else "未全部完成"
+    component.status = f"{get(key)['title']}：{state}；{len(result.warnings)} 条提示"
     return result, envelope
 
 
@@ -672,7 +697,10 @@ def output_summary(component, key):
         if table is None
         else f"{table['rows']} 行，{len(table['columns'])} 列"
     )
+    status_text = (
+        "已完成" if envelope.get("execution_status") == "completed" else "未全部完成，请查看步骤诊断"
+    )
     return Message(
-        text=f"{get(key)['title']}已完成。结果表：{table_text}；"
+        text=f"{get(key)['title']}{status_text}。结果表：{table_text}；"
         f"生成文件 {len(envelope['artifacts'])} 个。\n" + "\n".join(envelope["warnings"])
     )

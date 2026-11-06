@@ -26,7 +26,18 @@ from lfx.io import (
 from .catalog import entries
 from .ui_types import input_name
 
-MODULES = ("io", "preprocessing", "materials", "statistics", "visualization", "literature")
+MODULES = (
+    "io",
+    "preprocessing",
+    "materials",
+    "statistics",
+    "visualization",
+    "literature",
+    "methods",
+    "chemometrics",
+    "evidence",
+    "research_plan",
+)
 COLUMN_NAMES = [
     "sample_id",
     "specimen",
@@ -83,6 +94,12 @@ COLUMN_FIELDS = {
     "group_column",
     "group_by",
     "time_column",
+    "identity_column",
+    "sample_column",
+    "split_column",
+    "target_column",
+    "feature_columns",
+    "normalize_by",
 }
 # These operations combine distinct sources: multiple tables, saved model + new
 # samples, reference + instrument, or measured + statistical evidence.
@@ -94,7 +111,12 @@ REPORT_COLLECTION_KEYS = {
     "viz.performance",
     "viz.statistics",
 }
-FEATURE_OPERATIONS = {"materials.spectra", "materials.xrd"}
+FEATURE_OPERATIONS = {
+    "materials.spectra",
+    "materials.xrd",
+    "materials.chemometrics",
+    "materials.analysis_plan",
+}
 
 
 def _boolean(value):
@@ -563,7 +585,8 @@ def science_outputs(key, config=None):
     if table:
         definitions.insert(0, ("table", "结果表格", "build_table"))
     if key in FEATURE_OPERATIONS:
-        definitions.insert(1, ("features", "峰值特征表", "build_features"))
+        label = "峰值特征表" if key in {"materials.spectra", "materials.xrd"} else "结构化特征表"
+        definitions.insert(1, ("features", label, "build_features"))
     if contract["artifacts_output"]:
         definitions.append(("artifacts", "生成文件", "build_artifacts"))
     return [

@@ -432,6 +432,7 @@ def analyze_spectra(table, config=None):
     _group_statistics([{"group": None, "status": "failed"}], config)
     parameters = {**config, "x": x_column, "y": y_column, "x_unit": x_unit, "intensity_unit": intensity_unit}
     processed, features, summaries, warnings = [], [], [], []
+    processed_units = {}
     halted = False
     for identifier, row_positions in frame.groupby(curve_column, sort=False, observed=True).indices.items():
         subset = frame.iloc[row_positions]
@@ -459,6 +460,8 @@ def analyze_spectra(table, config=None):
             continue
         try:
             result = spectra(subset, config=parameters)
+            processed_units.update(result.table.attrs.get("units", {}))
+            warnings.extend(warning for warning in result.warnings if warning not in warnings)
             curve_features = features_for("materials.spectra", result, identifier, group)
             curve_features["status"] = "completed"
             curve_features["reason"] = None
@@ -593,7 +596,11 @@ def analyze_spectra(table, config=None):
             "max": "dimensionless",
             "l2": "dimensionless",
             "area": f"1/{x_unit}",
+            "snv": "dimensionless",
         }[config.get("normalization", "none")]
+    complete_table.attrs["units"].update({
+        key: value for key, value in processed_units.items() if key in complete_table.columns
+    })
     if source_contract is not None:
         complete_table = contract_spectral_output(
             frame,

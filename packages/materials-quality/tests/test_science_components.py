@@ -11,10 +11,10 @@ from materials_quality.science.ui_schema import science_outputs
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_catalog_has_forty_four_distinct_real_operations():
+def test_catalog_has_distinct_real_operations():
     items = entries()
-    assert len(items) == 44
-    assert len({item["key"] for item in items}) == 44
+    assert len(items) == 48
+    assert len({item["key"] for item in items}) == len(items)
     for item in items:
         assert callable(get(item["key"])["callable"])
         path = ROOT / "components" / item["directory"] / (item["filename"] + ".py")

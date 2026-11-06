@@ -3402,11 +3402,57 @@
           "none",
           "constant",
           "linear",
-          "anchors"
+          "anchors",
+          "asls"
         ],
         "advanced": false,
-        "info": "none 不扣除；constant 扣常数；linear 连首尾；anchors 使用覆盖全测量范围的锚点。",
+        "info": "none 不扣除；constant 扣常数；linear 连首尾；anchors 使用覆盖全测量范围的锚点；asls 用非对称最小二乘估计平滑背景，要求等间距并复核宽峰损失。",
         "when": {},
+        "required": false
+      },
+      {
+        "path": "baseline.lambda",
+        "label": "AsLS 平滑惩罚",
+        "kind": "float",
+        "default": 100000.0,
+        "choices": [],
+        "advanced": false,
+        "info": "有限正数；越大基线越平滑。采用采样点二阶差分，换采样密度后须复核参数。",
+        "when": {
+          "baseline.method": [
+            "asls"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "baseline.p",
+        "label": "AsLS 非对称权重",
+        "kind": "float",
+        "default": 0.01,
+        "choices": [],
+        "advanced": false,
+        "info": "严格位于 0 和 1 之间；小值偏向正峰下方背景，不自动判断峰方向。",
+        "when": {
+          "baseline.method": [
+            "asls"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "baseline.iterations",
+        "label": "AsLS 最大迭代次数",
+        "kind": "int",
+        "default": 20,
+        "choices": [],
+        "advanced": false,
+        "info": "1–1000 的整数；达到次数不代表基线科学正确，须检查原始/基线/校正曲线。",
+        "when": {
+          "baseline.method": [
+            "asls"
+          ]
+        },
         "required": false
       },
       {
@@ -3751,11 +3797,57 @@
           "none",
           "constant",
           "linear",
-          "anchors"
+          "anchors",
+          "asls"
         ],
         "advanced": false,
-        "info": "none 不扣除；constant 扣常数；linear 连首尾；anchors 使用覆盖全测量范围的锚点。",
+        "info": "none 不扣除；constant 扣常数；linear 连首尾；anchors 使用覆盖全测量范围的锚点；asls 用非对称最小二乘估计平滑背景，要求等间距并复核宽峰损失。",
         "when": {},
+        "required": false
+      },
+      {
+        "path": "baseline.lambda",
+        "label": "AsLS 平滑惩罚",
+        "kind": "float",
+        "default": 100000.0,
+        "choices": [],
+        "advanced": false,
+        "info": "有限正数；越大基线越平滑。采用采样点二阶差分，换采样密度后须复核参数。",
+        "when": {
+          "baseline.method": [
+            "asls"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "baseline.p",
+        "label": "AsLS 非对称权重",
+        "kind": "float",
+        "default": 0.01,
+        "choices": [],
+        "advanced": false,
+        "info": "严格位于 0 和 1 之间；小值偏向正峰下方背景，不自动判断峰方向。",
+        "when": {
+          "baseline.method": [
+            "asls"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "baseline.iterations",
+        "label": "AsLS 最大迭代次数",
+        "kind": "int",
+        "default": 20,
+        "choices": [],
+        "advanced": false,
+        "info": "1–1000 的整数；达到次数不代表基线科学正确，须检查原始/基线/校正曲线。",
+        "when": {
+          "baseline.method": [
+            "asls"
+          ]
+        },
         "required": false
       },
       {
@@ -3932,6 +4024,33 @@
         "required": false
       },
       {
+        "path": "y_unit",
+        "label": "光谱信号单位",
+        "kind": "str",
+        "default": "unspecified",
+        "choices": [],
+        "advanced": false,
+        "info": "填写实测单位，例如 counts、absorbance；导数必须明确此项，输出按真实坐标间隔换算。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "derivative_order",
+        "label": "SG 导数阶数",
+        "kind": "choice",
+        "default": 0,
+        "choices": [
+          0,
+          1,
+          2
+        ],
+        "advanced": false,
+        "info": "0 只平滑；1/2 要求非零奇数窗口、多项式阶数至少等于导数阶数、等间距和明确单位。processed 输出导数再归一化；峰位、峰宽、积分仍使用导数前的 smoothed 信号。",
+        "when": {},
+        "required": false,
+        "converter": "int"
+      },
+      {
         "path": "normalization",
         "label": "归一化",
         "kind": "choice",
@@ -3940,11 +4059,27 @@
           "none",
           "max",
           "l2",
-          "area"
+          "area",
+          "snv"
         ],
         "advanced": false,
-        "info": "none 保留量级；max 按最大绝对值；l2 按向量范数；area 按绝对信号积分。峰面积在归一化前计算。",
+        "info": "none 保留量级；max 按最大绝对值；l2 按向量范数；area 按绝对信号积分。snv 逐谱减均值除样本标准差（ddof=1）；归一化在导数之后，峰面积在导数和归一化前计算。",
         "when": {},
+        "required": false
+      },
+      {
+        "path": "allow_intensity_loss",
+        "label": "允许逐谱去除绝对强度",
+        "kind": "bool",
+        "default": false,
+        "choices": [],
+        "advanced": false,
+        "info": "启用 SNV 必须明确勾选；处理列将丢失绝对强度和偏移，原始列保持不变。",
+        "when": {
+          "normalization": [
+            "snv"
+          ]
+        },
         "required": false
       },
       {
@@ -4100,11 +4235,57 @@
           "none",
           "constant",
           "linear",
-          "anchors"
+          "anchors",
+          "asls"
         ],
         "advanced": false,
-        "info": "none 不扣除；constant 扣常数；linear 连首尾；anchors 使用覆盖全测量范围的锚点。",
+        "info": "none 不扣除；constant 扣常数；linear 连首尾；anchors 使用覆盖全测量范围的锚点；asls 用非对称最小二乘估计平滑背景，要求等间距并复核宽峰损失。",
         "when": {},
+        "required": false
+      },
+      {
+        "path": "baseline.lambda",
+        "label": "AsLS 平滑惩罚",
+        "kind": "float",
+        "default": 100000.0,
+        "choices": [],
+        "advanced": false,
+        "info": "有限正数；越大基线越平滑。采用采样点二阶差分，换采样密度后须复核参数。",
+        "when": {
+          "baseline.method": [
+            "asls"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "baseline.p",
+        "label": "AsLS 非对称权重",
+        "kind": "float",
+        "default": 0.01,
+        "choices": [],
+        "advanced": false,
+        "info": "严格位于 0 和 1 之间；小值偏向正峰下方背景，不自动判断峰方向。",
+        "when": {
+          "baseline.method": [
+            "asls"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "baseline.iterations",
+        "label": "AsLS 最大迭代次数",
+        "kind": "int",
+        "default": 20,
+        "choices": [],
+        "advanced": false,
+        "info": "1–1000 的整数；达到次数不代表基线科学正确，须检查原始/基线/校正曲线。",
+        "when": {
+          "baseline.method": [
+            "asls"
+          ]
+        },
         "required": false
       },
       {
@@ -8828,6 +9009,1027 @@
         "when": {
           "method": [
             "llm"
+          ]
+        },
+        "required": false
+      }
+    ]
+  },
+  {
+    "key": "lit.method_recommend",
+    "title": "有依据的方法建议",
+    "function": "materials_quality.science.method_cards:recommend_methods",
+    "category": "literature",
+    "requirement": "文献方法检索与适用条件检查",
+    "table_input": true,
+    "data_input": true,
+    "tables_input": false,
+    "default_config": {
+      "top_k": 5,
+      "signal_type": "unknown",
+      "x_unit": "unknown"
+    },
+    "directory": "materials_literature",
+    "filename": "lit_method_recommend",
+    "class_name": "ScienceLitMethodRecommend",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "BookOpenCheck",
+    "context_input": false,
+    "reports_input": false,
+    "ui_version": 2,
+    "features_output": false,
+    "form_fields": [
+      {
+        "path": "query",
+        "label": "方法关键词",
+        "kind": "str",
+        "default": "",
+        "choices": [],
+        "advanced": false,
+        "info": "例如 SNV、基线、峰位；无文字命中时返回空表。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "goal",
+        "label": "分析目标",
+        "kind": "choice",
+        "default": "unknown",
+        "choices": [
+          "unknown",
+          "smooth",
+          "baseline",
+          "normalization",
+          "derivative",
+          "peak_position",
+          "area",
+          "absolute_intensity",
+          "dimensionality",
+          "regression"
+        ],
+        "advanced": false,
+        "info": "先选择目标以展开相关条件；unknown 仅浏览候选，未确认条件保持缺失。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "signal_type",
+        "label": "测量信号定义",
+        "kind": "choice",
+        "default": "unknown",
+        "choices": [
+          "unknown",
+          "nir_absorbance",
+          "nir_reflectance",
+          "ftir_absorbance",
+          "raman_intensity",
+          "darkfield_intensity"
+        ],
+        "advanced": false,
+        "info": "材料名称不能代替信号定义；透过率必须另行明确转换。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "x_unit",
+        "label": "物理坐标单位",
+        "kind": "choice",
+        "default": "unknown",
+        "choices": [
+          "unknown",
+          "nm",
+          "um",
+          "cm^-1",
+          "1/cm"
+        ],
+        "advanced": false,
+        "info": "",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "y_unit",
+        "label": "信号单位",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "例如 absorbance、counts；未知时留空。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "top_k",
+        "label": "最多显示候选",
+        "kind": "int",
+        "default": 5,
+        "choices": [],
+        "advanced": false,
+        "info": "1–20；命中不代表科学验证通过。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "allow_intensity_loss",
+        "label": "允许去除绝对强度",
+        "kind": "choice",
+        "default": "unknown",
+        "choices": [
+          "unknown",
+          "yes",
+          "no"
+        ],
+        "advanced": false,
+        "info": "SNV/MSC 改变每条光谱的强度尺度。",
+        "when": {
+          "goal": [
+            "normalization",
+            "regression",
+            "dimensionality"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "equally_spaced",
+        "label": "坐标是否等间距",
+        "kind": "choice",
+        "default": "unknown",
+        "choices": [
+          "unknown",
+          "yes",
+          "no"
+        ],
+        "advanced": false,
+        "info": "接入曲线表时将重新核算，声明不能覆盖数据事实。",
+        "when": {
+          "goal": [
+            "smooth",
+            "baseline",
+            "derivative"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "nonzero_variance",
+        "label": "逐谱是否有非零方差",
+        "kind": "choice",
+        "default": "unknown",
+        "choices": [
+          "unknown",
+          "yes",
+          "no"
+        ],
+        "advanced": false,
+        "info": "零方差光谱不能进行 SNV。",
+        "when": {
+          "goal": [
+            "normalization",
+            "regression",
+            "dimensionality"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "positive_peaks",
+        "label": "目标是否为向上的峰",
+        "kind": "choice",
+        "default": "unknown",
+        "choices": [
+          "unknown",
+          "yes",
+          "no"
+        ],
+        "advanced": false,
+        "info": "不自动翻转透过率谷或负峰。",
+        "when": {
+          "goal": [
+            "baseline",
+            "peak_position",
+            "absolute_intensity"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "nonnegative",
+        "label": "输入是否全部非负",
+        "kind": "choice",
+        "default": "unknown",
+        "choices": [
+          "unknown",
+          "yes",
+          "no"
+        ],
+        "advanced": true,
+        "info": "NMF 组合条件；NMF 尚未开放执行。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "fit_scope",
+        "label": "学习型变换拟合范围",
+        "kind": "choice",
+        "default": "unknown",
+        "choices": [
+          "unknown",
+          "train_only",
+          "all_data"
+        ],
+        "advanced": false,
+        "info": "PCA/PLS/参考谱只可从训练集学习；交叉验证每折重拟合。",
+        "when": {
+          "goal": [
+            "dimensionality",
+            "regression"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "split_confirmed",
+        "label": "是否已划分训练与测试",
+        "kind": "choice",
+        "default": "unknown",
+        "choices": [
+          "unknown",
+          "yes",
+          "no"
+        ],
+        "advanced": false,
+        "info": "表中使用 train/test 标签；测试集不能参与方法选择。",
+        "when": {
+          "goal": [
+            "dimensionality",
+            "regression"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "groups_disjoint",
+        "label": "样品与重复组是否隔离",
+        "kind": "choice",
+        "default": "unknown",
+        "choices": [
+          "unknown",
+          "yes",
+          "no"
+        ],
+        "advanced": false,
+        "info": "同一样品的重复或跨仪器记录不可跨训练/测试两侧。",
+        "when": {
+          "goal": [
+            "dimensionality",
+            "regression"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "x",
+        "label": "曲线坐标列",
+        "kind": "str",
+        "default": "x",
+        "choices": [],
+        "advanced": false,
+        "info": "",
+        "when": {
+          "goal": [
+            "smooth",
+            "baseline",
+            "normalization",
+            "derivative",
+            "peak_position",
+            "area",
+            "absolute_intensity"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "y",
+        "label": "曲线信号列",
+        "kind": "str",
+        "default": "y",
+        "choices": [],
+        "advanced": false,
+        "info": "",
+        "when": {
+          "goal": [
+            "smooth",
+            "baseline",
+            "normalization",
+            "derivative",
+            "peak_position",
+            "area",
+            "absolute_intensity"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "smooth_window",
+        "label": "SG 窗口点数",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "正奇数，不超过曲线长度；按实验分辨率选择。",
+        "when": {
+          "goal": [
+            "smooth",
+            "derivative"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "smooth_order",
+        "label": "SG 多项式阶数",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "小于窗口且不小于导数阶数。",
+        "when": {
+          "goal": [
+            "smooth",
+            "derivative"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "prominence",
+        "label": "候选峰突出度",
+        "kind": "float",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "正数，使用信号单位；不自动放宽阈值。",
+        "when": {
+          "goal": [
+            "peak_position",
+            "absolute_intensity"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "area_ranges",
+        "label": "积分窗口",
+        "kind": "table",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "按物理坐标填写，每行一个窗口。",
+        "when": {
+          "goal": [
+            "area",
+            "absolute_intensity"
+          ]
+        },
+        "required": false,
+        "converter": "pairs",
+        "pair_columns": [
+          "lower",
+          "upper"
+        ],
+        "table_schema": [
+          {
+            "name": "lower",
+            "display_name": "下限",
+            "type": "float"
+          },
+          {
+            "name": "upper",
+            "display_name": "上限",
+            "type": "float"
+          }
+        ]
+      },
+      {
+        "path": "feature_columns",
+        "label": "模型特征列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "样品×波段宽表中的数值列；不可包含目标值。",
+        "when": {
+          "goal": [
+            "dimensionality",
+            "regression"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "sample_column",
+        "label": "样品身份列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "",
+        "when": {
+          "goal": [
+            "dimensionality",
+            "regression"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "split_column",
+        "label": "训练/测试标签列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "列中只能包含 train 与 test。",
+        "when": {
+          "goal": [
+            "dimensionality",
+            "regression"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "group_column",
+        "label": "重复或仪器组对应的样品组列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选；同组必须始终在同侧。",
+        "when": {
+          "goal": [
+            "dimensionality",
+            "regression"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "target_column",
+        "label": "回归参考值列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "",
+        "when": {
+          "goal": [
+            "regression"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "n_components",
+        "label": "主成分/潜变量数",
+        "kind": "int",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "须在训练集内决定，执行时检查样本数和秩。",
+        "when": {
+          "goal": [
+            "dimensionality",
+            "regression"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "method_ids",
+        "label": "指定方法卡 ID",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "可留空；指定时即使条件不符也显示原因。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "sequence",
+        "label": "顺序检查的方法 ID",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "例如 snv,nmf；只检查条件，不执行或自动修复组合。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "reference_source",
+        "label": "MSC 参考谱来源",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": true,
+        "info": "预留条件说明；MSC 尚未开放执行。",
+        "when": {},
+        "required": false
+      }
+    ]
+  },
+  {
+    "key": "materials.chemometrics",
+    "title": "PCA/PLS 化学计量学",
+    "function": "materials_quality.science.chemometrics:chemometrics",
+    "category": "材料专业分析",
+    "requirement": "显式样品划分的 PCA 特征与 PLS 回归",
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "default_config": {
+      "method": "pca",
+      "n_components": 2,
+      "scale": true,
+      "cv_folds": 0
+    },
+    "directory": "materials_analysis",
+    "filename": "materials_chemometrics",
+    "class_name": "ScienceMaterialsChemometrics",
+    "table_output": true,
+    "features_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "ChartScatter",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "form_fields": [
+      {
+        "path": "method",
+        "label": "化学计量学方法",
+        "kind": "choice",
+        "default": "pca",
+        "choices": [
+          "pca",
+          "pls"
+        ],
+        "advanced": false,
+        "info": "PCA 提取训练集方差成分；PLS 用光谱预测单个连续目标。均仅在训练数据拟合。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "feature_columns",
+        "label": "光谱/特征列",
+        "kind": "list",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "逐列选择数值波段；每行一个样本。不含目标、样品标识、分组或划分列，禁止非有限值。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "target_column",
+        "label": "连续目标列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "PLS 的实测浓度/含量等连续响应列；须有有限值，训练集不能恒定。",
+        "when": {
+          "method": [
+            "pls"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "sample_column",
+        "label": "样品身份列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "明确真实样品标识；同一样品的重复或跨仪器记录使用相同标识，禁止跨训练/测试两侧。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "split_column",
+        "label": "训练/测试划分列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "上游表明确填写 train 或 test；至少三个训练行。仅 train 时不报告独立测试性能。",
+        "when": {},
+        "required": true
+      },
+      {
+        "path": "group_column",
+        "label": "重复/批次分组列",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "可选；要求一整个组位于同一划分，也用于训练集交叉验证。留空按样品身份分组。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "n_components",
+        "label": "成分数（CV 时为搜索上限）",
+        "kind": "int",
+        "default": 2,
+        "choices": [],
+        "advanced": false,
+        "info": "正整数且不超过训练行数减一、特征数及训练矩阵中心化秩；CV 逐一比较 1 至该上限。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "scale",
+        "label": "按训练集标准差缩放特征",
+        "kind": "bool",
+        "default": true,
+        "choices": [],
+        "advanced": false,
+        "info": "始终按训练集均值中心化；勾选再除训练标准差。各 CV 训练折独立重新拟合。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "cv_folds",
+        "label": "训练集成分选择折数",
+        "kind": "int",
+        "default": 0,
+        "choices": [],
+        "advanced": false,
+        "info": "0 固定成分；>=2 按样品/分组交叉验证选训练折外 RMSE 最低的成分数。测试集从不参与选择。",
+        "when": {
+          "method": [
+            "pls"
+          ]
+        },
+        "required": false
+      }
+    ]
+  },
+  {
+    "key": "lit.result_evidence",
+    "title": "结果与文献证据",
+    "function": "materials_quality.science.result_evidence:result_evidence",
+    "category": "文献与证据",
+    "requirement": "结果与来源关联",
+    "default_config": {
+      "max_rows": 20
+    },
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "directory": "materials_literature",
+    "filename": "lit_result_evidence",
+    "class_name": "ScienceLitResultEvidence",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Quote",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "features_output": false,
+    "form_fields": [
+      {
+        "path": "title",
+        "label": "报告标题",
+        "kind": "str",
+        "default": "结果与文献证据",
+        "choices": [],
+        "advanced": false,
+        "info": "",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "columns",
+        "label": "结果列（留空选择数值列）",
+        "kind": "list",
+        "default": [],
+        "choices": [],
+        "advanced": false,
+        "info": "",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "identity_column",
+        "label": "样品或曲线编号列",
+        "kind": "str",
+        "default": "",
+        "choices": [],
+        "advanced": false,
+        "info": "",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "max_rows",
+        "label": "最多展示行数",
+        "kind": "int",
+        "default": 20,
+        "choices": [],
+        "advanced": false,
+        "info": "1 至 200；超出的行明确标注。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "method_card",
+        "label": "关联方法卡",
+        "kind": "choice",
+        "default": "",
+        "choices": [
+          "",
+          "sg_smooth",
+          "sg_derivative1",
+          "sg_derivative2",
+          "snv",
+          "asls",
+          "pca",
+          "pls",
+          "peak_detection",
+          "trapezoid",
+          "nmf",
+          "msc"
+        ],
+        "advanced": false,
+        "info": "可选；填写文献解释时须选择已登记方法来源。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "explanation",
+        "label": "文献解释（待核对适用性）",
+        "kind": "str",
+        "default": "",
+        "choices": [],
+        "advanced": false,
+        "info": "关联文献不等于已经证明该解释，需人工核对样品和实验条件。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "hypothesis",
+        "label": "待验证推测",
+        "kind": "str",
+        "default": "",
+        "choices": [],
+        "advanced": false,
+        "info": "与直接观察分开显示。",
+        "when": {},
+        "required": false
+      }
+    ]
+  },
+  {
+    "key": "materials.analysis_plan",
+    "title": "分步分析与局部重算",
+    "function": "materials_quality.science.research_plan:research_plan",
+    "category": "材料专业分析",
+    "requirement": "有界纯计算任务图",
+    "default_config": {
+      "task": "group_summary",
+      "group_by": [
+        "group"
+      ],
+      "columns": [
+        "value"
+      ]
+    },
+    "table_input": true,
+    "data_input": false,
+    "tables_input": false,
+    "directory": "materials_analysis",
+    "filename": "materials_analysis_plan",
+    "class_name": "ScienceMaterialsAnalysisPlan",
+    "table_output": true,
+    "artifacts_output": false,
+    "upload_types": [],
+    "icon": "Workflow",
+    "context_input": true,
+    "reports_input": false,
+    "ui_version": 2,
+    "features_output": true,
+    "form_fields": [
+      {
+        "path": "task",
+        "label": "分析任务",
+        "kind": "choice",
+        "default": "group_summary",
+        "choices": [
+          "group_summary",
+          "spectra"
+        ],
+        "advanced": false,
+        "info": "分组原始/标准化对照，或逐曲线主峰与分组描述。",
+        "when": {},
+        "required": false
+      },
+      {
+        "path": "columns",
+        "label": "分析数值列",
+        "kind": "list",
+        "default": [
+          "value"
+        ],
+        "choices": [],
+        "advanced": false,
+        "info": "选择有限数值列，分别计算原始与标准化后的描述统计。",
+        "when": {
+          "task": [
+            "group_summary"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "group_by",
+        "label": "分组列",
+        "kind": "list",
+        "default": [
+          "group"
+        ],
+        "choices": [],
+        "advanced": false,
+        "info": "按所选列组合分组；组别不能缺失。",
+        "when": {
+          "task": [
+            "group_summary"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "normalization",
+        "label": "标准化方法",
+        "kind": "choice",
+        "default": "zscore",
+        "choices": [
+          "zscore",
+          "minmax",
+          "robust"
+        ],
+        "advanced": false,
+        "info": "仅作描述性对照，不用于独立测试集建模。",
+        "when": {
+          "task": [
+            "group_summary"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "normalize_by",
+        "label": "分别标准化的分组列",
+        "kind": "list",
+        "default": [],
+        "choices": [],
+        "advanced": false,
+        "info": "留空对全部行拟合；此描述性流程不用于训练/测试预测建模。",
+        "when": {
+          "task": [
+            "group_summary"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "curve_id",
+        "label": "曲线编号列",
+        "kind": "str",
+        "default": "curve_id",
+        "choices": [],
+        "advanced": false,
+        "info": "选择上游表的真实列名；每条曲线必须属于同一条件组。",
+        "when": {
+          "task": [
+            "spectra"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "x",
+        "label": "横坐标列",
+        "kind": "str",
+        "default": "x",
+        "choices": [],
+        "advanced": false,
+        "info": "选择上游表的真实列名；每条曲线必须属于同一条件组。",
+        "when": {
+          "task": [
+            "spectra"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "y",
+        "label": "信号列",
+        "kind": "str",
+        "default": "y",
+        "choices": [],
+        "advanced": false,
+        "info": "选择上游表的真实列名；每条曲线必须属于同一条件组。",
+        "when": {
+          "task": [
+            "spectra"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "group",
+        "label": "条件组列",
+        "kind": "str",
+        "default": "group",
+        "choices": [],
+        "advanced": false,
+        "info": "选择上游表的真实列名；每条曲线必须属于同一条件组。",
+        "when": {
+          "task": [
+            "spectra"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "x_unit",
+        "label": "坐标单位",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写仪器已确认的物理坐标单位；不自动猜测。",
+        "when": {
+          "task": [
+            "spectra"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "y_unit",
+        "label": "信号单位",
+        "kind": "str",
+        "default": null,
+        "choices": [],
+        "advanced": false,
+        "info": "填写已确认的信号单位，例如 counts；未知时请先核对。",
+        "when": {
+          "task": [
+            "spectra"
+          ]
+        },
+        "required": true
+      },
+      {
+        "path": "baseline",
+        "label": "基线方法",
+        "kind": "choice",
+        "default": "none",
+        "choices": [
+          "none",
+          "linear",
+          "asls"
+        ],
+        "advanced": false,
+        "info": "基线只影响派生分析，原始曲线保留；AsLS 参数采用明确记录的默认值。",
+        "when": {
+          "task": [
+            "spectra"
+          ]
+        },
+        "required": false
+      },
+      {
+        "path": "prominence",
+        "label": "主峰突出度阈值",
+        "kind": "float",
+        "default": 0.1,
+        "choices": [],
+        "advanced": false,
+        "info": "使用输入信号单位；失败时不会自动降低阈值。",
+        "when": {
+          "task": [
+            "spectra"
           ]
         },
         "required": false
