@@ -35,6 +35,8 @@ class FileWorkflowExecutor:
         tweaks: dict | None = None,
         output_type: str = "any",
         external_data_approved: bool = False,
+        expected_digest: str | None = None,
+        expected_project_id: str | None = None,
     ):
         from lfx.load import run_flow_from_json
 
@@ -45,6 +47,13 @@ class FileWorkflowExecutor:
         flow, revision = self.store.read(flow_id)
         if self.validator:
             flow = self.validator(flow) or flow
+        if external_data_approved:
+            from .workflow import flow_digest
+
+            if not expected_digest or (
+                flow_digest(flow) != expected_digest or flow.get("folder_id") != expected_project_id
+            ):
+                raise ValueError("审批后工作流内容或所属项目已变化；请重新申请数据传输审批。")
         from .execution_context import (
             begin_upstream_image_scope,
             external_data_approval,

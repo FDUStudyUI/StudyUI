@@ -1,1 +1,5 @@
 * text=auto eol=lf
+# Keep bundled upstream assets byte-identical to their integrity manifest.
+packages/materials-quality/src/materials_quality/agent/ui/assets/vendor/** -text
+# This upstream license contains one intentional trailing space; retain its hash.
+packages/materials-quality/src/materials_quality/agent/ui/assets/vendor/dompurify/LICENSE-MPL whitespace=-blank-at-eol

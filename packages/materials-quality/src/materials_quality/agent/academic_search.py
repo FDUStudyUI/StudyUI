@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
 import re
+import xml.etree.ElementTree as ET
 from urllib.parse import quote
 
 import requests
@@ -163,7 +163,9 @@ def _datacite(query, limit):
     for item in records:
         attrs = item.get("attributes", {})
         title = next((x.get("title") for x in attrs.get("titles", []) if x.get("title")), None)
-        raw_desc = next((x.get("description", "") for x in attrs.get("descriptions", []) if x.get("description")), "")
+        raw_desc = next(
+            (x.get("description", "") for x in attrs.get("descriptions", []) if x.get("description")), ""
+        )
         cleaned_desc = _clean_abstract(raw_desc)
         out.append(
             {
@@ -177,7 +179,11 @@ def _datacite(query, limit):
                 "abstract": cleaned_desc,
                 "description": (cleaned_desc or "")[:1600],
                 "related_identifiers": [
-                    {"identifier": row.get("relatedIdentifier"), "type": row.get("relatedIdentifierType"), "relation": row.get("relationType")}
+                    {
+                        "identifier": row.get("relatedIdentifier"),
+                        "type": row.get("relatedIdentifierType"),
+                        "relation": row.get("relationType"),
+                    }
                     for row in attrs.get("relatedIdentifiers", [])[:10]
                     if isinstance(row, dict)
                 ],

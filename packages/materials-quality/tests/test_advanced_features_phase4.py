@@ -1,7 +1,7 @@
-from pathlib import Path
 from fastapi.testclient import TestClient
+
+from materials_quality.agent.data_inspection import authorized_file, inspect_file
 from materials_quality.agent.server import create_app
-from materials_quality.agent.data_inspection import audit_standards_and_dimensions, inspect_file, authorized_file
 
 
 def test_ui_phase4_elements_and_rendering(tmp_path):
@@ -87,19 +87,25 @@ def test_canvas_insert_node_api(tmp_path):
             "    import numpy as np\n"
             "    return float(np.polyfit(np.log(strain), np.log(stress), 1)[0])\n"
         )
+        session_id = client.post("/api/sessions", json={"title": "Code review"}).json()["id"]
         res = client.post(
             "/api/canvas/insert-node",
             json={
                 "name": "HardeningExponentCalc",
                 "code": code_sample,
-                "session_id": "test_session",
+                "session_id": session_id,
             },
         )
-        assert res.status_code == 200
+        assert res.status_code == 202
         data = res.json()
-        assert data["status"] == "ok"
+        assert data["status"] == "draft"
+        assert data["executable"] is False
         assert data["component_name"] == "HardeningExponentCalc"
-        assert "hardeningexponentcalc.py" in data["file"]
+        assert data["file"].endswith(".py.txt")
+        assert not list(components.rglob("*.py"))
+        download = client.get(f"/api/sessions/{session_id}/artifacts/{data['artifact']['id']}")
+        assert download.status_code == 200
+        assert download.text == code_sample
 
 
 def test_standards_and_dimensions_watchdog(tmp_path):
@@ -110,7 +116,8 @@ def test_standards_and_dimensions_watchdog(tmp_path):
     tensile_audit = tensile_res.get("standards_and_compliance")
     assert tensile_audit is not None
     assert "ASTM E8" in tensile_audit["standard"]
-    assert tensile_audit["compliance_passed"] is True
+    assert tensile_audit["compliance_passed"] is None
+    assert tensile_audit["compliance_status"] == "not_verified"
 
     # 2. XRD file -> ASTM E915 / JCPDS
     xrd_file = tmp_path / "04_3YSZ_xrd.txt"
@@ -152,7 +159,7 @@ def test_session_delete_and_drop_overlay_hidden(tmp_path):
         assert page.status_code == 200
         assert 'id="drop-overlay"' in page.text
         assert 'style="display:none"' in page.text
-        assert '.dropzone-overlay[hidden]{display:none !important}' in page.text
+        assert ".dropzone-overlay[hidden]{display:none !important}" in page.text
 
         # Create session
         create_res = client.post("/api/sessions", json={"title": "Test Session to Delete"})
@@ -221,9 +228,10 @@ def test_deepseek_reasoning_and_gemini_stepper_ui_elements(tmp_path):
         assert "audit-step-item" in html
         assert "createAuditStepper" in html
 
-        # Model mode badge & SSE connection logic
+        # Durable task polling supports reconnecting without replay.
         assert "model-badge" in html
-        assert "text/event-stream" in html
+        assert "recoverTask" in html
+        assert "watchTask" in html
 
 
 def test_harness_multi_model_thinking_adapter_think_tag(tmp_path):
@@ -236,13 +244,16 @@ def test_harness_multi_model_thinking_adapter_think_tag(tmp_path):
         def complete(self, messages, tools, *, max_tokens=3000):
             self.calls.append(messages)
             return {
-                "content": "<think>\n根据 ASTM E8 规范与胡克弹性区间，提取前 2% 弹性形变段斜率...\n</think>\n钛合金 Ti-6Al-4V 样件的弹性模量经线性回归计算为 114.2 GPa，符合标称范围。",
+                "content": (
+                    "<think>\n根据 ASTM E8 规范与胡克弹性区间，提取前 2% 弹性形变段斜率...\n</think>\n"
+                    "钛合金 Ti-6Al-4V 样件的弹性模量经线性回归计算为 114.2 GPa，符合标称范围。"
+                ),
             }
 
     model = MockModel()
     agent = StudyUIAgent(tmp_path / "state.sqlite3", langflow=object(), model=model)
     session_id = agent.new_session(project_id=agent.store.create_project("test"))
-    
+
     res = agent.run_turn(session_id, "请评估钛合金拉伸数据")
     # Verify reasoning was extracted from <think> tag
     assert "ASTM E8 规范与胡克弹性区间" in res["reasoning_content"]
@@ -291,7 +302,7 @@ def test_sse_streaming_and_live_progress_endpoint(tmp_path):
         sse_res = client.post(
             f"/api/sessions/{session_id}/messages",
             headers={"Accept": "text/event-stream"},
-            json={"message": "执行拉伸数据校验"}
+            json={"message": "执行拉伸数据校验"},
         )
         assert sse_res.status_code == 200
         assert "text/event-stream" in sse_res.headers.get("content-type", "")
@@ -356,7 +367,7 @@ def test_approval_execution_without_intent_or_group_permits_action(tmp_path):
         session_id=session_id,
         action="workflow.create",
         reason="用户审批自动建流",
-        request={"tool": "build_workflow", "args": {"name": "自动化测试流", "actions": []}}
+        request={"tool": "build_workflow", "args": {"name": "自动化测试流", "actions": []}},
     )["approval_id"]
 
     # Approving must succeed and create workflow without PermissionError
@@ -370,7 +381,10 @@ def test_approval_execution_without_intent_or_group_permits_action(tmp_path):
         session_id=session_id,
         action="artifact.create",
         reason="用户审批撰写报告",
-        request={"tool": "write_research_report", "args": {"title": "钛合金拉伸测试报告", "content": "# 实验分析\n数据真实有效。"}}
+        request={
+            "tool": "write_research_report",
+            "args": {"title": "钛合金拉伸测试报告", "content": "# 实验分析\n数据真实有效。"},
+        },
     )["approval_id"]
 
     res2 = harness.decide_approval(approval_id2, "approved")
@@ -391,6 +405,7 @@ def test_turn_response_includes_dynamic_model_name(tmp_path):
     class NamedMockModel:
         def __init__(self, model_name="qwen2.5:32b"):
             self.model = model_name
+
         def complete(self, messages, tools, *, max_tokens=3000, on_chunk=None):
             return {"content": "分析完成", "reasoning_content": ""}
 
@@ -405,10 +420,10 @@ def test_turn_response_includes_dynamic_model_name(tmp_path):
 
 def test_natural_single_word_intents_authorization():
     from materials_quality.agent.harness import (
-        _explicit_run_intent,
         _explicit_build_intent,
-        _explicit_report_intent,
         _explicit_delete_intent,
+        _explicit_report_intent,
+        _explicit_run_intent,
     )
 
     # 1. Run intents
@@ -430,8 +445,8 @@ def test_natural_single_word_intents_authorization():
         assert _explicit_delete_intent(word), f"Failed to match delete intent for {word!r}"
 
 
-def test_model_streaming_graceful_fallback(monkeypatch):
-    from materials_quality.agent.model import ChatModel
+def test_model_streaming_falls_back_when_explicitly_unsupported(monkeypatch):
+    from materials_quality.agent.model import ChatModel, _StreamUnsupported
 
     model = ChatModel(base_url="https://api.deepseek.com", model="deepseek-flash", api_key="test-key")
 
@@ -440,17 +455,16 @@ def test_model_streaming_graceful_fallback(monkeypatch):
     def fake_execute_http(payload, headers, *, is_stream, on_chunk=None):
         if is_stream:
             call_count["stream"] += 1
-            raise ValueError("Stream connection failed: 400 Bad Request")
+            raise _StreamUnsupported("Model service does not support streaming")
         call_count["non_stream"] += 1
         return {"role": "assistant", "content": "Non-streaming fallback succeeded"}
 
     monkeypatch.setattr(model, "_execute_http", fake_execute_http)
 
     chunks = []
-    result = model.complete([{"role": "user", "content": "hello"}], [], on_chunk=lambda k, d: chunks.append((k, d)))
+    result = model.complete(
+        [{"role": "user", "content": "hello"}], [], on_chunk=lambda k, d: chunks.append((k, d))
+    )
     assert call_count["stream"] == 1
     assert call_count["non_stream"] == 1
     assert result["content"] == "Non-streaming fallback succeeded"
-
-
-

@@ -87,12 +87,14 @@ def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_han
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):
-        host = urlsplit("http://" + request.headers.get("host", "")).hostname
-        if host not in {"127.0.0.1", "localhost", "::1", "testserver"}:
+        host = urlsplit("http://" + request.headers.get("host", ""))
+        if host.hostname not in {"127.0.0.1", "localhost", "::1", "testserver"}:
             return JSONResponse({"detail": "Local workbench only"}, status_code=403)
         origin = request.headers.get("origin")
-        if origin and urlsplit(origin).hostname not in {"127.0.0.1", "localhost", "::1", "testserver"}:
-            return JSONResponse({"detail": "Cross-origin requests are not accepted"}, status_code=403)
+        if origin:
+            source = urlsplit(origin)
+            if source.scheme != "http" or source.hostname != host.hostname or source.port != host.port:
+                return JSONResponse({"detail": "Cross-origin requests are not accepted"}, status_code=403)
         return await call_next(request)
 
     @app.get("/health")

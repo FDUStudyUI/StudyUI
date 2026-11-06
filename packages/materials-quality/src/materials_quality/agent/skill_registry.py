@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -96,9 +96,9 @@ class SkillRegistry:
             raise ValueError("Skill selection limit must be between 1 and 8")
         query = " ".join(task_text.casefold().split())
         rows = [
-            row for row in self.list()
-            if row.get("enabled")
-            and (row.get("builtin") or not row.get("scripts") or row.get("trusted"))
+            row
+            for row in self.list()
+            if row.get("enabled") and (row.get("builtin") or not row.get("scripts") or row.get("trusted"))
         ]
         baseline = [row for row in rows if row.get("builtin") and row.get("always")]
         scored = []
@@ -115,7 +115,9 @@ class SkillRegistry:
         scored.sort(key=lambda item: (-item[0], item[1]["name"]))
         selected = []
         for row in baseline:
-            selected.append({**row, "reason": "每项科研任务都检查通用建流与原始数据规则。", "matched_triggers": []})
+            selected.append(
+                {**row, "reason": "每项科研任务都检查通用建流与原始数据规则。", "matched_triggers": []}
+            )
         selected_names = {row["name"] for row in selected}
         for _score, row, matches in scored:
             if row["name"] in selected_names or len(selected) >= limit:
@@ -135,6 +137,7 @@ class SkillRegistry:
             "status": "matched" if any(item["matched_triggers"] for item in selected) else "baseline_only",
             "selected": selected,
         }
+
     def get(self, name):
         if not isinstance(name, str):
             raise ValueError("Skill name is required")

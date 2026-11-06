@@ -75,7 +75,9 @@ class ModelProfiles:
             key = os.environ.get("STUDYUI_MODEL_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
         return key
 
-    def save(self, *, name, base_url, model, api_key=None, profile_id=None, create_new=False, reasoning_effort=None):
+    def save(
+        self, *, name, base_url, model, api_key=None, profile_id=None, create_new=False, reasoning_effort=None
+    ):
         name, base_url, model = (
             str(name).strip()[:80],
             str(base_url).strip().rstrip("/"),
@@ -98,7 +100,9 @@ class ModelProfiles:
             uuid.uuid4() if create_new else (profile_id or current.get("active_model_id") or uuid.uuid4())
         )
         old = current.get("models", {}).get(profile_id, {})
-        reasoning_effort = old.get("reasoning_effort", "default") if reasoning_effort is None else reasoning_effort
+        reasoning_effort = (
+            old.get("reasoning_effort", "default") if reasoning_effort is None else reasoning_effort
+        )
         if reasoning_effort not in {"default", "none", "low", "high", "max"}:
             raise ValueError("思考等级无效。")
         credential_ref = old.get("credential_ref") or "studyui-model-" + profile_id

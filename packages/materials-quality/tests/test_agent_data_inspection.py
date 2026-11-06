@@ -24,8 +24,12 @@ def test_numeric_block_reports_nonmonotonic_order_without_values(tmp_path):
     file.write_text("x,y\n1.25,9.75\n1.25,8.75\n0.5,7.75\n", encoding="utf-8")
     result = inspect_file(file)
     order = result["numeric_blocks"][0]["first_column_order"]
-    assert order == {"checked_rows": 3, "strictly_increasing": False,
-                     "strictly_decreasing": False, "adjacent_equal_count": 1}
+    assert order == {
+        "checked_rows": 3,
+        "strictly_increasing": False,
+        "strictly_decreasing": False,
+        "adjacent_equal_count": 1,
+    }
     assert "9.75" not in json.dumps(result)
 
 
@@ -112,9 +116,15 @@ def test_inspector_is_registered_read_only_and_requires_a_user_named_path(tmp_pa
     assert decision["allowed"] and decision["action"] == "data.inspect"
     with pytest.raises(PermissionError):
         agent._authorize_tool(session, "inspect_research_file", {"path": str(file)}, "读取其他文件")
-    assert json.loads(_bounded_tool_content("inspect_research_file", agent._dispatch(
-        session, "inspect_research_file", {"path": str(file)}, f"读取 {file}"
-    )))["name"] == "raw.csv"
+    assert (
+        json.loads(
+            _bounded_tool_content(
+                "inspect_research_file",
+                agent._dispatch(session, "inspect_research_file", {"path": str(file)}, f"读取 {file}"),
+            )
+        )["name"]
+        == "raw.csv"
+    )
 
 
 def test_file_authorization_persists_in_session_and_respects_revocation(tmp_path):
@@ -124,7 +134,10 @@ def test_file_authorization_persists_in_session_and_respects_revocation(tmp_path
     file = tmp_path / "raw.csv"
     file.write_text("x,y\n1,2\n", encoding="utf-8")
     agent.store.append_message(session, {"role": "user", "content": f"请分析 {file}"})
-    assert agent._dispatch(session, "inspect_research_file", {"path": str(file)}, "继续分析")["name"] == "raw.csv"
+    assert (
+        agent._dispatch(session, "inspect_research_file", {"path": str(file)}, "继续分析")["name"]
+        == "raw.csv"
+    )
     agent.store.append_message(session, {"role": "user", "content": "禁止读取任何文件"})
     with pytest.raises(PermissionError):
         agent._dispatch(session, "inspect_research_file", {"path": str(file)}, "继续")
@@ -134,7 +147,9 @@ def test_skill_discovery_falls_back_to_available_skills(tmp_path):
     agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=object(), model=object())
     project = agent.store.create_project("research")
     session = agent.new_session(project_id=project)
-    result = agent._dispatch(session, "list_research_skills", {"task": "unmatched unique research phrase"}, "")
+    result = agent._dispatch(
+        session, "list_research_skills", {"task": "unmatched unique research phrase"}, ""
+    )
     assert result["query_matched"] is False
     assert result["skills"]
     assert all(skill["enabled"] for skill in result["skills"])

@@ -9,6 +9,7 @@ from lfx.graph import Graph
 from lfx.schema import Data, DataFrame
 
 import materials_quality
+from materials_quality.component_manifest import verify_discovery
 
 
 def main():
@@ -21,13 +22,14 @@ def main():
     component_path = package / "component_sources"
     if component_path.is_dir():
         discovered = build_custom_component_list_from_path(str(component_path))
-        count = sum(len(nodes) for nodes in discovered.values())
-        if len(discovered.get("materials_quality", {})) != 8 or count != 64:
-            raise RuntimeError(
-                f"Installed discovery expected 64 nodes including 8 quality nodes; got {count}"
-            )
+        count = verify_discovery(discovered, component_path)
     elif args.require_wheel:
         raise RuntimeError("Wheel does not contain installable component sources")
+    else:
+        source_components = Path(__file__).resolve().parents[1] / "components"
+        count = verify_discovery(
+            build_custom_component_list_from_path(str(source_components)), source_components
+        )
     root = Path(__file__).resolve().parents[1]
     results = {}
     for case in ("clean", "dirty"):
@@ -57,7 +59,7 @@ def main():
         raise RuntimeError("Wheel-native science component did not execute")
     print(
         json.dumps(
-            {"wheel": "site-packages" in package.parts, "components": 64, "flows": results},
+            {"wheel": "site-packages" in package.parts, "components": count, "flows": results},
             ensure_ascii=False,
         )
     )
