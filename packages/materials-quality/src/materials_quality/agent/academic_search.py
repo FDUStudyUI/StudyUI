@@ -9,9 +9,29 @@ from urllib.parse import quote
 import requests
 
 PROVIDERS = ("crossref", "openalex", "semantic_scholar", "europe_pmc", "datacite", "arxiv")
-TIMEOUT = (5, 18)
+TIMEOUT = (3, 8)
 MAX_RESPONSE_BYTES = 3_000_000
 HEADERS = {"User-Agent": "StudyUI/0.8 (research metadata discovery)"}
+
+
+def _clean_abstract(raw):
+    if not raw or not isinstance(raw, str):
+        return None
+    cleaned = re.sub(r"<[^>]+>", " ", raw).strip()
+    return cleaned[:2000] if cleaned else None
+
+
+def _invert_openalex_abstract(inverted_index):
+    if not isinstance(inverted_index, dict) or not inverted_index:
+        return None
+    word_positions = []
+    for word, positions in inverted_index.items():
+        if isinstance(positions, list):
+            for pos in positions:
+                word_positions.append((pos, word))
+    word_positions.sort(key=lambda x: x[0])
+    text = " ".join(w for _, w in word_positions).strip()
+    return text[:2000] if text else None
 
 
 def _get(url, params):
@@ -46,6 +66,7 @@ def _crossref(query, limit):
                 ],
                 "venue": (row.get("container-title") or [None])[0],
                 "url": row.get("URL"),
+                "abstract": _clean_abstract(row.get("abstract")),
                 "provider": "Crossref",
             }
         )
@@ -64,6 +85,7 @@ def _openalex(query, limit):
             "authors": [a.get("author", {}).get("display_name") for a in row.get("authorships", [])],
             "venue": (row.get("primary_location") or {}).get("source", {}).get("display_name"),
             "url": row.get("doi") or row.get("id"),
+            "abstract": _invert_openalex_abstract(row.get("abstract_inverted_index")),
             "provider": "OpenAlex",
         }
         for row in body.get("results", [])
@@ -76,7 +98,7 @@ def _semantic_scholar(query, limit):
     params = {
         "query": query,
         "limit": limit,
-        "fields": "title,authors,year,venue,externalIds,url,openAccessPdf",
+        "fields": "title,authors,year,venue,externalIds,url,openAccessPdf,abstract",
     }
     body = json.loads(_get("https://api.semanticscholar.org/graph/v1/paper/search", params))
     return [
@@ -87,6 +109,7 @@ def _semantic_scholar(query, limit):
             "authors": [a.get("name") for a in row.get("authors", [])],
             "venue": row.get("venue"),
             "url": row.get("url"),
+            "abstract": _clean_abstract(row.get("abstract")),
             "provider": "Semantic Scholar",
         }
         for row in body.get("data", [])
@@ -110,6 +133,7 @@ def _europe_pmc(query, limit):
                 if row.get("pmid")
                 else row.get("pmcid")
             ),
+            "abstract": _clean_abstract(row.get("abstractText")),
             "provider": "Europe PMC",
         }
         for row in body.get("resultList", {}).get("result", [])
@@ -139,6 +163,8 @@ def _datacite(query, limit):
     for item in records:
         attrs = item.get("attributes", {})
         title = next((x.get("title") for x in attrs.get("titles", []) if x.get("title")), None)
+        raw_desc = next((x.get("description", "") for x in attrs.get("descriptions", []) if x.get("description")), "")
+        cleaned_desc = _clean_abstract(raw_desc)
         out.append(
             {
                 "title": title,
@@ -148,7 +174,8 @@ def _datacite(query, limit):
                 "venue": attrs.get("publisher"),
                 "url": attrs.get("url"),
                 "provider": "DataCite",
-                "description": re.sub(r"<[^>]+>", " ", next((x.get("description", "") for x in attrs.get("descriptions", []) if x.get("description")), ""))[:1600],
+                "abstract": cleaned_desc,
+                "description": (cleaned_desc or "")[:1600],
                 "related_identifiers": [
                     {"identifier": row.get("relatedIdentifier"), "type": row.get("relatedIdentifierType"), "relation": row.get("relationType")}
                     for row in attrs.get("relatedIdentifiers", [])[:10]
@@ -174,6 +201,7 @@ def _arxiv(query, limit):
             "authors": [a.findtext("a:name", default="", namespaces=ns) for a in row.findall("a:author", ns)],
             "venue": "arXiv",
             "url": row.findtext("a:id", namespaces=ns),
+            "abstract": _clean_abstract(row.findtext("a:summary", default="", namespaces=ns)),
             "provider": "arXiv",
         }
         for row in root.findall("a:entry", ns)
@@ -191,7 +219,7 @@ _SEARCH = {
 
 
 def search(query: str, *, providers=None, limit=5):
-    query = str(query).strip()
+    query = re.sub(r"[\r\n\t]+", " ", str(query)).strip(" .,;:!?。，？！；：\n\t")
     if not 2 <= len(query) <= 500:
         raise ValueError("Search query must be between 2 and 500 characters")
     if type(limit) is not int or not 1 <= limit <= 10:

@@ -296,6 +296,17 @@ class SessionStore:
                     (project_id, _now(), session_id),
                 )
 
+    def delete_session(self, session_id):
+        with self._connect() as db:
+            db.execute("PRAGMA foreign_keys = ON")
+            db.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM events WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM proposals WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM approvals WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM artifacts WHERE session_id = ?", (session_id,))
+            cursor = db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+            return cursor.rowcount > 0
+
     def has_session(self, session_id):
         with self._connect() as db:
             return db.execute("SELECT 1 FROM sessions WHERE id=?", (session_id,)).fetchone() is not None

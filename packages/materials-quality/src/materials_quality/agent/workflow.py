@@ -393,8 +393,8 @@ def validate_flow_connections(flow):
             raise ValueError("Workflow connection is missing its output or input port")
         source_node = nodes[source_id].get("data", {}).get("node", {})
         target_node = nodes[target_id].get("data", {}).get("node", {})
-        outputs = _port(source_node, output_name, True)
-        inputs = _port(target_node, input_name, False)
+        output_name, outputs = _port(source_node, output_name, True)
+        input_name, inputs = _port(target_node, input_name, False)
         if not _compatible_types(outputs, inputs):
             raise ValueError(
                 f"Workflow connection {source_id}.{output_name} {outputs} -> "
@@ -464,28 +464,194 @@ def _add_node(data, action, components):
     )
 
 
+COMMON_PORT_ALIASES = {
+    # Output port aliases (model writes key -> map to canonical output port)
+    "output_table": "table",
+    "result_table": "table",
+    "table_output": "table",
+    "df": "table",
+    "dataframe": "table",
+    "data_table": "table",
+    "table_out": "table",
+    "out_table": "table",
+    "output_data": "data",
+    "result_data": "data",
+    "data_output": "data",
+    "result_report": "report",
+    "summary": "report",
+    "summary_report": "report",
+    "output_report": "report",
+    "report_out": "report",
+    "results": "result",
+    "output": "result",
+    "chart": "plot",
+    "figure": "plot",
+    "output_plot": "plot",
+    "files": "artifacts",
+    "output_files": "artifacts",
+    "generated_files": "artifacts",
+    "features_out": "features",
+    "features_table": "features",
+    # Input port aliases (model writes key -> map to canonical template input field)
+    "table": "input_table",
+    "df": "input_table",
+    "dataframe": "input_table",
+    "data_table": "input_table",
+    "input_df": "input_table",
+    "dataset": "input_table",
+    "table_in": "input_table",
+    "tables": "input_tables",
+    "data": "input_data",
+    "payload": "input_data",
+    "input": "input_data",
+    "data_in": "input_data",
+    "report": "reports",
+    "input_report": "reports",
+    "reports_in": "reports",
+    "reports_list": "reports",
+    "context": "quality_context",
+    "rules_context": "quality_context",
+    "input_context": "quality_context",
+    "path": "file_path",
+    "filepath": "file_path",
+    "file": "file_path",
+}
+
+
 def _port(component, name, output):
+    raw_name = str(name).strip() if name else ""
+    node_name = component.get("display_name") or component.get("name") or "Component"
+
     if output:
         ports = component.get("outputs", [])
-        port = next((entry for entry in ports if isinstance(entry, dict) and entry.get("name") == name), None)
-        if port is None:
-            raise ValueError(f"Unknown component output: {name}")
-        types = port.get("types", port.get("selected_output_types", []))
+        if not isinstance(ports, list):
+            ports = []
+        valid_map = {}
+        for entry in ports:
+            if isinstance(entry, dict) and entry.get("name"):
+                valid_map[entry["name"]] = entry
+                valid_map[entry["name"].casefold()] = entry
+                if entry.get("display_name"):
+                    valid_map[entry["display_name"].casefold()] = entry
+
+        # 1. Direct or case-insensitive match
+        matched_port = valid_map.get(raw_name) or valid_map.get(raw_name.casefold())
+
+        # 2. Alias match
+        if matched_port is None:
+            alias = COMMON_PORT_ALIASES.get(raw_name.casefold())
+            if alias:
+                matched_port = valid_map.get(alias) or valid_map.get(alias.casefold())
+
+        # 3. Strip common prefixes/suffixes
+        if matched_port is None:
+            for candidate in (
+                re.sub(r"^(output_|out_|result_)", "", raw_name, flags=re.I),
+                re.sub(r"(_output|_out|_table)$", "", raw_name, flags=re.I),
+            ):
+                if candidate in valid_map:
+                    matched_port = valid_map[candidate]
+                    break
+
+        # 4. Single output port auto-absorption
+        if matched_port is None and len(ports) == 1 and isinstance(ports[0], dict) and ports[0].get("name"):
+            matched_port = ports[0]
+
+        if matched_port is None:
+            valid_names = sorted({entry["name"] for entry in ports if isinstance(entry, dict) and entry.get("name")})
+            import difflib
+            closest = difflib.get_close_matches(raw_name, valid_names, n=1, cutoff=0.4)
+            hint = f" Did you mean '{closest[0]}'?" if closest else ""
+            raise ValueError(
+                f"Unknown component output '{raw_name}' on node '{node_name}'. "
+                f"Valid output ports are: {valid_names}.{hint}"
+            )
+
+        canonical_name = matched_port["name"]
+        types = matched_port.get("types", matched_port.get("selected_output_types", []))
         if isinstance(types, str):
             types = [types]
-        return [str(value) for value in types if value]
+        return canonical_name, [str(value) for value in types if value]
+
+    # Input port resolution
     template = component.get("template", {})
-    field = template.get(name) if isinstance(template, dict) else None
-    if not isinstance(field, dict):
-        raise ValueError(f"Unknown component input: {name}")
+    if not isinstance(template, dict):
+        template = {}
+
+    valid_inputs = {}
+    for k, v in template.items():
+        if isinstance(v, dict) and (v.get("input_types") or v.get("inputTypes")):
+            valid_inputs[k] = v
+            valid_inputs[k.casefold()] = v
+            if v.get("display_name"):
+                valid_inputs[v["display_name"].casefold()] = v
+
+    matched_field_name = None
+    if raw_name in template and isinstance(template[raw_name], dict):
+        matched_field_name = raw_name
+    elif raw_name.casefold() in valid_inputs:
+        for orig_k in template:
+            if orig_k.casefold() == raw_name.casefold():
+                matched_field_name = orig_k
+                break
+
+    if matched_field_name is None:
+        alias = COMMON_PORT_ALIASES.get(raw_name.casefold())
+        if alias and alias in template:
+            matched_field_name = alias
+        elif alias and alias.casefold() in valid_inputs:
+            for orig_k in template:
+                if orig_k.casefold() == alias.casefold():
+                    matched_field_name = orig_k
+                    break
+
+    if matched_field_name is None:
+        for candidate in (
+            "input_" + raw_name.lower(),
+            raw_name.lower().replace("input_", ""),
+            "cfg_" + raw_name.lower(),
+        ):
+            if candidate in template:
+                matched_field_name = candidate
+                break
+
+    connectable_keys = [
+        k for k, v in template.items()
+        if isinstance(v, dict) and (v.get("input_types") or v.get("inputTypes"))
+    ]
+    if matched_field_name is None and len(connectable_keys) == 1:
+        matched_field_name = connectable_keys[0]
+
+    if matched_field_name is None:
+        valid_names = sorted(connectable_keys or list(template.keys()))
+        import difflib
+        closest = difflib.get_close_matches(raw_name, valid_names, n=1, cutoff=0.4)
+        hint = f" Did you mean '{closest[0]}'?" if closest else ""
+        raise ValueError(
+            f"Unknown component input '{raw_name}' on node '{node_name}'. "
+            f"Valid input ports are: {valid_names}.{hint}"
+        )
+
+    field = template[matched_field_name]
     types = field.get("input_types", field.get("inputTypes", []))
     if isinstance(types, str):
         types = [types]
-    return [str(value) for value in types if value]
+    return matched_field_name, [str(value) for value in types if value]
 
 
 def _normalized_types(values):
-    aliases = {"table": "dataframe", "dataframe": "dataframe", "json": "data"}
+    aliases = {
+        "table": "dataframe",
+        "dataframe": "dataframe",
+        "dataset": "dataframe",
+        "records": "dataframe",
+        "json": "data",
+        "dict": "data",
+        "object": "data",
+        "message": "message",
+        "text": "message",
+        "str": "message",
+    }
     return {aliases.get(str(value).casefold(), str(value).casefold()) for value in values}
 
 
@@ -494,7 +660,8 @@ def _compatible_types(outputs, inputs):
         not outputs
         or not inputs
         or bool(_normalized_types(outputs) & _normalized_types(inputs))
-        or any(str(value).casefold() == "any" for value in inputs)
+        or any(str(value).casefold() in {"any", "*"} for value in inputs)
+        or any(str(value).casefold() in {"any", "*"} for value in outputs)
     )
 
 
@@ -506,10 +673,13 @@ def _connect(data, action):
     source_name, target_name = action.get("output"), action.get("input")
     source_node = nodes[source_id]["data"]["node"]
     target_node = nodes[target_id]["data"]["node"]
-    output_types = _port(source_node, source_name, True)
-    input_types = _port(target_node, target_name, False)
+    source_name, output_types = _port(source_node, source_name, True)
+    target_name, input_types = _port(target_node, target_name, False)
     if not _compatible_types(output_types, input_types):
-        raise ValueError("Connected ports have incompatible declared data types")
+        raise ValueError(
+            f"Connected ports have incompatible declared data types: "
+            f"'{source_id}.{source_name}' ({output_types}) -> '{target_id}.{target_name}' ({input_types})"
+        )
     source_handle = {
         "dataType": output_types[0] if output_types else "Data",
         "id": source_id,
@@ -535,6 +705,7 @@ def _connect(data, action):
             "selected": False,
         }
     )
+    return source_name, target_name
 
 
 def apply_actions(flow, actions, catalog):
@@ -577,9 +748,9 @@ def apply_actions(flow, actions, catalog):
             ]
             descriptions.append(f"删除 {node_id} 及相关连线")
         elif op == "connect":
-            _connect(data, action)
+            source_canonical, target_canonical = _connect(data, action)
             descriptions.append(
-                f"连接 {action.get('source')}.{action.get('output')} → {action.get('target')}.{action.get('input')}"
+                f"连接 {action.get('source')}.{source_canonical} → {action.get('target')}.{target_canonical}"
             )
         elif op == "disconnect":
             source, target = action.get("source"), action.get("target")

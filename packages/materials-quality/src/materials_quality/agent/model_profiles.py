@@ -49,6 +49,8 @@ class ModelProfiles:
             api_key = self._keyring().get_password(KEYRING_SERVICE, ref) if ref else None
         except Exception:
             api_key = None
+        if not api_key:
+            api_key = os.environ.get("STUDYUI_MODEL_API_KEY") or os.environ.get("OPENAI_API_KEY") or None
         has_key = bool(api_key)
         local = urlsplit(profile.get("base_url", "")).hostname in {"localhost", "127.0.0.1", "::1"}
         return {
@@ -61,14 +63,17 @@ class ModelProfiles:
     def api_key(self):
         profile = self.active()
         if profile.get("credential_ref") == "environment":
-            return os.environ.get("STUDYUI_MODEL_API_KEY", "")
+            return os.environ.get("STUDYUI_MODEL_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
         ref = profile.get("credential_ref")
-        if not ref:
-            return ""
-        try:
-            return self._keyring().get_password(KEYRING_SERVICE, ref) or ""
-        except Exception:
-            return ""
+        key = ""
+        if ref:
+            try:
+                key = self._keyring().get_password(KEYRING_SERVICE, ref) or ""
+            except Exception:
+                key = ""
+        if not key:
+            key = os.environ.get("STUDYUI_MODEL_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
+        return key
 
     def save(self, *, name, base_url, model, api_key=None, profile_id=None, create_new=False, reasoning_effort=None):
         name, base_url, model = (

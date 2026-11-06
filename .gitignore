@@ -34,6 +34,8 @@ Thumbs.db
 /workflows/
 /workspace.json
 /data/
+/uploads/*
+!/uploads/.gitkeep
 **/artifacts/
 *.db
 *.db-*

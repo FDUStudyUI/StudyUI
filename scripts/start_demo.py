@@ -427,30 +427,88 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         const syncStudyUIChrome = () => {
           if (document.title.includes("Langflow")) document.title = document.title.replaceAll("Langflow", "StudyUI");
           if (!document.body) return;
-          let button = document.getElementById("studyui-run-workflow");
-          if (!button) {
-            button = document.createElement("button");
-            button.id = "studyui-run-workflow";
-            button.textContent = "▶ 运行工作流";
-            button.style.cssText = "position:fixed;top:56px;right:190px;z-index:1000;border:0;border-radius:8px;padding:9px 14px;background:#294b77;color:white;font:600 13px system-ui,sans-serif;cursor:pointer";
-            button.onclick = async () => {
+          let bar = document.getElementById("studyui-canvas-bar");
+          if (!bar) {
+            bar = document.createElement("div");
+            bar.id = "studyui-canvas-bar";
+            bar.style.cssText = "position:fixed;bottom:24px;right:24px;z-index:99999;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);border:1px solid #dcd7cc;box-shadow:0 8px 30px rgba(25,35,50,0.18);border-radius:10px;padding:6px 10px;";
+            
+            const runBtn = document.createElement("button");
+            runBtn.id = "studyui-run-workflow";
+            runBtn.textContent = "▶ 运行工作流";
+            runBtn.style.cssText = "border:0;border-radius:7px;padding:7px 14px;background:#294b77;color:white;font:600 12.5px system-ui,sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px;";
+
+            const cancelBtn = document.createElement("button");
+            cancelBtn.id = "studyui-cancel-workflow";
+            cancelBtn.textContent = "⏹ 取消运行";
+            cancelBtn.style.cssText = "display:none;border:1px solid #e2aaaa;border-radius:7px;padding:6px 12px;background:#fff5f5;color:#c53030;font:600 12px system-ui,sans-serif;cursor:pointer;";
+
+            const timerSpan = document.createElement("span");
+            timerSpan.id = "studyui-run-timer";
+            timerSpan.style.cssText = "display:none;font-size:11.5px;color:#556;font-family:ui-monospace,monospace;";
+
+            let currentController = null;
+            let runInterval = null;
+
+            cancelBtn.onclick = () => {
+              if (currentController) {
+                currentController.abort();
+                currentController = null;
+              }
+              clearInterval(runInterval);
+              runBtn.disabled = false;
+              runBtn.textContent = "▶ 运行工作流";
+              cancelBtn.style.display = "none";
+              timerSpan.style.display = "none";
+              show("工作流运行已手动取消。");
+            };
+
+            runBtn.onclick = async () => {
               const match = location.pathname.match(/\/canvas\/flow\/([^/]+)/);
-              if (!match || button.disabled) return;
-              button.disabled = true;
-              button.textContent = "Agent 正在运行…";
+              if (!match || runBtn.disabled) return;
+              runBtn.disabled = true;
+              runBtn.textContent = "Agent 正在运行…";
+              cancelBtn.style.display = "inline-flex";
+              timerSpan.style.display = "inline";
+              timerSpan.textContent = "⏱ 0.0s";
+              const startT = Date.now();
+              clearInterval(runInterval);
+              runInterval = setInterval(() => {
+                timerSpan.textContent = "⏱ " + ((Date.now() - startT) / 1000).toFixed(1) + "s";
+              }, 200);
+
+              currentController = new AbortController();
               try {
+                show("StudyUI 主 Agent 正在检查流程、编排子代理并整理运行结果……");
                 const response = await fetch('/canvas/api/v1/run/' + encodeURIComponent(match[1]), {
-                  method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({input_value:'',tweaks:{}})
+                  method: 'POST',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({input_value: '', tweaks: {}}),
+                  signal: currentController.signal
                 });
                 const value = await response.json();
                 if (!response.ok) throw new Error(value.detail || value.error || '运行失败');
                 complete(value);
-              } catch (error) { show('工作流运行失败：' + String(error.message || error)); }
-              finally { button.disabled = false; button.textContent = '▶ 运行工作流'; }
+              } catch (error) {
+                if (error.name === 'AbortError') {
+                  show("工作流运行已中止。");
+                } else {
+                  show('工作流运行失败：' + String(error.message || error));
+                }
+              } finally {
+                clearInterval(runInterval);
+                currentController = null;
+                runBtn.disabled = false;
+                runBtn.textContent = "▶ 运行工作流";
+                cancelBtn.style.display = "none";
+                timerSpan.style.display = "none";
+              }
             };
-            document.body.append(button);
+
+            bar.append(runBtn, cancelBtn, timerSpan);
+            document.body.append(bar);
           }
-          button.hidden = !/\/canvas\/flow\/[^/]+/.test(location.pathname);
+          bar.hidden = !/\/canvas\/flow\/[^/]+/.test(location.pathname);
         };
         for (const name of ['pushState','replaceState']) {
           const original = history[name];

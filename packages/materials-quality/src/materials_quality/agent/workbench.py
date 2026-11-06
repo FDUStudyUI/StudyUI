@@ -19,6 +19,14 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from filelock import FileLock
 
+if __package__ is None or __package__ == "":
+    import sys
+    _pkg_dir = Path(__file__).resolve().parent
+    _src_dir = _pkg_dir.parents[1]
+    if str(_src_dir) not in sys.path:
+        sys.path.insert(0, str(_src_dir))
+    __package__ = "materials_quality.agent"
+
 from .file_workflow_client import FileWorkflowClient
 from .permissions import PermissionStore
 from .workflow_api import create_workflow_router
