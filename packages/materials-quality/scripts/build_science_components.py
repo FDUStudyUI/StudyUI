@@ -22,6 +22,10 @@ MODULES = [
     "statistics",
     "visualization",
     "literature",
+    "method_cards",
+    "chemometrics",
+    "result_evidence",
+    "research_plan",
 ]
 
 

@@ -7,6 +7,8 @@ import pandas as pd
 from scipy.integrate import trapezoid
 from scipy.optimize import least_squares, linear_sum_assignment, nnls
 from scipy.signal import find_peaks, savgol_filter
+from scipy.sparse import diags
+from scipy.sparse.linalg import spsolve
 
 from .contracts import numeric_matrix, require_table
 
@@ -49,6 +51,8 @@ def baseline(x, y, config):
     options = config.get("baseline", {"method": "none"})
     if isinstance(options, str):
         options = {"method": options}
+    if not isinstance(options, dict):
+        raise ValueError("baseline must be a method string or parameter mapping")
     method = options.get("method", "none")
     if method == "none":
         return np.zeros_like(y)
@@ -59,6 +63,35 @@ def baseline(x, y, config):
         return np.full_like(y, value)
     if method == "linear":
         return np.interp(x, [x[0], x[-1]], [y[0], y[-1]])
+    if method == "asls":
+        # Independent implementation of weighted Whittaker least squares with
+        # a second-difference penalty in sample-index space (uniform x only).
+        if not np.allclose(np.diff(x), np.diff(x)[0], rtol=1e-5, atol=1e-12):
+            raise ValueError("AsLS requires evenly spaced coordinates; resample explicitly")
+        lam = positive(options.get("lambda", 1e5), "AsLS lambda")
+        p = positive(options.get("p", 0.01), "AsLS p")
+        iterations = options.get("iterations", 20)
+        if p >= 1:
+            raise ValueError("AsLS p must be strictly between zero and one")
+        if type(iterations) is not int or not 1 <= iterations <= 1000:
+            raise ValueError("AsLS iterations must be an integer between 1 and 1000")
+        difference = diags(
+            [np.ones(len(y) - 2), -2 * np.ones(len(y) - 2), np.ones(len(y) - 2)],
+            [0, 1, 2],
+            shape=(len(y) - 2, len(y)),
+            format="csc",
+        )
+        penalty = lam * (difference.T @ difference)
+        weights = np.ones(len(y))
+        for _ in range(iterations):
+            fitted = spsolve(diags(weights, format="csc") + penalty, weights * y)
+            if not np.isfinite(fitted).all():
+                raise ValueError("AsLS produced non-finite baseline; inspect parameter scale")
+            updated = np.where(y > fitted, p, 1 - p)
+            if np.array_equal(updated, weights):
+                break
+            weights = updated
+        return fitted
     if method == "anchors":
         points = np.asarray(options.get("points", []), dtype=float)
         if (
@@ -72,7 +105,7 @@ def baseline(x, y, config):
         if points[0, 0] > x[0] or points[-1, 0] < x[-1]:
             raise ValueError("baseline anchors must cover the measured coordinate range")
         return np.interp(x, points[:, 0], points[:, 1])
-    raise ValueError("baseline method must be none, constant, linear, or anchors")
+    raise ValueError("baseline method must be none, constant, linear, anchors, or asls")
 
 
 def processed_curve(table, config):
@@ -82,6 +115,18 @@ def processed_curve(table, config):
     window = config.get("smooth_window", 0)
     if type(window) is not int or window < 0:
         raise ValueError("smooth_window must be zero or a positive odd integer")
+    derivative = config.get("derivative_order", 0)
+    if type(derivative) is not int or derivative not in {0, 1, 2}:
+        raise ValueError("derivative_order must be 0, 1, or 2")
+    if derivative and not window:
+        raise ValueError("SG derivative requires a positive smooth_window")
+    x_unit = config.get("x_unit", "unspecified")
+    y_unit = config.get("y_unit", config.get("intensity_unit", "unspecified"))
+    if derivative and any(
+        not isinstance(unit, str) or not unit.strip() or unit.strip().lower() in {"unspecified", "unknown"}
+        for unit in (x_unit, y_unit)
+    ):
+        raise ValueError("SG derivative requires explicit x_unit and y_unit (or intensity_unit)")
     smooth = corrected.copy()
     if window:
         poly = config.get("smooth_order", 2)
@@ -93,10 +138,32 @@ def processed_curve(table, config):
             raise ValueError(
                 "Savitzky-Golay smoothing requires evenly spaced coordinates; resample explicitly"
             )
-        smooth = savgol_filter(corrected, window, poly)
+        if derivative > poly:
+            raise ValueError("derivative_order must not exceed smooth_order")
+        smooth = savgol_filter(corrected, window, poly, mode="interp")
     frame["baseline"] = base
     frame["corrected"] = corrected
     frame["smoothed"] = smooth
+    frame["derivative"] = (
+        savgol_filter(corrected, window, poly, deriv=derivative, delta=float(x[1] - x[0]), mode="interp")
+        if derivative
+        else smooth
+    )
+    derivative_unit = f"{y_unit}/({x_unit})^{derivative}" if derivative else y_unit
+    frame.attrs["units"] = {
+        "x": x_unit,
+        **dict.fromkeys(["raw_y", "baseline", "corrected", "smoothed"], y_unit),
+        "derivative": derivative_unit,
+    }
+    transform.update(
+        {
+            "derivative_order": derivative,
+            "derivative_unit": derivative_unit,
+            "sg_boundary_mode": "interp" if window else None,
+            "coordinate_spacing": float(x[1] - x[0]) if window else None,
+            "quantitative_signal": "smoothed (before derivative and normalization)",
+        }
+    )
     return x, smooth, frame, transform
 
 

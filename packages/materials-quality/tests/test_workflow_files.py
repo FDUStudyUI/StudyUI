@@ -249,6 +249,7 @@ def test_workspace_keeps_imported_project_after_legacy_owner_is_removed(tmp_path
 
 def test_canvas_refreshes_only_trusted_scientific_component_forms(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
+
     from materials_quality.agent.file_workflow_client import FileWorkflowClient
     from materials_quality.agent.workbench import create_app
 
@@ -259,17 +260,24 @@ def test_canvas_refreshes_only_trusted_scientific_component_forms(tmp_path, monk
         "cfg_sheet": {"value": "", "show": True},
         "ui_mode": {"value": "form", "show": True},
     }
-    monkeypatch.setattr(FileWorkflowClient, "component_catalog", lambda self: {
-        "materials_sources": {"ScienceIoTableImport": {"template": template, "outputs": []}}
-    })
+    monkeypatch.setattr(
+        FileWorkflowClient,
+        "component_catalog",
+        lambda self: {"materials_sources": {"ScienceIoTableImport": {"template": template, "outputs": []}}},
+    )
     frontend = tmp_path / "ui"
     (frontend / "assets").mkdir(parents=True)
     (frontend / "index.html").write_text("StudyUI", encoding="utf-8")
     components = tmp_path / "components"
     components.mkdir()
     client = TestClient(create_app(tmp_path / "workflows", components, frontend))
-    payload = {"code": code, "frontend_node": {"metadata": {"component_class_name": "ScienceIoTableImport"}},
-               "template": template, "field": "cfg_path", "field_value": "data.csv"}
+    payload = {
+        "code": code,
+        "frontend_node": {"metadata": {"component_class_name": "ScienceIoTableImport"}},
+        "template": template,
+        "field": "cfg_path",
+        "field_value": "data.csv",
+    }
     result = client.post("/api/v1/custom_component/update", json=payload)
     assert result.status_code == 200
     assert result.json()["template"]["code"]["value"] == code
@@ -281,8 +289,12 @@ def test_canvas_shows_connected_advanced_input_without_changing_saved_graph():
     from materials_quality.agent.workflow_api import _canvas_visible_flow
 
     field = {"advanced": True, "show": False, "value": None}
-    flow = {"data": {"nodes": [{"id": "target", "data": {"node": {"template": {"input_data": field}}}}],
-                     "edges": [{"target": "target", "targetHandle": '{"fieldName":"input_data"}'}]}}
+    flow = {
+        "data": {
+            "nodes": [{"id": "target", "data": {"node": {"template": {"input_data": field}}}}],
+            "edges": [{"target": "target", "targetHandle": '{"fieldName":"input_data"}'}],
+        }
+    }
     visible = _canvas_visible_flow(flow)
     projected = visible["data"]["nodes"][0]["data"]["node"]["template"]["input_data"]
     assert projected["advanced"] is False and projected["show"] is True
@@ -316,3 +328,56 @@ def test_agent_and_canvas_share_projects_and_preserve_existing_sessions(tmp_path
     shared.delete_project(old_project)
     assert next(s for s in shared.list_sessions() if s["id"] == session)["project_id"] is None
     assert old_project not in {p["id"] for p in canvas.get("/api/v1/projects/").json()}
+
+
+@pytest.mark.parametrize("changed_field", ["name", "folder_id"])
+@pytest.mark.parametrize("external", [True, False])
+def test_external_run_rejects_a_replaced_snapshot(tmp_path, monkeypatch, changed_field, external):
+    import lfx.load
+
+    from materials_quality.agent.file_workflow_client import FileWorkflowClient
+    from materials_quality.agent.workflow import flow_digest
+
+    client = FileWorkflowClient(tmp_path / "flows", tmp_path / "components", catalog_loader=dict)
+    first = client.create_flow("Approved graph", project_id=str(uuid.uuid4()))
+    replacement = {**first, changed_field: str(uuid.uuid4())}
+    client.store.save(replacement)
+
+    def unexpected_run(*args, **kwargs):
+        pytest.fail("The changed graph must not reach the runtime with an old approval.")
+
+    monkeypatch.setattr(lfx.load, "run_flow_from_json", unexpected_run)
+    with pytest.raises(ValueError, match="审批"):
+        client.run_flow(
+            first["id"],
+            external_data_approved=external,
+            expected_digest=flow_digest(first),
+            expected_project_id=first["folder_id"],
+        )
+
+
+def test_external_run_uses_the_checked_snapshot(tmp_path, monkeypatch):
+    import lfx.load
+
+    from materials_quality.agent.execution_context import require_external_data_approval
+    from materials_quality.agent.file_workflow_client import FileWorkflowClient
+    from materials_quality.agent.workflow import flow_digest
+
+    client = FileWorkflowClient(tmp_path / "flows", tmp_path / "components", catalog_loader=dict)
+    original = client.create_flow("Approved graph", project_id=str(uuid.uuid4()))
+    replacement = {**original, "name": "New unapproved graph"}
+
+    def run(snapshot, **kwargs):
+        client.store.save(replacement)
+        assert snapshot == original
+        require_external_data_approval()
+        return ["ok"]
+
+    monkeypatch.setattr(lfx.load, "run_flow_from_json", run)
+    result = client.run_flow(
+        original["id"],
+        external_data_approved=True,
+        expected_digest=flow_digest(original),
+        expected_project_id=original["folder_id"],
+    )
+    assert result["outputs"] == ["ok"]

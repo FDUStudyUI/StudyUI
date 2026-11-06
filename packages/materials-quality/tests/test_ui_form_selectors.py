@@ -23,6 +23,19 @@ def page():
         browser.close()
 
 
+def test_read_actual_report_disclosures_and_restore_compact_view(page, tmp_path):
+    from pathlib import Path
+
+    from materials_quality.science.viz_report import build_report
+
+    data = {"sources": [{"sha256": "source-id"}], "results": {"mean": 42}, "warnings": []}
+    report = build_report(None, {"output_dir": str(tmp_path)}, data)
+    page.goto(Path(report.artifacts[0]).as_uri())
+    assert ui._read_report_section(page, "Data sources") == data["sources"]
+    assert ui._read_report_section(page, "Complete results") == data["results"]
+    assert page.locator("details[open]").count() == 0
+
+
 def test_range_control_targets_mechanics_after_import_renames_suffix(page):
     page.set_content("""
       <div class="react-flow__node" data-id="ScienceVizMechanics-OTHER">

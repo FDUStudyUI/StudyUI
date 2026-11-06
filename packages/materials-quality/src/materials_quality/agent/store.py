@@ -63,7 +63,8 @@ class SessionStore:
                 db.execute(
                     """INSERT INTO projects(id,title,description,position,created_at,updated_at)
                               VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
-                              title=excluded.title, description=excluded.description, position=excluded.position""",
+                              title=excluded.title, description=excluded.description,"""
+                    " position=excluded.position",
                     (p["id"], p["name"], p.get("description", ""), position, now, now),
                 )
             ids = [p["id"] for p in projects]
@@ -155,7 +156,8 @@ class SessionStore:
             columns = {row["name"] for row in db.execute("PRAGMA table_info(sessions)")}
             if "project_id" not in columns:
                 db.execute(
-                    "ALTER TABLE sessions ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL"
+                    "ALTER TABLE sessions ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET "
+                    "NULL"
                 )
 
     def create_project(self, title, description=""):
@@ -180,7 +182,8 @@ class SessionStore:
         with self._connect() as db:
             position = db.execute("SELECT COALESCE(MAX(position), -1) + 1 FROM projects").fetchone()[0]
             db.execute(
-                "INSERT INTO projects(id,title,description,position,created_at,updated_at) VALUES(?,?,?,?,?,?)",
+                "INSERT INTO projects(id,title,description,position,created_at,updated_at) VALUES(?,?,?,?,?,"
+                "?)",
                 (project_id, title, str(description).strip()[:1000], position, now, now),
             )
         return project_id
@@ -259,16 +262,21 @@ class SessionStore:
     def list_sessions(self, project_id=None):
         with self._connect() as db:
             if project_id == "__ungrouped__":
-                query = "SELECT id,title,project_id,created_at,updated_at FROM sessions WHERE project_id IS NULL ORDER BY updated_at DESC LIMIT 300"
+                query = (
+                    "SELECT id,title,project_id,created_at,updated_at FROM sessions WHERE project_id IS "
+                    "NULL ORDER BY updated_at DESC LIMIT 300"
+                )
                 rows = db.execute(query).fetchall()
             elif project_id:
                 rows = db.execute(
-                    "SELECT id,title,project_id,created_at,updated_at FROM sessions WHERE project_id=? ORDER BY updated_at DESC LIMIT 300",
+                    "SELECT id,title,project_id,created_at,updated_at FROM sessions WHERE project_id=? "
+                    "ORDER BY updated_at DESC LIMIT 300",
                     (project_id,),
                 ).fetchall()
             else:
                 rows = db.execute(
-                    "SELECT id,title,project_id,created_at,updated_at FROM sessions ORDER BY updated_at DESC LIMIT 300"
+                    "SELECT id,title,project_id,created_at,updated_at FROM sessions ORDER BY updated_at "
+                    "DESC LIMIT 300"
                 ).fetchall()
         return [dict(row) for row in rows]
 
@@ -295,6 +303,17 @@ class SessionStore:
                     "UPDATE sessions SET project_id=?,updated_at=? WHERE id=?",
                     (project_id, _now(), session_id),
                 )
+
+    def delete_session(self, session_id):
+        with self._connect() as db:
+            db.execute("PRAGMA foreign_keys = ON")
+            db.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM events WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM proposals WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM approvals WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM artifacts WHERE session_id = ?", (session_id,))
+            cursor = db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+            return cursor.rowcount > 0
 
     def has_session(self, session_id):
         with self._connect() as db:
@@ -327,14 +346,19 @@ class SessionStore:
         """Keep the initial research request and recent user corrections across long tool histories."""
         with self._connect() as db:
             first = db.execute(
-                "SELECT id,message_json FROM messages WHERE session_id=? AND json_extract(message_json,'$.role')='user' ORDER BY id LIMIT 1",
+                "SELECT id,message_json FROM messages WHERE session_id=? AND json_extract(message_json,'$."
+                "role')='user' ORDER BY id LIMIT 1",
                 (session_id,),
             ).fetchall()
             recent = db.execute(
-                "SELECT id,message_json FROM messages WHERE session_id=? AND json_extract(message_json,'$.role')='user' ORDER BY id DESC LIMIT 8",
+                "SELECT id,message_json FROM messages WHERE session_id=? AND json_extract(message_json,'$."
+                "role')='user' ORDER BY id DESC LIMIT 8",
                 (session_id,),
             ).fetchall()
-        return [json.loads(row[1]) for row in sorted({row[0]: row for row in first + recent}.values(), key=lambda row: row[0])]
+        return [
+            json.loads(row[1])
+            for row in sorted({row[0]: row for row in first + recent}.values(), key=lambda row: row[0])
+        ]
 
     def session_created_flow_ids(self, session_id):
         with self._connect() as db:
@@ -406,7 +430,8 @@ class SessionStore:
         for item in self.list_artifacts(session_id):
             previous = latest.get(item["name"])
             if previous is None or (item["created_at"], item["id"]) > (
-                previous["created_at"], previous["id"]
+                previous["created_at"],
+                previous["id"],
             ):
                 latest[item["name"]] = item
         unique_content = {}
@@ -414,7 +439,8 @@ class SessionStore:
             digest = item["sha256"]
             previous = unique_content.get(digest)
             if previous is None or (item["created_at"], item["id"]) > (
-                previous["created_at"], previous["id"]
+                previous["created_at"],
+                previous["id"],
             ):
                 unique_content[digest] = item
         return sorted(unique_content.values(), key=lambda item: (item["created_at"], item["id"]))
@@ -469,7 +495,10 @@ class SessionStore:
             return cursor.rowcount == 1
 
     def pending_proposals(self, session_id=None):
-        query = "SELECT id,session_id,flow_id,summary_json,status,created_at FROM proposals WHERE status='pending'"
+        query = (
+            "SELECT id,session_id,flow_id,summary_json,status,created_at FROM proposals WHERE "
+            "status='pending'"
+        )
         params = ()
         if session_id:
             query += " AND session_id=?"
@@ -528,7 +557,10 @@ class SessionStore:
         return result
 
     def pending_approvals(self, session_id=None):
-        query = "SELECT id,session_id,project_id,action,reason,request_json,status,created_at FROM approvals WHERE status='pending'"
+        query = (
+            "SELECT id,session_id,project_id,action,reason,request_json,status,created_at FROM approvals "
+            "WHERE status='pending'"
+        )
         params = ()
         if session_id:
             query += " AND session_id=?"

@@ -6,7 +6,6 @@ import argparse
 import base64
 import hashlib
 import json
-import tempfile
 import zipfile
 from collections import defaultdict
 from pathlib import Path
@@ -19,7 +18,6 @@ from components.materials_sources.science_fixture_bundle import ScienceFixtureBu
 from materials_quality.science.catalog import component_class
 from materials_quality.science.ui_config_import import config_to_form
 from materials_quality.science.ui_schema import contract_for, fields_for
-
 
 PROJECT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE_DIR = PROJECT / ".demo-runtime" / "datasets" / "cam97152"
@@ -57,8 +55,13 @@ class PaperFlow:
                 "paper_doi": "10.1021/acs.nanolett.3c01016",
                 "repository_handle": "1810/352700",
                 "repository_license": "CC BY 4.0",
-                "dataset_scope": "Figure 3 time-dependent SERS spectra for 0, 1 Cy3, 1 Cy5 and 2 Cy5 conditions",
-                "analysis_boundary": "Descriptive reproduction from published CSV source data; no independent-replicate significance claim.",
+                "dataset_scope": (
+                    "Figure 3 time-dependent SERS spectra for 0, 1 Cy3, 1 Cy5 and 2 Cy5 conditions"
+                ),
+                "analysis_boundary": (
+                    "Descriptive reproduction from published CSV source data; no independent-replicate "
+                    "significance claim."
+                ),
             },
             "assets": {},
         }
@@ -304,7 +307,7 @@ def build_flow(assets):
         upstream="keyed-0",
         input_tables=[(long[alias], "build_table") for alias in ("0", "1", "2", "3")],
     )
-    spectrum_stats = flow.science(
+    flow.science(
         "spectrum-stats",
         "stats.grouped",
         {
@@ -332,7 +335,7 @@ def build_flow(assets):
     )
     analyzer = flow.batch_spectrum("spectrum-analysis", "spectrum-stats")
     series = flow.series_dynamics("time-analysis", "time-stats")
-    spectra_figure = flow.science(
+    flow.science(
         "spectral-band-figure",
         "viz.spectra",
         {
@@ -357,7 +360,7 @@ def build_flow(assets):
         table=(analyzer, "build_features"),
         upstream="spectrum-analysis",
     )
-    area_stats = flow.science(
+    flow.science(
         "area-stats",
         "stats.grouped",
         {
@@ -370,7 +373,7 @@ def build_flow(assets):
         table=(primary, "build_table"),
         upstream="primary-peaks",
     )
-    area_figure = flow.science(
+    flow.science(
         "area-box-figure",
         "viz.performance",
         {
@@ -384,7 +387,7 @@ def build_flow(assets):
         table=(primary, "build_table"),
         upstream="primary-peaks",
     )
-    time_figure = flow.science(
+    flow.science(
         "time-scatter-figure",
         "viz.performance",
         {

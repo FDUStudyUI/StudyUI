@@ -108,7 +108,17 @@ def list_skills():
     return [
         {
             k: skill[k]
-            for k in ("task", "name", "title", "description", "sha256", "version", "domain", "triggers", "always")
+            for k in (
+                "task",
+                "name",
+                "title",
+                "description",
+                "sha256",
+                "version",
+                "domain",
+                "triggers",
+                "always",
+            )
         }
         for skill in map(load_skill, SKILLS)
     ]

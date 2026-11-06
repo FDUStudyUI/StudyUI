@@ -11,6 +11,8 @@ from materials_quality.science.catalog import entries
 def schemas():
     modules = [
         importlib.import_module("materials_quality.science.ui_specs_materials"),
+        importlib.import_module("materials_quality.science.ui_specs_chemometrics"),
+        importlib.import_module("materials_quality.science.ui_specs_research_plan"),
         importlib.import_module("materials_quality.science.ui_specs_visualization"),
     ]
     return (
@@ -28,7 +30,7 @@ def test_every_domain_operation_has_serializable_native_fields_and_real_contract
     expected = {
         item["key"] for item in entries() if item["key"].startswith(("materials.", "viz.", "export."))
     }
-    assert len(expected) == 12
+    assert len(expected) == 14
     assert set(specs) == set(contracts) == expected
     json.dumps([specs, contracts], allow_nan=False)
     for key, controls in specs.items():

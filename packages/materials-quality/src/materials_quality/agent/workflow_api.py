@@ -301,7 +301,9 @@ def create_workflow_router(
             if run_handler is not None:
                 result = await run_in_threadpool(run_handler, str(flow_id), payload)
                 if not isinstance(result, dict):
-                    raise HTTPException(status_code=502, detail="StudyUI Agent returned an invalid run result")
+                    raise HTTPException(
+                        status_code=502, detail="StudyUI Agent returned an invalid run result"
+                    )
                 return result
             flow = await existing_flow(str(flow_id))
             authorize(flow.get("folder_id"), "workflow.run")

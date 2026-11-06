@@ -5,8 +5,8 @@ from urllib.error import HTTPError, URLError
 import pytest
 
 from materials_quality.agent import model as model_module
-from materials_quality.agent.model import ChatModel
 from materials_quality.agent.harness import StudyUIAgent
+from materials_quality.agent.model import ChatModel
 
 
 class Reply(io.BytesIO):
@@ -76,9 +76,14 @@ def test_deepseek_level_is_sent_and_old_history_is_compatible(monkeypatch, level
 
     monkeypatch.setattr(model_module, "build_opener", lambda *_: Opener())
     model = ChatModel(base_url="https://api.deepseek.com", model="deepseek-flash", reasoning_effort=level)
-    model.complete([{"role": "assistant", "content": "old"},
-                    {"role": "assistant", "content": "", "reasoning_content": "prior reasoning"}],
-                   [{"type": "function"}], max_tokens=16)
+    model.complete(
+        [
+            {"role": "assistant", "content": "old"},
+            {"role": "assistant", "content": "", "reasoning_content": "prior reasoning"},
+        ],
+        [{"type": "function"}],
+        max_tokens=16,
+    )
     payload = requests[0]
     assert payload["messages"][0]["reasoning_content"] == ""
     assert payload["messages"][1]["reasoning_content"] == "prior reasoning"
@@ -101,9 +106,13 @@ def test_reasoning_is_preserved_between_agent_tool_rounds(tmp_path):
         def complete(self, messages, tools, *, max_tokens=3000):
             self.calls.append([dict(item) for item in messages])
             if len(self.calls) == 1:
-                return {"content": "", "reasoning_content": "private test reasoning", "tool_calls": [
-                    {"id": "a", "function": {"name": "list_research_skills", "arguments": "{}"}}
-                ]}
+                return {
+                    "content": "",
+                    "reasoning_content": "private test reasoning",
+                    "tool_calls": [
+                        {"id": "a", "function": {"name": "list_research_skills", "arguments": "{}"}}
+                    ],
+                }
             return {"content": "done", "reasoning_content": "final test reasoning"}
 
     model = Model()
@@ -122,10 +131,14 @@ def test_reasoning_model_can_batch_five_read_only_tools(tmp_path):
         def complete(self, messages, tools, *, max_tokens=3000):
             self.calls += 1
             if self.calls == 1:
-                return {"content": "", "reasoning_content": "reasoning", "tool_calls": [
-                    {"id": str(i), "function": {"name": "list_research_skills", "arguments": "{}"}}
-                    for i in range(5)
-                ]}
+                return {
+                    "content": "",
+                    "reasoning_content": "reasoning",
+                    "tool_calls": [
+                        {"id": str(i), "function": {"name": "list_research_skills", "arguments": "{}"}}
+                        for i in range(5)
+                    ],
+                }
             assert len([m for m in messages if m.get("role") == "tool"]) == 5
             return {"content": "done"}
 
@@ -139,10 +152,16 @@ def test_high_effort_turn_has_a_total_tool_budget(tmp_path):
         def complete(self, messages, tools, *, max_tokens=3000):
             if not tools:
                 return {"content": "已根据当前结果完成总结。"}
-            return {"content": "", "tool_calls": [
-                {"id": f"{len(messages)}-{i}", "function": {"name": "list_research_skills", "arguments": "{}"}}
-                for i in range(12)
-            ]}
+            return {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": f"{len(messages)}-{i}",
+                        "function": {"name": "list_research_skills", "arguments": "{}"},
+                    }
+                    for i in range(12)
+                ],
+            }
 
     agent = StudyUIAgent(tmp_path / "state.sqlite3", langflow=object(), model=Model())
     session = agent.new_session(project_id=agent.store.create_project("test"))
@@ -158,16 +177,19 @@ def test_turn_limits_workflow_retries(tmp_path):
         def complete(self, messages, tools, *, max_tokens=3000):
             if any(message.get("role") == "tool" for message in messages):
                 return {"content": "根据运行结果完成总结。"}
-            return {"content": "", "tool_calls": [
-                {"id": str(i), "function": {"name": "run_workflow", "arguments": '{"flow_id":"known"}'}}
-                for i in range(5)
-            ]}
+            return {
+                "content": "",
+                "tool_calls": [
+                    {"id": str(i), "function": {"name": "run_workflow", "arguments": '{"flow_id":"known"}'}}
+                    for i in range(5)
+                ],
+            }
 
     agent = StudyUIAgent(tmp_path / "state.sqlite3", langflow=object(), model=Model())
     session = agent.new_session(project_id=agent.store.create_project("test"))
     dispatched = []
     agent._authorize_tool = lambda *_: {"allowed": True, "action": "workflow.run"}
-    agent._dispatch = lambda *_: (dispatched.append(True) or {"status": "completed"})
+    agent._dispatch = lambda *_: dispatched.append(True) or {"status": "completed"}
     agent.run_turn(session, "运行工作流")
     assert len(dispatched) == 4
 
@@ -183,7 +205,7 @@ def test_long_session_keeps_original_research_goal(tmp_path):
     agent.store.append_message(session, {"role": "user", "content": "研究原始光谱数据"})
     for i in range(70):
         agent.store.append_message(session, {"role": "tool", "name": "example", "content": str(i)})
-    assert agent.run_turn(session, "继续完成工作流")['message'] == 'done'
+    assert agent.run_turn(session, "继续完成工作流")["message"] == "done"
 
 
 def test_other_session_workflow_needs_explicit_reference(tmp_path):
@@ -200,11 +222,17 @@ def test_other_session_workflow_needs_explicit_reference(tmp_path):
     with pytest.raises(PermissionError, match="其他会话"):
         agent._authorize_tool(session, "run_workflow", {"flow_id": "other-flow"}, "请运行工作流")
     agent.store.append_message(session, {"role": "user", "content": "请运行 other-flow 工作流"})
-    assert agent._authorize_tool(session, "run_workflow", {"flow_id": "other-flow"}, "请运行 other-flow 工作流")["allowed"]
+    assert agent._authorize_tool(
+        session, "run_workflow", {"flow_id": "other-flow"}, "请运行 other-flow 工作流"
+    )["allowed"]
 
 
 def test_workflow_first_recovery_intent_respects_negation():
-    from materials_quality.agent.harness import _explicit_build_intent, _explicit_run_intent, _explicit_report_intent
+    from materials_quality.agent.harness import (
+        _explicit_build_intent,
+        _explicit_report_intent,
+        _explicit_run_intent,
+    )
 
     assert _explicit_build_intent("请完成工作流的调整、运行和实验报告")
     assert _explicit_run_intent("请完成工作流的调整、运行和实验报告")
@@ -229,3 +257,106 @@ def test_agent_prompt_uses_repository_metadata_and_stops_duplicate_runs(tmp_path
     assert "以 DOI/记录号向 DataCite 定点核对一次" in prompt
     assert "不能说记录没有元数据" in prompt
     assert "不得为重新生成相同附件而重跑" in prompt
+    assert "严禁全局全列 dropna" in prompt
+    assert "主干保留 + 派生分支" in prompt
+    assert "单调递增" in prompt
+
+
+def test_pinned_dataset_schema_injected_into_messages(tmp_path):
+    csv_file = tmp_path / "tensile.csv"
+    csv_file.write_text("Time,Stress,Strain\n0,0,0\n1,10,0.001\n2,20,0.002\n", encoding="utf-8")
+
+    captured_messages = []
+
+    class CapturingModel:
+        def complete(self, messages, tools, *, max_tokens=3000):
+            captured_messages.append(list(messages))
+            return {"content": "已分析。"}
+
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", langflow=object(), model=CapturingModel())
+    session = agent.new_session(project_id=agent.store.create_project("test"))
+
+    # 模拟首轮 inspect 文件
+    res = agent._dispatch(session, "inspect_research_file", {"path": str(csv_file)}, f"分析 {csv_file}")
+    assert "recommended_import_config" in res
+
+    # 次轮用户发起自然分析请求
+    agent.run_turn(session, "继续分析这份拉伸数据")
+
+    # 验证系统消息中动态注入了活动数据集看板
+    schema_msgs = [
+        m
+        for m in captured_messages[0]
+        if m.get("role") == "system" and "当前会话数据结构检查记录" in m.get("content", "")
+    ]
+    assert len(schema_msgs) == 1
+    content = schema_msgs[0]["content"]
+    assert "tensile.csv" in content
+    assert "Stress" in content
+    assert "Strain" in content
+    assert "文件之后可能发生变化" in content
+    assert "不证明物理量含义、单位或标准合规" in content
+
+
+def test_runtime_error_self_healing_guidance(tmp_path):
+    captured_tool_contents = []
+
+    class FailingModel:
+        def __init__(self):
+            self.turn = 0
+
+        def complete(self, messages, tools, *, max_tokens=3000):
+            self.turn += 1
+            if self.turn == 1:
+                return {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call_1",
+                            "function": {"name": "run_workflow", "arguments": '{"flow_id":"f1"}'},
+                        }
+                    ],
+                }
+            tool_msgs = [m for m in messages if m.get("role") == "tool"]
+            if tool_msgs:
+                captured_tool_contents.append(tool_msgs[-1]["content"])
+            return {"content": "诊断完成"}
+
+    class ErrorWorkflows:
+        def get_flow(self, flow_id):
+            return {"id": flow_id, "name": "f1", "folder_id": "p1", "data": {"nodes": []}}
+
+        def run_flow(self, flow_id, **_kwargs):
+            raise KeyError("'stress'")
+
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", langflow=ErrorWorkflows(), model=FailingModel())
+    project_id = agent.store.create_project("p1")
+    flow_obj = {"id": "f1", "name": "f1", "folder_id": project_id, "data": {"nodes": []}}
+    ErrorWorkflows.get_flow = lambda self, flow_id: flow_obj
+    session = agent.new_session(project_id=project_id)
+    agent.store.append_event(session, "workflow_created", {"flow_id": "f1"})
+    agent._turn_state.value = {"skill_preflight_complete": True}
+    agent.run_turn(session, "请运行工作流 f1")
+    assert len(captured_tool_contents) == 1
+    err_json = json.loads(captured_tool_contents[0])
+    assert "error" in err_json
+    assert "self_healing_guidance" in err_json
+    assert "列名错误" in err_json["self_healing_guidance"]
+
+
+def test_monotonicity_warning_and_gbk_encoding(tmp_path):
+    from materials_quality.agent.data_inspection import inspect_file
+
+    # 测试递减数据与 GBK 中文编码
+    gbk_file = tmp_path / "decreasing_raman.txt"
+    content = "波长 强度\n800 10\n750 20\n700 35\n650 50\n"
+    gbk_file.write_bytes(content.encode("gbk"))
+
+    res = inspect_file(gbk_file)
+    assert res["encoding"] in ("gb18030", "gbk")
+    assert len(res["numeric_blocks"]) >= 1
+    order_info = res["numeric_blocks"][0]["first_column_order"]
+    assert order_info["strictly_decreasing"] is True
+    assert "warning" in order_info
+    assert "严格递减" in order_info["warning"]
+    assert "确认列含义" in order_info["warning"]

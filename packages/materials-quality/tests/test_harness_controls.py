@@ -19,7 +19,8 @@ def _skill_zip(description="safe study skill", script="print('ok')"):
     with zipfile.ZipFile(output, "w") as archive:
         archive.writestr(
             "SKILL.md",
-            f"---\nname: demo-skill\ndescription: {description}\nmetadata:\n  version: 1.0.0\n---\nUse the supplied research context.\n",
+            f"---\nname: demo-skill\ndescription: {description}\nmetadata:\n  version: 1.0.0\n---\nUse the "
+            f"supplied research context.\n",
         )
         archive.writestr("analyze.py", script)
     return output.getvalue()
@@ -69,7 +70,9 @@ def test_report_artifact_requires_intent_and_obeys_project_permission(tmp_path):
     with pytest.raises(PermissionError):
         agent._dispatch(session, "write_research_report", args, "不要生成报告")
     agent.permissions.set_preset(project, "per_action")
-    assert agent._authorize_tool(session, "write_research_report", args, "请生成实验报告")["requires_approval"]
+    assert agent._authorize_tool(session, "write_research_report", args, "请生成实验报告")[
+        "requires_approval"
+    ]
 
 
 @pytest.mark.parametrize(
@@ -99,7 +102,8 @@ def test_explicit_report_intent_respects_negation(message):
         "请建立并运行一个真实原始数据工作流。",
         "请帮我建立工作流，完成数据导入和分析。",
         "搭建并运行 XRD 工作流。",
-        "请直接在项目内修复并运行现有工作流 41367d0a，用户已授权对公开原始数据工作流进行建流、修改、运行和迭代。",
+        "请直接在项目内修复并运行现有工作流 41367d0a，用户已授权对公开原始数据工作流进行建流、修改、"
+        "运行和迭代。",
         "请在当前项目中为公开原始数据新建并运行一个工作流。",
         "我授权你在当前项目工作流 BiFeO3 XRD 内追加一个特征表导出节点。",
         "Build a workflow from the raw measurements and run it.",
@@ -183,10 +187,13 @@ def test_task_authorization_persists_for_same_project_session_but_ai_data_still_
     project_id = agent.store.create_project("ongoing research")
     session_id = agent.new_session(project_id=project_id)
     flow["folder_id"] = project_id
-    agent.store.append_message(session_id, {
-        "role": "user",
-        "content": "请从零开始新建工作流、实际运行公开原始数据並交付研究报告。",
-    })
+    agent.store.append_message(
+        session_id,
+        {
+            "role": "user",
+            "content": "请从零开始新建工作流、实际运行公开原始数据並交付研究报告。",
+        },
+    )
     agent._turn_state.value = {"skill_preflight_complete": True, "canvas_run": None}
 
     local = agent._authorize_tool(
@@ -203,9 +210,7 @@ def test_task_authorization_persists_for_same_project_session_but_ai_data_still_
     assert ai["requires_approval"] is True
     assert ai["external_data"] is True
 
-    revoked = agent._session_task_intent(
-        session_id, "撤销本次研究任务授权，不要继续运行工作流。", "run"
-    )
+    revoked = agent._session_task_intent(session_id, "撤销本次研究任务授权，不要继续运行工作流。", "run")
     assert revoked is False
 
 
@@ -218,7 +223,11 @@ def test_agent_can_cancel_only_a_user_declined_pending_approval_in_its_session(t
     other_session = agent.new_session(project_id=project_id)
     approval_id = "approval-in-session"
     agent.store.create_approval(
-        approval_id, session_id, project_id, "workflow.run", "AI data transfer",
+        approval_id,
+        session_id,
+        project_id,
+        "workflow.run",
+        "AI data transfer",
         {"tool": "run_workflow", "args": {}, "summary": {"title": "test"}},
     )
 
@@ -228,9 +237,7 @@ def test_agent_can_cancel_only_a_user_declined_pending_approval_in_its_session(t
     assert listed["approvals"][0]["id"] == approval_id
 
     user_text = "我不批准這个子代理数据传输请求，请取消审批。"
-    decision = agent._authorize_tool(
-        session_id, "cancel_approval", {"approval_id": approval_id}, user_text
-    )
+    decision = agent._authorize_tool(session_id, "cancel_approval", {"approval_id": approval_id}, user_text)
     assert decision["allowed"] is True
     result = agent._dispatch(session_id, "cancel_approval", {"approval_id": approval_id}, user_text)
     assert result == {"status": "cancelled", "approval_id": approval_id}
@@ -243,9 +250,7 @@ def test_agent_can_cancel_only_a_user_declined_pending_approval_in_its_session(t
     assert decision["decision"] == "cancelled"
 
     with pytest.raises(PermissionError, match="当前研究会话"):
-        agent._authorize_tool(
-            other_session, "cancel_approval", {"approval_id": approval_id}, user_text
-        )
+        agent._authorize_tool(other_session, "cancel_approval", {"approval_id": approval_id}, user_text)
 
 
 def test_session_artifact_listing_shows_latest_same_name_and_keeps_prior_download(tmp_path):
@@ -259,12 +264,22 @@ def test_session_artifact_listing_shows_latest_same_name_and_keeps_prior_downloa
     first_id = "artifact-first"
     second_id = "artifact-second"
     store.register_artifact(
-        first_id, session_id, project_id, "spectra-line.png", first_path,
-        hashlib.sha256(first_path.read_bytes()).hexdigest(), first_path.stat().st_size,
+        first_id,
+        session_id,
+        project_id,
+        "spectra-line.png",
+        first_path,
+        hashlib.sha256(first_path.read_bytes()).hexdigest(),
+        first_path.stat().st_size,
     )
     store.register_artifact(
-        second_id, session_id, project_id, "spectra-line.png", second_path,
-        hashlib.sha256(second_path.read_bytes()).hexdigest(), second_path.stat().st_size,
+        second_id,
+        session_id,
+        project_id,
+        "spectra-line.png",
+        second_path,
+        hashlib.sha256(second_path.read_bytes()).hexdigest(),
+        second_path.stat().st_size,
     )
 
     assert [item["id"] for item in store.list_artifacts(session_id)] == [first_id, second_id]
@@ -282,11 +297,21 @@ def test_session_artifact_listing_deduplicates_identical_content_across_names(tm
     second_path.write_bytes(first_path.read_bytes())
     digest = hashlib.sha256(first_path.read_bytes()).hexdigest()
     store.register_artifact(
-        "artifact-first", session_id, project_id, first_path.name, first_path, digest,
+        "artifact-first",
+        session_id,
+        project_id,
+        first_path.name,
+        first_path,
+        digest,
         first_path.stat().st_size,
     )
     store.register_artifact(
-        "artifact-second", session_id, project_id, second_path.name, second_path, digest,
+        "artifact-second",
+        session_id,
+        project_id,
+        second_path.name,
+        second_path,
+        digest,
         second_path.stat().st_size,
     )
 
@@ -300,13 +325,15 @@ def test_skill_preflight_keeps_the_initial_research_domain_across_followup_turns
     agent = StudyUIAgent(tmp_path / "agent.sqlite3", model=object())
     project_id = agent.store.create_project("DNA origami study")
     session_id = agent.new_session(project_id=project_id)
-    agent.store.append_message(session_id, {
-        "role": "user",
-        "content": (
-            "复核 DNA origami plasmonic single-dye 原始实验数据，"
-            "新建并运行工作流，输出研究报告。"
-        ),
-    })
+    agent.store.append_message(
+        session_id,
+        {
+            "role": "user",
+            "content": (
+                "复核 DNA origami plasmonic single-dye 原始实验数据，新建并运行工作流，输出研究报告。"
+            ),
+        },
+    )
     agent._turn_state.value = {"skill_selection": None, "skill_preflight_complete": False}
 
     context, blocked = agent._prepare_skill_context(session_id, "继续，检查 HDF5 结构并运行本地节点。")
@@ -546,7 +573,11 @@ def test_model_profiles_keep_credentials_out_of_json_and_public_api(tmp_path, mo
     path = tmp_path / "settings.json"
     profiles = ModelProfiles(path)
     first = profiles.save(
-        name="DeepSeek", base_url="https://api.deepseek.com", model="deepseek-flash", api_key="test-secret", reasoning_effort="max"
+        name="DeepSeek",
+        base_url="https://api.deepseek.com",
+        model="deepseek-flash",
+        api_key="test-secret",
+        reasoning_effort="max",
     )
     profiles.save(name="Local", base_url="http://127.0.0.1:1234/v1", model="local-model", create_new=True)
     assert len(profiles.list_profiles()) == 2
@@ -559,13 +590,20 @@ def test_model_profiles_keep_credentials_out_of_json_and_public_api(tmp_path, mo
     profiles.save(name="DeepSeek", base_url="https://api.deepseek.com", model="deepseek-flash")
     assert profiles.public()["reasoning_effort"] == "max"
     with pytest.raises(ValueError, match="思考等级"):
-        profiles.save(name="DeepSeek", base_url="https://api.deepseek.com", model="deepseek-flash", reasoning_effort="extreme")
+        profiles.save(
+            name="DeepSeek",
+            base_url="https://api.deepseek.com",
+            model="deepseek-flash",
+            reasoning_effort="extreme",
+        )
     profiles.remove(profiles.list_profiles()[1]["id"])
     assert len(profiles.list_profiles()) == 1
 
 
-def test_generated_artifacts_are_copied_hashed_and_session_scoped(tmp_path):
+def test_generated_artifacts_are_copied_hashed_and_session_scoped(tmp_path, monkeypatch):
     from materials_quality.agent.harness import StudyUIAgent, _artifact_candidates
+
+    monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
 
     run_dir = tmp_path / "studyui-run"
     run_dir.mkdir()
@@ -587,8 +625,10 @@ def test_generated_artifacts_are_copied_hashed_and_session_scoped(tmp_path):
     assert agent.store.get_artifact(item["id"], "another-session") is None
 
 
-def test_import_source_is_not_registered_as_generated_artifact(tmp_path):
+def test_import_source_is_not_registered_as_generated_artifact(tmp_path, monkeypatch):
     from materials_quality.agent.harness import StudyUIAgent
+
+    monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
 
     directory = tmp_path / "studyui-run"
     directory.mkdir()
@@ -596,8 +636,21 @@ def test_import_source_is_not_registered_as_generated_artifact(tmp_path):
     output = directory / "report.html"
     raw.write_text("x\n1\n", encoding="utf-8")
     output.write_text("report", encoding="utf-8")
-    payload = {"outputs": [{"outputs": [{"name": "artifacts", "data": [{"path": str(raw)}, {"path": str(output)}]}]}]}
-    flow = {"data": {"nodes": [{"data": {"type": "ScienceIoTableImport", "node": {"template": {"cfg_path": {"value": str(raw)}}}}}]}}
+    payload = {
+        "outputs": [{"outputs": [{"name": "artifacts", "data": [{"path": str(raw)}, {"path": str(output)}]}]}]
+    }
+    flow = {
+        "data": {
+            "nodes": [
+                {
+                    "data": {
+                        "type": "ScienceIoTableImport",
+                        "node": {"template": {"cfg_path": {"value": str(raw)}}},
+                    }
+                }
+            ]
+        }
+    }
     agent = StudyUIAgent(tmp_path / "agent.sqlite3", model=object())
     project = agent.store.create_project("test")
     session = agent.new_session(project_id=project)
@@ -667,9 +720,7 @@ def test_lfx_serialized_data_wrappers_preserve_aggregate_metadata_and_real_artif
                                     {"two_theta_deg": 20.1, "intensity_counts": "must-not-leak"},
                                 ],
                             },
-                            "features": [
-                                {"peak_position": 31.2, "height": 12.0, "fwhm": 0.4}
-                            ],
+                            "features": [{"peak_position": 31.2, "height": 12.0, "fwhm": 0.4}],
                             "report": {
                                 "text_key": "text",
                                 "data": {
@@ -679,9 +730,7 @@ def test_lfx_serialized_data_wrappers_preserve_aggregate_metadata_and_real_artif
                                         "input_rows": 7660,
                                         "output_rows": 7624,
                                         "input_sha256": "a" * 64,
-                                        "source_files": [
-                                            {"path": r"C:\private\raw.xy", "sha256": "b" * 64}
-                                        ],
+                                        "source_files": [{"path": r"C:\private\raw.xy", "sha256": "b" * 64}],
                                     },
                                     "table_summary": {"rows": 7624, "columns": ["two_theta_deg"]},
                                 },
@@ -812,26 +861,36 @@ def test_canvas_run_authorizes_exact_ai_workflow_once_and_agent_delivers_report(
             self.calls += 1
             if self.calls == 1:
                 return {
-                    "tool_calls": [{
-                        "id": "run-canvas-flow",
-                        "function": {
-                            "name": "run_workflow",
-                            "arguments": json.dumps({"flow_id": flow["id"]}),
-                        },
-                    }]
+                    "tool_calls": [
+                        {
+                            "id": "run-canvas-flow",
+                            "function": {
+                                "name": "run_workflow",
+                                "arguments": json.dumps({"flow_id": flow["id"]}),
+                            },
+                        }
+                    ]
                 }
             if self.calls == 2:
                 return {
-                    "tool_calls": [{
-                        "id": "write-canvas-report",
-                        "function": {
-                            "name": "write_research_report",
-                            "arguments": json.dumps({
-                                "title": "Canvas workflow report",
-                                "content": "# 运行报告\n\n## 结果\n已核对上游分析输出。\n\n## 限制\n仅依据本次执行结果。",
-                            }, ensure_ascii=False),
-                        },
-                    }]
+                    "tool_calls": [
+                        {
+                            "id": "write-canvas-report",
+                            "function": {
+                                "name": "write_research_report",
+                                "arguments": json.dumps(
+                                    {
+                                        "title": "Canvas workflow report",
+                                        "content": (
+                                            "# 运行报告\n\n## 结果\n已核对上游分析输出。\n\n## 限制\n"
+                                            "仅依据本次执行结果。"
+                                        ),
+                                    },
+                                    ensure_ascii=False,
+                                ),
+                            },
+                        }
+                    ]
                 }
             return {"content": "# 运行报告\n\n已完成流程运行、结果核对和报告交付。"}
 
@@ -850,14 +909,16 @@ def test_canvas_run_authorizes_exact_ai_workflow_once_and_agent_delivers_report(
     assert runs[0][1]["external_data_approved"] is True
     events = [event["kind"] for event in agent.store.events(session_id)]
     assert "canvas_run_authorized" in events
-    assert any(event["kind"] == "tool_call" and event["detail"].get("name") == "run_workflow" for event in agent.store.events(session_id))
+    assert any(
+        event["kind"] == "tool_call" and event["detail"].get("name") == "run_workflow"
+        for event in agent.store.events(session_id)
+    )
 
 
 def test_ai_analysis_sends_connected_image_to_vision_model_and_audits_coverage(monkeypatch, tmp_path):
-    from PIL import Image
     from lfx.schema import Data
+    from PIL import Image
 
-    from components.materials_skills import ai_analysis
     from components.materials_skills.ai_analysis import StudyUIAIAnalysis
     from materials_quality.agent.execution_context import (
         begin_upstream_image_scope,
@@ -918,11 +979,14 @@ def test_ai_analysis_sends_connected_image_to_vision_model_and_audits_coverage(m
 
 
 def test_ai_analysis_rejects_image_path_not_registered_by_upstream_import(tmp_path):
-    from PIL import Image
     from lfx.schema import Data
+    from PIL import Image
 
     from components.materials_skills.ai_analysis import StudyUIAIAnalysis
-    from materials_quality.agent.execution_context import begin_upstream_image_scope, reset_upstream_image_scope
+    from materials_quality.agent.execution_context import (
+        begin_upstream_image_scope,
+        reset_upstream_image_scope,
+    )
 
     image_path = tmp_path / "unconnected.png"
     Image.new("RGB", (4, 4)).save(image_path)
@@ -944,27 +1008,37 @@ def test_ai_analysis_report_uses_computed_hashes_and_lists_candidate_features():
     fake_hash = "d" * 64
     source_hash = "2" * 64
     input_fingerprint = "3" * 64
-    report = StudyUIAIAnalysis._report_text("Describe the image", {
-        "report_markdown": f"# Observation\n\nModel claim SHA-256: {fake_hash}\nVisible: a specimen.",
-        "features": [{
-            "feature": "edge continuity",
-            "selected": True,
-            "rationale": "both visible edges remain continuous",
-            "evidence": ["image_1"],
-        }],
-        "coverage": {
-            "total_rows": 0,
-            "analyzed_rows": 0,
-            "omitted_rows": 0,
-            "chunk_count": 0,
-            "images_total": 1,
-            "images_analyzed": 1,
-            "input_sha256": input_fingerprint,
-            "image_references": [{
-                "image_id": "image_1", "source_sha256": source_hash, "width": 24, "height": 18,
-            }],
+    report = StudyUIAIAnalysis._report_text(
+        "Describe the image",
+        {
+            "report_markdown": f"# Observation\n\nModel claim SHA-256: {fake_hash}\nVisible: a specimen.",
+            "features": [
+                {
+                    "feature": "edge continuity",
+                    "selected": True,
+                    "rationale": "both visible edges remain continuous",
+                    "evidence": ["image_1"],
+                }
+            ],
+            "coverage": {
+                "total_rows": 0,
+                "analyzed_rows": 0,
+                "omitted_rows": 0,
+                "chunk_count": 0,
+                "images_total": 1,
+                "images_analyzed": 1,
+                "input_sha256": input_fingerprint,
+                "image_references": [
+                    {
+                        "image_id": "image_1",
+                        "source_sha256": source_hash,
+                        "width": 24,
+                        "height": 18,
+                    }
+                ],
+            },
         },
-    })
+    )
 
     assert fake_hash not in report
     assert input_fingerprint in report
@@ -976,13 +1050,30 @@ def test_ai_analysis_report_uses_computed_hashes_and_lists_candidate_features():
 def test_ai_subagent_feature_rows_are_returned_to_main_agent():
     from materials_quality.agent.harness import _compact_run_result
 
-    payload = {"outputs": [{"outputs": [{
-        "component_id": "ai",
-        "results": {"features": {"data": [{
-            "feature": "peak width", "selected": True, "rationale": "separates sample groups",
-            "evidence": "image_1", "confidence": 0.8,
-        }]}},
-    }]}]}
+    payload = {
+        "outputs": [
+            {
+                "outputs": [
+                    {
+                        "component_id": "ai",
+                        "results": {
+                            "features": {
+                                "data": [
+                                    {
+                                        "feature": "peak width",
+                                        "selected": True,
+                                        "rationale": "separates sample groups",
+                                        "evidence": "image_1",
+                                        "confidence": 0.8,
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                ]
+            }
+        ]
+    }
     flow = {"data": {"nodes": [{"id": "ai", "data": {"type": "StudyUIAIAnalysis"}}]}}
 
     result = _compact_run_result(payload, flow=flow)
@@ -1008,7 +1099,9 @@ def test_ai_feature_preview_reports_total_and_omitted_rows():
 def test_message_summary_finds_nested_lfx_text_after_empty_wrapper():
     from materials_quality.agent.harness import _message_or_report_summary
 
-    result = _message_or_report_summary({"text": "", "message": {"data": {"text": "Image import completed."}}})
+    result = _message_or_report_summary(
+        {"text": "", "message": {"data": {"text": "Image import completed."}}}
+    )
     assert result["text"] == "Image import completed."
     assert result["text_is_excerpt"] is False
 
@@ -1016,26 +1109,34 @@ def test_message_summary_finds_nested_lfx_text_after_empty_wrapper():
 def test_bounded_run_keeps_image_metadata_and_feature_preview_counts():
     from materials_quality.agent.harness import _bounded_tool_content
 
-    outputs = [{
-        "node_id": "image_import",
-        "outputs": {
-            "report": {"format": "PNG", "width": 640, "height": 480, "mode": "RGBA", "frames": 1},
-            "summary": {"text": "", "text_characters": 0, "text_is_excerpt": False},
+    outputs = [
+        {
+            "node_id": "image_import",
+            "outputs": {
+                "report": {"format": "PNG", "width": 640, "height": 480, "mode": "RGBA", "frames": 1},
+                "summary": {"text": "", "text_characters": 0, "text_is_excerpt": False},
+            },
         },
-    }, {
-        "node_id": "ai",
-        "outputs": {"features": {
-            "rows": 13,
-            "columns": ["feature", "selected"],
-            "generated_features": [{"feature": str(i), "selected": i % 2 == 0} for i in range(12)],
-            "generated_features_total": 13,
-            "generated_features_previewed": 12,
-            "generated_features_omitted": 1,
-        }},
-    }]
+        {
+            "node_id": "ai",
+            "outputs": {
+                "features": {
+                    "rows": 13,
+                    "columns": ["feature", "selected"],
+                    "generated_features": [{"feature": str(i), "selected": i % 2 == 0} for i in range(12)],
+                    "generated_features_total": 13,
+                    "generated_features_previewed": 12,
+                    "generated_features_omitted": 1,
+                }
+            },
+        },
+    ]
     result = {
         "status": "completed",
-        "result": {"outputs": outputs + [{"node_id": str(i), "outputs": {"analysis": {"text": "x" * 2000}}} for i in range(4)]},
+        "result": {
+            "outputs": outputs
+            + [{"node_id": str(i), "outputs": {"analysis": {"text": "x" * 2000}}} for i in range(4)]
+        },
         "artifacts": [],
     }
 
@@ -1055,37 +1156,55 @@ def test_subagent_audit_exposes_trusted_image_provenance_without_paths():
 
     source_hash = "b" * 64
     input_hash = "a" * 64
-    event = _subagent_audit_summary({
-        "status": "completed",
-        "task_sha256": "c" * 64,
-        "input_sha256": input_hash,
-        "rows_total": 0,
-        "rows_analyzed": 0,
-        "images_total": 1,
-        "model_calls": 2,
-        "coverage": {
+    event = _subagent_audit_summary(
+        {
+            "status": "completed",
+            "task_sha256": "c" * 64,
+            "input_sha256": input_hash,
             "rows_total": 0,
             "rows_analyzed": 0,
-            "rows_omitted": 0,
             "images_total": 1,
-            "images_analyzed": 1,
-            "image_references": [{
-                "image_id": "image_1", "source_sha256": source_hash, "width": 640, "height": 480,
-                "file_path": r"D:\private\raw.png",
-            }],
-        },
-        "private_text": "must not be forwarded",
-    })
-    bounded = _bounded_run_workflow_result({
-        "status": "completed", "result": {"outputs": []}, "artifacts": [], "subagent_audit": [{
-            "event": "completed", **event,
-        }],
-    })
+            "model_calls": 2,
+            "coverage": {
+                "rows_total": 0,
+                "rows_analyzed": 0,
+                "rows_omitted": 0,
+                "images_total": 1,
+                "images_analyzed": 1,
+                "image_references": [
+                    {
+                        "image_id": "image_1",
+                        "source_sha256": source_hash,
+                        "width": 640,
+                        "height": 480,
+                        "file_path": r"D:\private\raw.png",
+                    }
+                ],
+            },
+            "private_text": "must not be forwarded",
+        }
+    )
+    bounded = _bounded_run_workflow_result(
+        {
+            "status": "completed",
+            "result": {"outputs": []},
+            "artifacts": [],
+            "subagent_audit": [
+                {
+                    "event": "completed",
+                    **event,
+                }
+            ],
+        }
+    )
     encoded = json.dumps(bounded, ensure_ascii=False)
 
     assert bounded["subagent_audit"][0]["input_sha256"] == input_hash
     assert bounded["subagent_audit"][0]["coverage"]["image_references"][0] == {
-        "image_id": "image_1", "source_sha256": source_hash, "width": 640, "height": 480,
+        "image_id": "image_1",
+        "source_sha256": source_hash,
+        "width": 640,
+        "height": 480,
     }
     assert r"D:\private" not in encoded
     assert "must not be forwarded" not in encoded
@@ -1107,15 +1226,29 @@ def test_hdf5_browse_summary_exposes_structure_but_drops_attribute_values():
         }
         for index in range(1_360)
     ]
-    payload = {"outputs": [{"outputs": [{
-        "component_id": "h5_browse", "results": {"table": {"text_key": "text", "data": rows}},
-    }]}]}
+    payload = {
+        "outputs": [
+            {
+                "outputs": [
+                    {
+                        "component_id": "h5_browse",
+                        "results": {"table": {"text_key": "text", "data": rows}},
+                    }
+                ]
+            }
+        ]
+    }
     flow = {"data": {"nodes": [{"id": "h5_browse", "data": {"type": "ScienceIoInstrumentImport"}}]}}
     compact = _compact_run_result(payload, flow=flow)
     structure = compact["outputs"][0]["outputs"]["table"]["instrument_structure"]
-    bounded = _bounded_run_workflow_result({
-        "status": "completed", "flow_name": "HDF5 browse", "result": compact, "artifacts": [],
-    })
+    bounded = _bounded_run_workflow_result(
+        {
+            "status": "completed",
+            "flow_name": "HDF5 browse",
+            "result": compact,
+            "artifacts": [],
+        }
+    )
     encoded = json.dumps(bounded, ensure_ascii=False)
 
     assert structure["metadata_rows"] == 1_360
@@ -1130,32 +1263,38 @@ def test_ai_subagent_structured_provenance_reaches_main_agent():
     from materials_quality.agent.harness import _compact_run_result
 
     payload = {
-        "outputs": [{
-            "outputs": [{
-                "component_id": "ai",
-                "results": {
-                    "analysis": {
-                        "data": {
-                            "coverage": {
-                                "total_rows": 0,
-                                "analyzed_rows": 0,
-                                "images_total": 1,
-                                "images_analyzed": 1,
-                                "input_sha256": "a" * 64,
-                                "image_references": [{
-                                    "image_id": "image_1",
-                                    "source_sha256": "b" * 64,
-                                    "width": 24,
-                                    "height": 18,
-                                }],
-                            },
-                            "limitations": ["No scale calibration was provided."],
-                            "private_unapproved_field": "must be omitted",
-                        }
+        "outputs": [
+            {
+                "outputs": [
+                    {
+                        "component_id": "ai",
+                        "results": {
+                            "analysis": {
+                                "data": {
+                                    "coverage": {
+                                        "total_rows": 0,
+                                        "analyzed_rows": 0,
+                                        "images_total": 1,
+                                        "images_analyzed": 1,
+                                        "input_sha256": "a" * 64,
+                                        "image_references": [
+                                            {
+                                                "image_id": "image_1",
+                                                "source_sha256": "b" * 64,
+                                                "width": 24,
+                                                "height": 18,
+                                            }
+                                        ],
+                                    },
+                                    "limitations": ["No scale calibration was provided."],
+                                    "private_unapproved_field": "must be omitted",
+                                }
+                            }
+                        },
                     }
-                },
-            }]
-        }]
+                ]
+            }
+        ]
     }
     flow = {"data": {"nodes": [{"id": "ai", "data": {"type": "StudyUIAIAnalysis"}}]}}
 
@@ -1357,7 +1496,14 @@ def test_component_search_ranks_exact_fields_and_keeps_tool_json_valid(tmp_path)
                     "template": {
                         "cfg_x": {"type": "str", "display_name": "X"},
                         "cfg_columns": {"type": "str", "list": True, "display_name": "Y series"},
-                        "cfg_conditions": {"type": "table", "display_name": "Conditions", "table_schema": [{"name": "column", "type": "str"}, {"name": "op", "type": "str"}]},
+                        "cfg_conditions": {
+                            "type": "table",
+                            "display_name": "Conditions",
+                            "table_schema": [
+                                {"name": "column", "type": "str"},
+                                {"name": "op", "type": "str"},
+                            ],
+                        },
                     },
                     "outputs": [{"name": "artifacts", "types": ["File"]}],
                 },
@@ -1374,7 +1520,12 @@ def test_component_search_ranks_exact_fields_and_keeps_tool_json_valid(tmp_path)
     )
     assert plots[0]["type"] == "ScienceVizSpectra"
     assert next(field for field in plots[0]["inputs"] if field["name"] == "cfg_columns")["is_list"] is True
-    assert next(field for field in plots[0]["inputs"] if field["name"] == "cfg_conditions")["table_schema"][1]["name"] == "op"
+    assert (
+        next(field for field in plots[0]["inputs"] if field["name"] == "cfg_conditions")["table_schema"][1][
+            "name"
+        ]
+        == "op"
+    )
 
 
 def test_oversized_tool_result_is_valid_json():
@@ -1391,9 +1542,15 @@ def test_oversized_tool_result_is_valid_json():
 def test_missing_report_preserves_per_column_counts_without_rows():
     from materials_quality.agent.harness import _message_or_report_summary
 
-    report = {"data": {"metrics": {"columns": {"voltage": {"missing_count": 3, "missing_ratio": 0.3}},
-                                    "rows": [{"row_position": 1, "value": "private"}]},
-                       "provenance": {"mode": "shared", "source": {"source_name": "raw.csv", "source_sha256": "abc"}}}}
+    report = {
+        "data": {
+            "metrics": {
+                "columns": {"voltage": {"missing_count": 3, "missing_ratio": 0.3}},
+                "rows": [{"row_position": 1, "value": "private"}],
+            },
+            "provenance": {"mode": "shared", "source": {"source_name": "raw.csv", "source_sha256": "abc"}},
+        }
+    }
     result = _message_or_report_summary(report)
     assert result["metrics"]["columns"]["voltage"] == {"missing_count": 3, "missing_ratio": 0.3}
     assert "rows" not in result["metrics"]
@@ -1403,12 +1560,32 @@ def test_missing_report_preserves_per_column_counts_without_rows():
 
 def test_large_workflow_inspection_preserves_graph_instead_of_generic_truncation():
     import json
+
     from materials_quality.agent.harness import _bounded_tool_content
 
     summary = {
-        "id": "flow", "name": "large", "node_count": 8, "edge_count": 1,
-        "nodes": [{"id": f"node-{i}", "component": "ScienceIoTableImport", "config": {"long_setting": "x" * 2000}, "inputs": [], "outputs": [{"name": "table"}]} for i in range(8)],
-        "edges": [{"source": "node-0", "target": "node-1", "sourceHandle": json.dumps({"id": "node-0", "name": "table"}), "targetHandle": json.dumps({"id": "node-1", "fieldName": "input_table"})}],
+        "id": "flow",
+        "name": "large",
+        "node_count": 8,
+        "edge_count": 1,
+        "nodes": [
+            {
+                "id": f"node-{i}",
+                "component": "ScienceIoTableImport",
+                "config": {"long_setting": "x" * 2000},
+                "inputs": [],
+                "outputs": [{"name": "table"}],
+            }
+            for i in range(8)
+        ],
+        "edges": [
+            {
+                "source": "node-0",
+                "target": "node-1",
+                "sourceHandle": json.dumps({"id": "node-0", "name": "table"}),
+                "targetHandle": json.dumps({"id": "node-1", "fieldName": "input_table"}),
+            }
+        ],
     }
     result = json.loads(_bounded_tool_content("inspect_workflow", summary))
     assert len(result["nodes"]) == 8
@@ -1419,13 +1596,37 @@ def test_large_workflow_inspection_preserves_graph_instead_of_generic_truncation
 
 def test_known_aggregate_outputs_are_visible_while_raw_measurements_remain_hidden():
     import json
+
     from materials_quality.agent.harness import _compact_run_result
 
-    payload = {"outputs": [{"outputs": [
-        {"component_id": "raw", "results": {"table": [{"signal": "raw-secret", "x": 1.234}]}},
-        {"component_id": "stats", "results": {"table": {"data": [{"group": "A", "signal_mean": 2.5, "signal_count": 10}, {"group": "B", "signal_mean": 3.5, "signal_count": 12}]}}},
-    ]}]}
-    flow = {"data": {"nodes": [{"id": "raw", "data": {"type": "ScienceIoTableImport"}}, {"id": "stats", "data": {"type": "ScienceStatsGrouped"}}]}}
+    payload = {
+        "outputs": [
+            {
+                "outputs": [
+                    {"component_id": "raw", "results": {"table": [{"signal": "raw-secret", "x": 1.234}]}},
+                    {
+                        "component_id": "stats",
+                        "results": {
+                            "table": {
+                                "data": [
+                                    {"group": "A", "signal_mean": 2.5, "signal_count": 10},
+                                    {"group": "B", "signal_mean": 3.5, "signal_count": 12},
+                                ]
+                            }
+                        },
+                    },
+                ]
+            }
+        ]
+    }
+    flow = {
+        "data": {
+            "nodes": [
+                {"id": "raw", "data": {"type": "ScienceIoTableImport"}},
+                {"id": "stats", "data": {"type": "ScienceStatsGrouped"}},
+            ]
+        }
+    }
     result = _compact_run_result(payload, flow=flow)
     rendered = json.dumps(result)
     assert "raw-secret" not in rendered and "1.234" not in rendered
@@ -1441,28 +1642,35 @@ def test_oversized_workflow_run_keeps_compact_quantitative_summaries_and_artifac
 
     outputs = []
     for index in range(32):
-        ranges = {f"metric_{column}_mean": {"min": column + 0.25, "max": column + 1.75}
-                  for column in range(28)}
-        outputs.append({
-            "node_id": f"stats-{index}",
-            "outputs": {
-                "table": {
-                    "rows": 400,
-                    "columns": [f"column_{column}" for column in range(80)],
-                    "aggregate_total_rows": 400,
-                    "aggregate_suppressed_rows": 0,
-                    "aggregate_preview": [{"mean": 2.5, "raw_value": "private measurement"} for _ in range(8)],
-                    "aggregate_ranges": ranges,
-                    "scope": "derived aggregate output",
-                }
-            },
-        })
+        ranges = {
+            f"metric_{column}_mean": {"min": column + 0.25, "max": column + 1.75} for column in range(28)
+        }
+        outputs.append(
+            {
+                "node_id": f"stats-{index}",
+                "outputs": {
+                    "table": {
+                        "rows": 400,
+                        "columns": [f"column_{column}" for column in range(80)],
+                        "aggregate_total_rows": 400,
+                        "aggregate_suppressed_rows": 0,
+                        "aggregate_preview": [
+                            {"mean": 2.5, "raw_value": "private measurement"} for _ in range(8)
+                        ],
+                        "aggregate_ranges": ranges,
+                        "scope": "derived aggregate output",
+                    }
+                },
+            }
+        )
     result = {
         "status": "completed",
         "flow_name": "experiment",
         "result": {"session_id": "session", "outputs": outputs},
-        "artifacts": [{"id": f"artifact-{index}", "name": f"result-{index}.csv", "sha256": "a" * 64, "size": 100}
-                      for index in range(30)],
+        "artifacts": [
+            {"id": f"artifact-{index}", "name": f"result-{index}.csv", "sha256": "a" * 64, "size": 100}
+            for index in range(30)
+        ],
     }
 
     content = _bounded_tool_content("run_workflow", result)
@@ -1478,12 +1686,26 @@ def test_oversized_workflow_run_keeps_compact_quantitative_summaries_and_artifac
 
 def test_singleton_group_mean_is_not_exposed_as_aggregate():
     import json
+
     from materials_quality.agent.harness import _compact_run_result
 
-    payload = {"outputs": [{"outputs": [{"component_id": "stats", "results": {"table": [
-        {"group": "private-id", "value_count": 1, "value_mean": 713.42},
-        {"group": "B", "value_count": 2, "value_mean": 10.0},
-    ]}}]}]}
+    payload = {
+        "outputs": [
+            {
+                "outputs": [
+                    {
+                        "component_id": "stats",
+                        "results": {
+                            "table": [
+                                {"group": "private-id", "value_count": 1, "value_mean": 713.42},
+                                {"group": "B", "value_count": 2, "value_mean": 10.0},
+                            ]
+                        },
+                    }
+                ]
+            }
+        ]
+    }
     flow = {"data": {"nodes": [{"id": "stats", "data": {"type": "ScienceStatsGrouped"}}]}}
     result = _compact_run_result(payload, flow=flow)
     assert "713.42" not in json.dumps(result)
@@ -1494,9 +1716,24 @@ def test_singleton_group_mean_is_not_exposed_as_aggregate():
 def test_runtime_message_wrapped_aggregate_is_available_for_reporting():
     from materials_quality.agent.harness import _compact_run_result
 
-    payload = {"outputs": [{"outputs": [{"component_id": "stats", "results": {}, "outputs": {
-        "table": {"message": [{"time_point": "0s", "signal_count": 1600, "signal_mean": 0.25}], "type": "dataframe"}
-    }}]}]}
+    payload = {
+        "outputs": [
+            {
+                "outputs": [
+                    {
+                        "component_id": "stats",
+                        "results": {},
+                        "outputs": {
+                            "table": {
+                                "message": [{"time_point": "0s", "signal_count": 1600, "signal_mean": 0.25}],
+                                "type": "dataframe",
+                            }
+                        },
+                    }
+                ]
+            }
+        ]
+    }
     flow = {"data": {"nodes": [{"id": "stats", "data": {"type": "ScienceStatsGrouped"}}]}}
     table = _compact_run_result(payload, flow=flow)["outputs"][0]["outputs"]["table"]
     assert table["aggregate_preview"][0]["signal_mean"] == 0.25
@@ -1580,12 +1817,53 @@ def test_tool_round_limit_requests_a_final_summary_without_more_tools(tmp_path, 
             return {"content": "已完成的结果已核验；当前没有未完成审批。"}
 
     monkeypatch.setattr(harness_module, "MAX_TOOL_ROUNDS", 1)
-    agent = StudyUIAgent(
-        tmp_path / "agent.sqlite3", langflow=FakeWorkflows(), model=FakeModel()
-    )
+    agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=FakeWorkflows(), model=FakeModel())
     project_id = agent.store.create_project("final summary")
     session_id = agent.new_session(project_id=project_id)
     result = agent.run_turn(session_id, "列出科研 Skill。")
 
     assert "已核验" in result["message"]
     assert "工具调用轮数已达上限" in result["message"]
+
+
+@pytest.mark.parametrize(
+    "override", [{"tweaks": {"input": {"cfg_path": "other.csv"}}}, {"input_value": "data"}]
+)
+def test_canvas_approval_only_covers_saved_run_parameters(tmp_path, override):
+    from materials_quality.agent.harness import StudyUIAgent
+    from materials_quality.agent.workflow import flow_digest
+
+    class Workflows:
+        def get_flow(self, flow_id):
+            assert flow_id == flow["id"]
+            return flow
+
+    agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=Workflows())
+    project = agent.store.create_project("Canvas scope")
+    session = agent.new_session(project_id=project)
+    flow = {
+        "id": "canvas-ai-flow",
+        "name": "Canvas AI",
+        "folder_id": project,
+        "data": {"nodes": [{"data": {"type": "StudyUIAIAnalysis"}}], "edges": []},
+    }
+    canvas = {
+        "flow_id": flow["id"], "project_id": project, "flow_digest": flow_digest(flow),
+        "external_data": True, "consumed": False,
+    }
+    state = {"canvas_run": canvas, "skill_preflight_complete": True}
+    agent._turn_state.value = state
+    text = "请运行工作流 canvas-ai-flow"
+    run = {"flow_id": flow["id"]}
+    rejected = agent._authorize_tool(session, "run_workflow", {**run, **override}, text)
+    assert not rejected["allowed"]
+    assert not rejected["requires_approval"]
+    assert not canvas["consumed"]
+    assert agent._authorize_tool(session, "run_workflow", run, text)["allowed"]
+    assert canvas["consumed"]
+    assert not agent._authorize_tool(session, "run_workflow", run, text)["allowed"]
+
+    state.pop("canvas_run")
+    ordinary = agent._authorize_tool(session, "run_workflow", {**run, **override}, text)
+    assert ordinary["requires_approval"]
+    assert ordinary["external_data"]

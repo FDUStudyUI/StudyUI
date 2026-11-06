@@ -4,6 +4,10 @@ StudyUI 是面向材料科学研究的本地 Agent Harness。研究者通过自�
 
 项目工作流以独立 JSON 文件保存，画布与 Agent 使用同一服务。会话、审批与调用审计保存在本机 SQLite；项目、模型设置与 Skills 也保存在本机文件中。模型密钥保存在 Windows Credential Manager 或系统凭据库中。
 
+文献辅助分析支持方法卡与适用条件检查、AsLS/SNV/SG 导数、训练测试隔离的 PCA/PLS、局部重算及结果证据卡。参见[使用说明与四条教学工作流](docs/evidence-guided-analysis.md)。
+
+首页提供拉伸、光谱、组间比较、XRD、电池五个演示案例。“打开参考工作流”无需模型密钥，可在表单调整分析参数并运行；“载入数据，交给 Agent”用于自然语言探索。数据范围和预期结果见[五个案例操作说明](docs/demo-five-cases.md)。
+
 ## 环境要求
 
 - Windows、Linux 或 macOS

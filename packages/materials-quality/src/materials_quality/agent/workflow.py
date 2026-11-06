@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import difflib
 import hashlib
 import json
 import re
@@ -272,7 +273,10 @@ def component_catalog_summary(catalog, query="", limit=40):
             ]
             haystack = " ".join(
                 [category, type_name, str(name), description, search_aliases.get(type_name, "")]
-                + [field["name"] + " " + field["display_name"] + " " + field.get("info", "") for field in field_rows]
+                + [
+                    field["name"] + " " + field["display_name"] + " " + field.get("info", "")
+                    for field in field_rows
+                ]
             ).casefold()
             tokens_found = sum(token in haystack for token in query_tokens)
             if query and not tokens_found and query not in haystack:
@@ -360,17 +364,23 @@ def sanitize_installed_components(flow, catalog):
     return candidate
 
 
-def _edge_handle(edge, side):
+def _edge_handles(edge, side):
     data = edge.get("data") if isinstance(edge.get("data"), dict) else {}
-    value = data.get(side + "Handle")
-    if not isinstance(value, dict):
-        value = edge.get(side + "Handle")
+    key = side + "Handle"
+    handles = []
+    for container in (data, edge):
+        value = container.get(key)
+        if value is None:
+            continue
         if isinstance(value, str):
             try:
                 value = json.loads(value)
             except ValueError:
                 value = None
-    return value if isinstance(value, dict) else None
+        if not isinstance(value, dict):
+            raise ValueError("Workflow connection has an invalid canvas port handle")
+        handles.append(value)
+    return handles
 
 
 def validate_flow_connections(flow):
@@ -385,26 +395,29 @@ def validate_flow_connections(flow):
         source_id, target_id = edge.get("source"), edge.get("target")
         if source_id not in nodes or target_id not in nodes or source_id == target_id:
             raise ValueError("Workflow connection references a missing or identical node")
-        source_handle, target_handle = _edge_handle(edge, "source"), _edge_handle(edge, "target")
-        if not source_handle or not target_handle:
-            raise ValueError("Workflow connection is missing canvas port handles")
-        output_name, input_name = source_handle.get("name"), target_handle.get("fieldName")
-        if not output_name or not input_name:
-            raise ValueError("Workflow connection is missing its output or input port")
         source_node = nodes[source_id].get("data", {}).get("node", {})
         target_node = nodes[target_id].get("data", {}).get("node", {})
-        outputs = _port(source_node, output_name, True)
-        inputs = _port(target_node, input_name, False)
+        output_name, outputs = _saved_port(edge, "source", source_id, source_node, "name")
+        input_name, inputs = _saved_port(edge, "target", target_id, target_node, "fieldName")
         if not _compatible_types(outputs, inputs):
             raise ValueError(
                 f"Workflow connection {source_id}.{output_name} {outputs} -> "
                 f"{target_id}.{input_name} {inputs} uses incompatible data types"
             )
-        if source_handle.get("id") not in {None, source_id} or target_handle.get("id") not in {
-            None,
-            target_id,
-        }:
-            raise ValueError("Workflow connection canvas handles reference the wrong nodes")
+
+
+def _saved_port(edge, side, node_id, component, key):
+    handles = _edge_handles(edge, side)
+    if not handles:
+        raise ValueError("Workflow connection is missing canvas port handles")
+    name = handles[0].get(key)
+    if not isinstance(name, str) or not name:
+        raise ValueError("Workflow connection is missing its output or input port")
+    if any(handle.get(key) != name for handle in handles):
+        raise ValueError("Workflow connection canvas handles must agree on the canonical port")
+    if any(handle.get("id") not in (None, node_id) for handle in handles):
+        raise ValueError("Workflow connection canvas handles reference the wrong nodes")
+    return _port(component, name, side == "source", canonical_only=True)
 
 
 def validate_installed_components(flow, catalog):
@@ -464,28 +477,125 @@ def _add_node(data, action, components):
     )
 
 
-def _port(component, name, output):
+OUTPUT_PORT_ALIASES = {
+    "output_table": "table",
+    "result_table": "table",
+    "table_output": "table",
+    "df": "table",
+    "dataframe": "table",
+    "data_table": "table",
+    "table_out": "table",
+    "out_table": "table",
+    "output_data": "data",
+    "result_data": "data",
+    "data_output": "data",
+    "result_report": "report",
+    "summary": "report",
+    "summary_report": "report",
+    "output_report": "report",
+    "report_out": "report",
+    "results": "result",
+    "output": "result",
+    "chart": "plot",
+    "figure": "plot",
+    "output_plot": "plot",
+    "files": "artifacts",
+    "output_files": "artifacts",
+    "generated_files": "artifacts",
+    "features_out": "features",
+    "features_table": "features",
+}
+
+INPUT_PORT_ALIASES = {
+    "table": "input_table",
+    "df": "input_table",
+    "dataframe": "input_table",
+    "data_table": "input_table",
+    "input_df": "input_table",
+    "dataset": "input_table",
+    "table_in": "input_table",
+    "tables": "input_tables",
+    "data": "input_data",
+    "payload": "input_data",
+    "input": "input_data",
+    "data_in": "input_data",
+    "report": "reports",
+    "input_report": "reports",
+    "reports_in": "reports",
+    "reports_list": "reports",
+    "context": "quality_context",
+    "rules_context": "quality_context",
+    "input_context": "quality_context",
+    "path": "file_path",
+    "filepath": "file_path",
+    "file": "file_path",
+}
+
+
+def _port(component, name, output, *, canonical_only=False):
+    raw_name = str(name or "")
+    if not canonical_only:
+        raw_name = raw_name.strip()
+    node_name = component.get("display_name") or component.get("name") or "Component"
+    direction = "output" if output else "input"
     if output:
-        ports = component.get("outputs", [])
-        port = next((entry for entry in ports if isinstance(entry, dict) and entry.get("name") == name), None)
-        if port is None:
-            raise ValueError(f"Unknown component output: {name}")
-        types = port.get("types", port.get("selected_output_types", []))
-        if isinstance(types, str):
-            types = [types]
-        return [str(value) for value in types if value]
-    template = component.get("template", {})
-    field = template.get(name) if isinstance(template, dict) else None
-    if not isinstance(field, dict):
-        raise ValueError(f"Unknown component input: {name}")
-    types = field.get("input_types", field.get("inputTypes", []))
+        entries = component.get("outputs")
+        ports = [
+            (entry["name"], entry) for entry in entries if isinstance(entry, dict)
+            and isinstance(entry.get("name"), str) and entry["name"]
+        ] if isinstance(entries, list) else []
+        aliases = OUTPUT_PORT_ALIASES
+    else:
+        template = component.get("template")
+        ports = [
+            (key, field) for key, field in template.items() if isinstance(field, dict)
+            and (field.get("input_types") or field.get("inputTypes"))
+        ] if isinstance(template, dict) else []
+        aliases = INPUT_PORT_ALIASES
+
+    matches = [(key, field) for key, field in ports if key == raw_name]
+    if not matches and not canonical_only and raw_name:
+        folded = raw_name.casefold()
+        alias = aliases.get(folded)
+        matches = [
+            (key, field) for key, field in ports
+            if folded in {key.casefold(), str(field.get("display_name", "")).casefold()}
+            or key == alias
+        ]
+    if len(matches) > 1:
+        candidates = sorted(key for key, _ in matches)
+        raise ValueError(f"Ambiguous component {direction} '{raw_name}' on node '{node_name}': {candidates}")
+    if not matches:
+        valid_names = sorted({key for key, _ in ports})
+        closest = difflib.get_close_matches(raw_name, valid_names, n=1, cutoff=0.4)
+        hint = f" Did you mean '{closest[0]}'?" if closest else ""
+        qualifier = "canonical " if canonical_only else ""
+        raise ValueError(
+            f"Unknown {qualifier}component {direction} '{raw_name}' on node '{node_name}'. "
+            f"Valid {direction} ports are: {valid_names}.{hint}"
+        )
+
+    canonical_name, field = matches[0]
+    types = (field.get("types", field.get("selected_output_types")) if output
+             else field.get("input_types") or field.get("inputTypes"))
     if isinstance(types, str):
         types = [types]
-    return [str(value) for value in types if value]
+    return canonical_name, [str(value) for value in (types or []) if value]
 
 
 def _normalized_types(values):
-    aliases = {"table": "dataframe", "dataframe": "dataframe", "json": "data"}
+    aliases = {
+        "table": "dataframe",
+        "dataframe": "dataframe",
+        "dataset": "dataframe",
+        "records": "dataframe",
+        "json": "data",
+        "dict": "data",
+        "object": "data",
+        "message": "message",
+        "text": "message",
+        "str": "message",
+    }
     return {aliases.get(str(value).casefold(), str(value).casefold()) for value in values}
 
 
@@ -494,7 +604,8 @@ def _compatible_types(outputs, inputs):
         not outputs
         or not inputs
         or bool(_normalized_types(outputs) & _normalized_types(inputs))
-        or any(str(value).casefold() == "any" for value in inputs)
+        or any(str(value).casefold() in {"any", "*"} for value in inputs)
+        or any(str(value).casefold() in {"any", "*"} for value in outputs)
     )
 
 
@@ -506,10 +617,13 @@ def _connect(data, action):
     source_name, target_name = action.get("output"), action.get("input")
     source_node = nodes[source_id]["data"]["node"]
     target_node = nodes[target_id]["data"]["node"]
-    output_types = _port(source_node, source_name, True)
-    input_types = _port(target_node, target_name, False)
+    source_name, output_types = _port(source_node, source_name, True)
+    target_name, input_types = _port(target_node, target_name, False)
     if not _compatible_types(output_types, input_types):
-        raise ValueError("Connected ports have incompatible declared data types")
+        raise ValueError(
+            f"Connected ports have incompatible declared data types: "
+            f"'{source_id}.{source_name}' ({output_types}) -> '{target_id}.{target_name}' ({input_types})"
+        )
     source_handle = {
         "dataType": output_types[0] if output_types else "Data",
         "id": source_id,
@@ -535,6 +649,7 @@ def _connect(data, action):
             "selected": False,
         }
     )
+    return source_name, target_name
 
 
 def apply_actions(flow, actions, catalog):
@@ -577,10 +692,13 @@ def apply_actions(flow, actions, catalog):
             ]
             descriptions.append(f"删除 {node_id} 及相关连线")
         elif op == "connect":
-            _connect(data, action)
-            descriptions.append(
-                f"连接 {action.get('source')}.{action.get('output')} → {action.get('target')}.{action.get('input')}"
+            source_canonical, target_canonical = _connect(data, action)
+            description = (
+                f"连接 {action.get('source')}.{source_canonical} → {action.get('target')}.{target_canonical}"
             )
+            if (action.get("output"), action.get("input")) != (source_canonical, target_canonical):
+                description += f"（请求端口 {action.get('output')} → {action.get('input')}）"
+            descriptions.append(description)
         elif op == "disconnect":
             source, target = action.get("source"), action.get("target")
             old_count = len(data["edges"])

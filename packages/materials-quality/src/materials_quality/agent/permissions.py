@@ -31,6 +31,7 @@ READ_ACTIONS = {
     "workflow.list",
     "workflow.inspect",
     "component.list",
+    "method.recommend",
 }
 WRITE_ACTIONS = {
     "workflow.create",

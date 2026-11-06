@@ -386,6 +386,7 @@ def pdf_import(table=None, *, config=None, data=None, tables=None):
 def image_import(table=None, *, config=None, data=None, tables=None):
     """Inspect actual raster format, dimensions, resolution and EXIF metadata."""
     from PIL import ExifTags, Image
+
     from materials_quality.agent.execution_context import register_upstream_image
 
     path = read_path(config or {}, data)
