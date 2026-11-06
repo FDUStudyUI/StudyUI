@@ -25,7 +25,21 @@ def component_manifest(root):
 
 def verify_discovery(discovered, root):
     expected = component_manifest(root)
-    actual = {key: set(value) for key, value in discovered.items() if key in expected}
+    actual = {}
+    for category, values in discovered.items():
+        if category not in expected:
+            continue
+        names = []
+        prefix = f"ext:{category}:"
+        for name in values:
+            # Native directory discovery returns class names. Langflow's HTTP
+            # catalog qualifies external components by their owning category.
+            if name.startswith(prefix) and name.endswith("@extra"):
+                name = name[len(prefix) : -len("@extra")]
+            names.append(name)
+        if len(set(names)) != len(names):
+            raise ValueError(f"Duplicate component identity in {category}")
+        actual[category] = set(names)
     if actual != expected:
         missing = {key: sorted(names - actual.get(key, set())) for key, names in expected.items()}
         extra = {key: sorted(names - expected[key]) for key, names in actual.items()}
