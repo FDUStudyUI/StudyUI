@@ -56,25 +56,44 @@ def xrd(table=None, *, config=None, data=None, tables=None):
 
 
 def spectra(table=None, *, config=None, data=None, tables=None):
-    """FTIR/Raman signal processing; integration occurs before normalization."""
+    """Preserve quantitative peaks/areas; separately expose derivative/normalized features."""
     config = dict(config or {})
     x, y, frame, transform = processed_curve(table, config)
     peaks = peak_records(x, y, config)
     areas = integrate_ranges(x, y, config)
+    signal = frame["derivative"].to_numpy()
     method = config.get("normalization", "none")
+    offset = 0.0
     if method == "none":
         scale = 1.0
     elif method == "max":
-        scale = float(np.max(np.abs(y)))
+        scale = float(np.max(np.abs(signal)))
     elif method == "l2":
-        scale = float(np.linalg.norm(y))
+        scale = float(np.linalg.norm(signal))
     elif method == "area":
-        scale = float(trapezoid(np.abs(y), x))
+        scale = float(trapezoid(np.abs(signal), x))
+    elif method == "snv":
+        if config.get("allow_intensity_loss") is not True:
+            raise ValueError("SNV requires allow_intensity_loss=true; absolute intensity is removed")
+        offset = float(np.mean(signal))
+        scale = float(np.std(signal, ddof=1))
+        if scale <= np.finfo(float).eps * max(float(np.max(np.abs(signal))), np.finfo(float).tiny):
+            raise ValueError("SNV requires nonzero spectrum variance")
     else:
-        raise ValueError("normalization must be none, max, l2, or area")
-    if scale <= 0:
+        raise ValueError("normalization must be none, max, l2, area, or snv")
+    if not np.isfinite(scale) or scale <= 0:
         raise ValueError("cannot normalize a zero spectrum")
-    frame["normalized"] = y / scale
+    frame["normalized"] = (signal - offset) / scale
+    frame["processed"] = frame["normalized"]
+    unit = {
+        "none": transform["derivative_unit"],
+        "max": "dimensionless",
+        "l2": "dimensionless",
+        "area": f"1/{frame.attrs['units']['x']}",
+        "snv": "dimensionless",
+    }[method]
+    frame.attrs["units"].update({"normalized": unit, "processed": unit})
+    transform["processing_order"] = ["baseline", "SG derivative or smoothing", "normalization"]
     matches = match_references(x, y, peaks, config, data)
     warnings = [
         "Peak-base areas can overlap; use explicit non-overlapping area_ranges for quantitative integration.",
@@ -83,6 +102,21 @@ def spectra(table=None, *, config=None, data=None, tables=None):
     ]
     if matches:
         warnings.append("Library scores rank supplied references; they do not confirm chemical identity.")
+    if method == "snv":
+        warnings.append(
+            "SNV removes absolute intensity and offset; processed features are not absolute peak areas."
+        )
+    if transform["derivative_order"]:
+        warnings.append(
+            "Peaks, FWHM, areas and reference matches use smoothed signal before derivative/normalization; "
+            "processed contains derivative features. SG edge values use polynomial interpolation."
+        )
+    baseline_config = config.get("baseline", "none")
+    if (baseline_config.get("method") if isinstance(baseline_config, dict) else baseline_config) == "asls":
+        warnings.append(
+            "AsLS uses a sample-index second-difference penalty; review broad-peak removal and "
+            "parameter sensitivity. Fixed iterations do not establish baseline correctness."
+        )
     return NodeResult(
         table=frame,
         data={
@@ -91,7 +125,16 @@ def spectra(table=None, *, config=None, data=None, tables=None):
             "areas": areas,
             "matches": matches,
             "area_signal": "baseline-corrected smoothed signal before normalization",
-            "normalization": {"method": method, "scale": scale},
+            "normalization": {
+                "method": method,
+                "scale": scale,
+                "offset": offset,
+                "ddof": 1 if method == "snv" else None,
+            },
+            "processed_signal": "SG derivative then normalization"
+            if transform["derivative_order"]
+            else "smoothed then normalization",
+            "units": frame.attrs["units"],
             "transform": transform,
         },
         warnings=warnings,

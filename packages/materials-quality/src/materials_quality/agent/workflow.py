@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import difflib
 import hashlib
 import json
 import re
@@ -272,7 +273,10 @@ def component_catalog_summary(catalog, query="", limit=40):
             ]
             haystack = " ".join(
                 [category, type_name, str(name), description, search_aliases.get(type_name, "")]
-                + [field["name"] + " " + field["display_name"] + " " + field.get("info", "") for field in field_rows]
+                + [
+                    field["name"] + " " + field["display_name"] + " " + field.get("info", "")
+                    for field in field_rows
+                ]
             ).casefold()
             tokens_found = sum(token in haystack for token in query_tokens)
             if query and not tokens_found and query not in haystack:
@@ -360,17 +364,23 @@ def sanitize_installed_components(flow, catalog):
     return candidate
 
 
-def _edge_handle(edge, side):
+def _edge_handles(edge, side):
     data = edge.get("data") if isinstance(edge.get("data"), dict) else {}
-    value = data.get(side + "Handle")
-    if not isinstance(value, dict):
-        value = edge.get(side + "Handle")
+    key = side + "Handle"
+    handles = []
+    for container in (data, edge):
+        value = container.get(key)
+        if value is None:
+            continue
         if isinstance(value, str):
             try:
                 value = json.loads(value)
             except ValueError:
                 value = None
-    return value if isinstance(value, dict) else None
+        if not isinstance(value, dict):
+            raise ValueError("Workflow connection has an invalid canvas port handle")
+        handles.append(value)
+    return handles
 
 
 def validate_flow_connections(flow):
@@ -385,26 +395,29 @@ def validate_flow_connections(flow):
         source_id, target_id = edge.get("source"), edge.get("target")
         if source_id not in nodes or target_id not in nodes or source_id == target_id:
             raise ValueError("Workflow connection references a missing or identical node")
-        source_handle, target_handle = _edge_handle(edge, "source"), _edge_handle(edge, "target")
-        if not source_handle or not target_handle:
-            raise ValueError("Workflow connection is missing canvas port handles")
-        output_name, input_name = source_handle.get("name"), target_handle.get("fieldName")
-        if not output_name or not input_name:
-            raise ValueError("Workflow connection is missing its output or input port")
         source_node = nodes[source_id].get("data", {}).get("node", {})
         target_node = nodes[target_id].get("data", {}).get("node", {})
-        output_name, outputs = _port(source_node, output_name, True)
-        input_name, inputs = _port(target_node, input_name, False)
+        output_name, outputs = _saved_port(edge, "source", source_id, source_node, "name")
+        input_name, inputs = _saved_port(edge, "target", target_id, target_node, "fieldName")
         if not _compatible_types(outputs, inputs):
             raise ValueError(
                 f"Workflow connection {source_id}.{output_name} {outputs} -> "
                 f"{target_id}.{input_name} {inputs} uses incompatible data types"
             )
-        if source_handle.get("id") not in {None, source_id} or target_handle.get("id") not in {
-            None,
-            target_id,
-        }:
-            raise ValueError("Workflow connection canvas handles reference the wrong nodes")
+
+
+def _saved_port(edge, side, node_id, component, key):
+    handles = _edge_handles(edge, side)
+    if not handles:
+        raise ValueError("Workflow connection is missing canvas port handles")
+    name = handles[0].get(key)
+    if not isinstance(name, str) or not name:
+        raise ValueError("Workflow connection is missing its output or input port")
+    if any(handle.get(key) != name for handle in handles):
+        raise ValueError("Workflow connection canvas handles must agree on the canonical port")
+    if any(handle.get("id") not in (None, node_id) for handle in handles):
+        raise ValueError("Workflow connection canvas handles reference the wrong nodes")
+    return _port(component, name, side == "source", canonical_only=True)
 
 
 def validate_installed_components(flow, catalog):
@@ -464,8 +477,7 @@ def _add_node(data, action, components):
     )
 
 
-COMMON_PORT_ALIASES = {
-    # Output port aliases (model writes key -> map to canonical output port)
+OUTPUT_PORT_ALIASES = {
     "output_table": "table",
     "result_table": "table",
     "table_output": "table",
@@ -492,7 +504,9 @@ COMMON_PORT_ALIASES = {
     "generated_files": "artifacts",
     "features_out": "features",
     "features_table": "features",
-    # Input port aliases (model writes key -> map to canonical template input field)
+}
+
+INPUT_PORT_ALIASES = {
     "table": "input_table",
     "df": "input_table",
     "dataframe": "input_table",
@@ -518,125 +532,55 @@ COMMON_PORT_ALIASES = {
 }
 
 
-def _port(component, name, output):
-    raw_name = str(name).strip() if name else ""
+def _port(component, name, output, *, canonical_only=False):
+    raw_name = str(name or "")
+    if not canonical_only:
+        raw_name = raw_name.strip()
     node_name = component.get("display_name") or component.get("name") or "Component"
-
+    direction = "output" if output else "input"
     if output:
-        ports = component.get("outputs", [])
-        if not isinstance(ports, list):
-            ports = []
-        valid_map = {}
-        for entry in ports:
-            if isinstance(entry, dict) and entry.get("name"):
-                valid_map[entry["name"]] = entry
-                valid_map[entry["name"].casefold()] = entry
-                if entry.get("display_name"):
-                    valid_map[entry["display_name"].casefold()] = entry
+        entries = component.get("outputs")
+        ports = [
+            (entry["name"], entry) for entry in entries if isinstance(entry, dict)
+            and isinstance(entry.get("name"), str) and entry["name"]
+        ] if isinstance(entries, list) else []
+        aliases = OUTPUT_PORT_ALIASES
+    else:
+        template = component.get("template")
+        ports = [
+            (key, field) for key, field in template.items() if isinstance(field, dict)
+            and (field.get("input_types") or field.get("inputTypes"))
+        ] if isinstance(template, dict) else []
+        aliases = INPUT_PORT_ALIASES
 
-        # 1. Direct or case-insensitive match
-        matched_port = valid_map.get(raw_name) or valid_map.get(raw_name.casefold())
-
-        # 2. Alias match
-        if matched_port is None:
-            alias = COMMON_PORT_ALIASES.get(raw_name.casefold())
-            if alias:
-                matched_port = valid_map.get(alias) or valid_map.get(alias.casefold())
-
-        # 3. Strip common prefixes/suffixes
-        if matched_port is None:
-            for candidate in (
-                re.sub(r"^(output_|out_|result_)", "", raw_name, flags=re.I),
-                re.sub(r"(_output|_out|_table)$", "", raw_name, flags=re.I),
-            ):
-                if candidate in valid_map:
-                    matched_port = valid_map[candidate]
-                    break
-
-        # 4. Single output port auto-absorption
-        if matched_port is None and len(ports) == 1 and isinstance(ports[0], dict) and ports[0].get("name"):
-            matched_port = ports[0]
-
-        if matched_port is None:
-            valid_names = sorted({entry["name"] for entry in ports if isinstance(entry, dict) and entry.get("name")})
-            import difflib
-            closest = difflib.get_close_matches(raw_name, valid_names, n=1, cutoff=0.4)
-            hint = f" Did you mean '{closest[0]}'?" if closest else ""
-            raise ValueError(
-                f"Unknown component output '{raw_name}' on node '{node_name}'. "
-                f"Valid output ports are: {valid_names}.{hint}"
-            )
-
-        canonical_name = matched_port["name"]
-        types = matched_port.get("types", matched_port.get("selected_output_types", []))
-        if isinstance(types, str):
-            types = [types]
-        return canonical_name, [str(value) for value in types if value]
-
-    # Input port resolution
-    template = component.get("template", {})
-    if not isinstance(template, dict):
-        template = {}
-
-    valid_inputs = {}
-    for k, v in template.items():
-        if isinstance(v, dict) and (v.get("input_types") or v.get("inputTypes")):
-            valid_inputs[k] = v
-            valid_inputs[k.casefold()] = v
-            if v.get("display_name"):
-                valid_inputs[v["display_name"].casefold()] = v
-
-    matched_field_name = None
-    if raw_name in template and isinstance(template[raw_name], dict):
-        matched_field_name = raw_name
-    elif raw_name.casefold() in valid_inputs:
-        for orig_k in template:
-            if orig_k.casefold() == raw_name.casefold():
-                matched_field_name = orig_k
-                break
-
-    if matched_field_name is None:
-        alias = COMMON_PORT_ALIASES.get(raw_name.casefold())
-        if alias and alias in template:
-            matched_field_name = alias
-        elif alias and alias.casefold() in valid_inputs:
-            for orig_k in template:
-                if orig_k.casefold() == alias.casefold():
-                    matched_field_name = orig_k
-                    break
-
-    if matched_field_name is None:
-        for candidate in (
-            "input_" + raw_name.lower(),
-            raw_name.lower().replace("input_", ""),
-            "cfg_" + raw_name.lower(),
-        ):
-            if candidate in template:
-                matched_field_name = candidate
-                break
-
-    connectable_keys = [
-        k for k, v in template.items()
-        if isinstance(v, dict) and (v.get("input_types") or v.get("inputTypes"))
-    ]
-    if matched_field_name is None and len(connectable_keys) == 1:
-        matched_field_name = connectable_keys[0]
-
-    if matched_field_name is None:
-        valid_names = sorted(connectable_keys or list(template.keys()))
-        import difflib
+    matches = [(key, field) for key, field in ports if key == raw_name]
+    if not matches and not canonical_only and raw_name:
+        folded = raw_name.casefold()
+        alias = aliases.get(folded)
+        matches = [
+            (key, field) for key, field in ports
+            if folded in {key.casefold(), str(field.get("display_name", "")).casefold()}
+            or key == alias
+        ]
+    if len(matches) > 1:
+        candidates = sorted(key for key, _ in matches)
+        raise ValueError(f"Ambiguous component {direction} '{raw_name}' on node '{node_name}': {candidates}")
+    if not matches:
+        valid_names = sorted({key for key, _ in ports})
         closest = difflib.get_close_matches(raw_name, valid_names, n=1, cutoff=0.4)
         hint = f" Did you mean '{closest[0]}'?" if closest else ""
+        qualifier = "canonical " if canonical_only else ""
         raise ValueError(
-            f"Unknown component input '{raw_name}' on node '{node_name}'. "
-            f"Valid input ports are: {valid_names}.{hint}"
+            f"Unknown {qualifier}component {direction} '{raw_name}' on node '{node_name}'. "
+            f"Valid {direction} ports are: {valid_names}.{hint}"
         )
 
-    field = template[matched_field_name]
-    types = field.get("input_types", field.get("inputTypes", []))
+    canonical_name, field = matches[0]
+    types = (field.get("types", field.get("selected_output_types")) if output
+             else field.get("input_types") or field.get("inputTypes"))
     if isinstance(types, str):
         types = [types]
-    return matched_field_name, [str(value) for value in types if value]
+    return canonical_name, [str(value) for value in (types or []) if value]
 
 
 def _normalized_types(values):
@@ -749,9 +693,12 @@ def apply_actions(flow, actions, catalog):
             descriptions.append(f"删除 {node_id} 及相关连线")
         elif op == "connect":
             source_canonical, target_canonical = _connect(data, action)
-            descriptions.append(
+            description = (
                 f"连接 {action.get('source')}.{source_canonical} → {action.get('target')}.{target_canonical}"
             )
+            if (action.get("output"), action.get("input")) != (source_canonical, target_canonical):
+                description += f"（请求端口 {action.get('output')} → {action.get('input')}）"
+            descriptions.append(description)
         elif op == "disconnect":
             source, target = action.get("source"), action.get("target")
             old_count = len(data["edges"])

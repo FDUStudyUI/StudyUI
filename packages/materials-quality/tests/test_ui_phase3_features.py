@@ -1,6 +1,8 @@
-from fastapi.testclient import TestClient
 from pathlib import Path
-from materials_quality.agent.server import create_app, DEMO_DATASETS
+
+from fastapi.testclient import TestClient
+
+from materials_quality.agent.server import create_app
 
 
 def test_ui_phase3_html_elements_present(tmp_path):

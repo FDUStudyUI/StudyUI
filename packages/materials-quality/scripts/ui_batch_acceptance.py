@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from playwright.sync_api import expect, sync_playwright
 
+from materials_quality.component_manifest import verify_discovery
 from scripts.build_batch_examples import build_examples
 from scripts.ui_forms_acceptance import _copy_report, _import, _node, _run
 
@@ -113,7 +114,11 @@ def accept_ui(base_url, output, executable=None):
                 if category.lower().replace("_", " ").startswith("materials ") and isinstance(items, dict)
             }
             if counts:
-                results["discovery"] = {"categories": counts, "component_count": sum(counts.values())}
+                results["discovery"] = {
+                    "categories": counts,
+                    "component_count": sum(counts.values()),
+                    "components": catalog,
+                }
 
         def record_request(request):
             if request.method not in {"POST", "PATCH"} or "/api/" not in request.url:
@@ -168,7 +173,9 @@ def accept_ui(base_url, output, executable=None):
                     "verified_moduli": 20,
                 }
             assert not results["page_errors"] and not results["http_errors"], results
-            assert results["discovery"].get("component_count") == 64, results["discovery"]
+            catalog = results["discovery"].pop("components", {})
+            count = verify_discovery(catalog, ROOT / "components")
+            assert results["discovery"].get("component_count") == count, results["discovery"]
             results["passed"] = True
         except Exception as error:
             results["error"] = str(error)

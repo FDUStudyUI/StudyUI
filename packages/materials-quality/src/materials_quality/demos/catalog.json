@@ -1,0 +1,218 @@
+[
+  {
+    "id": "ti64_tensile",
+    "icon": "📈",
+    "title": "钛合金拉伸力学性能",
+    "format": "CSV",
+    "filename": "01_钛合金拉伸力学性能_Ti64.csv",
+    "desc": "401 个点、1 个 synthetic-1 试样；演示弹性模量与 0.2% 偏移屈服。",
+    "prompt": "文件名案例：钛合金拉伸力学性能。请读取演示文件 {path}。401 个点、1 个 synthetic-1 试样；演示弹性模量与 0.2% 偏移屈服。 单条演示拉伸曲线，不代表 Ti64 实验性能。请保留原始数据、声明单位及参数假设，搭建可修改的工作流并输出图表和 HTML 报告。文件未声明应变/应力单位；fraction 和 MPa 是演示设定。 文件名不能证明 Ti64 材料身份；曲线末点不是已确认断裂点。 拟合区间 0–0.0008，偏移量 0.002 均为演示参数。",
+    "specimen_count": 1,
+    "units": {
+      "strain": "fraction (demo assumption)",
+      "stress": "MPa (demo assumption)"
+    },
+    "scope": "单条演示拉伸曲线，不代表 Ti64 实验性能",
+    "expected_summary": [
+      "E = 200000 MPa（演示单位设定）",
+      "0.2% 偏移屈服约 202.010 MPa；最大记录应力 219 MPa"
+    ],
+    "limitations": [
+      "文件未声明应变/应力单位；fraction 和 MPa 是演示设定。",
+      "文件名不能证明 Ti64 材料身份；曲线末点不是已确认断裂点。",
+      "拟合区间 0–0.0008，偏移量 0.002 均为演示参数。"
+    ],
+    "row_count": 401,
+    "physical_line_count": 402,
+    "columns": [
+      "strain",
+      "stress",
+      "specimen"
+    ],
+    "sha256": "61797a436c0b43a0a63a70afd455e93fd04b0de3e2f7219d3c793bbd21be2c11",
+    "bytes": 10466,
+    "reference_flow": true,
+    "provenance": {
+      "source": "User-supplied repository demo_datasets/01_钛合金拉伸力学性能_Ti64.csv",
+      "experimental_provenance_verified": false,
+      "data_kind": "synthetic",
+      "description": "用户提供的演示样例；没有可核验实验记录，按合成/演示数据处理。原始字节保持不变。"
+    }
+  },
+  {
+    "id": "raman_spectra",
+    "icon": "🌈",
+    "title": "多通道光谱寻峰与校正",
+    "format": "CSV",
+    "filename": "02_多通道光谱寻峰与校正_Spectra.csv",
+    "desc": "4008 个点，A/B 两组各 4 条曲线；逐曲线扣基线、寻峰和描述。",
+    "prompt": "文件名案例：多通道光谱寻峰与校正。请读取演示文件 {path}。4008 个点，A/B 两组各 4 条曲线；逐曲线扣基线、寻峰和描述。 8 条曲线的描述性分析，独立样品数未知。请保留原始数据、声明单位及参数假设，搭建可修改的工作流并输出图表和 HTML 报告。曲线数量不证明独立实验单位数量，不做组间推断检验。 光谱坐标是波长 nm，不能仅凭案例 ID 将其声称为拉曼位移。 常数基线 2 counts、突出度 0.5 counts 和候选窗口 650–850 nm 是演示参数。",
+    "curve_count": 8,
+    "group_count": 2,
+    "units": {
+      "wavelength_nm": "nm (column name)",
+      "intensity_counts": "counts (column name)"
+    },
+    "scope": "8 条曲线的描述性分析，独立样品数未知",
+    "expected_summary": [
+      "每条曲线 2 个峰，共 16 个候选峰",
+      "长波候选 700–770 nm；两组均值 715 / 755 nm"
+    ],
+    "limitations": [
+      "曲线数量不证明独立实验单位数量，不做组间推断检验。",
+      "光谱坐标是波长 nm，不能仅凭案例 ID 将其声称为拉曼位移。",
+      "常数基线 2 counts、突出度 0.5 counts 和候选窗口 650–850 nm 是演示参数。"
+    ],
+    "row_count": 4008,
+    "physical_line_count": 4009,
+    "columns": [
+      "curve_id",
+      "group",
+      "wavelength_nm",
+      "intensity_counts"
+    ],
+    "sha256": "9f8232c0fb7f2958130b540d7cf9220233fd995bc000f801258f264a07811dc4",
+    "bytes": 127884,
+    "reference_flow": true,
+    "provenance": {
+      "source": "User-supplied repository demo_datasets/02_多通道光谱寻峰与校正_Spectra.csv",
+      "experimental_provenance_verified": false,
+      "data_kind": "synthetic",
+      "description": "用户提供的演示样例；没有可核验实验记录，按合成/演示数据处理。原始字节保持不变。"
+    }
+  },
+  {
+    "id": "material_contrast",
+    "icon": "📊",
+    "title": "材料组间试验与显著性",
+    "format": "CSV",
+    "filename": "03_材料组间试验与显著性_Contrast.csv",
+    "desc": "24 次测量，8 个独立单位；先聚合每单位 3 次技术重复，再比较 A/B。",
+    "prompt": "文件名案例：材料组间试验与显著性。请读取演示文件 {path}。24 次测量，8 个独立单位；先聚合每单位 3 次技术重复，再比较 A/B。 独立单位均值的两组 Welch 检验与 Holm 校正。请保留原始数据、声明单位及参数假设，搭建可修改的工作流并输出图表和 HTML 报告。实验单位身份按文件列解释，未独立核实实验设计。 测量值单位未给定，采用 a.u. 演示标签。 Welch 检验依赖独立性和分布假设；合成示例显著性不构成材料实验结论。",
+    "independent_unit_count": 8,
+    "group_count": 2,
+    "technical_repeats_per_unit": 3,
+    "units": {
+      "value": "a.u. (demo assumption)"
+    },
+    "scope": "独立单位均值的两组 Welch 检验与 Holm 校正",
+    "expected_summary": [
+      "每组独立 n = 4（不是 12）",
+      "组均值 1.6 / 5.6；Welch p ≈ 0.004659"
+    ],
+    "limitations": [
+      "实验单位身份按文件列解释，未独立核实实验设计。",
+      "测量值单位未给定，采用 a.u. 演示标签。",
+      "Welch 检验依赖独立性和分布假设；合成示例显著性不构成材料实验结论。"
+    ],
+    "row_count": 24,
+    "physical_line_count": 25,
+    "columns": [
+      "group",
+      "variable",
+      "value",
+      "sample_id",
+      "experimental_unit"
+    ],
+    "sha256": "34d583b6aa2803cb378afb0f6293cc9d4f256598ccbbe7e67454c0f632075075",
+    "bytes": 604,
+    "reference_flow": true,
+    "provenance": {
+      "source": "User-supplied repository demo_datasets/03_材料组间试验与显著性_Contrast.csv",
+      "experimental_provenance_verified": false,
+      "data_kind": "synthetic",
+      "description": "用户提供的演示样例；没有可核验实验记录，按合成/演示数据处理。原始字节保持不变。"
+    }
+  },
+  {
+    "id": "zirconia_xrd",
+    "icon": "⚡",
+    "title": "3YSZ 氧化锆 XRD 衍射谱",
+    "format": "TXT",
+    "filename": "04_3YSZ氧化锆XRD衍射_带仪器头.txt",
+    "desc": "18 行注释与 1 行列头，3001 个衍射点；显式读取数值区并报告候选峰。",
+    "prompt": "文件名案例：3YSZ 氧化锆 XRD 衍射谱。请读取演示文件 {path}。18 行注释与 1 行列头，3001 个衍射点；显式读取数值区并报告候选峰。 无参考谱库的候选峰提取，不鉴定物相。请保留原始数据、声明单位及参数假设，搭建可修改的工作流并输出图表和 HTML 报告。仪器样式文本、材料名称、日期和波长仅是文件声明，未验证实验来源。 读取区域 A19:B3020；突出度 100 cps、线性基线是演示设定。 无参考谱库；仅报告候选峰及表观峰宽，不声称鉴定 3YSZ 物相。",
+    "comment_line_count": 18,
+    "header_line_count": 1,
+    "units": {
+      "2Theta": "deg (file declaration)",
+      "Intensity": "cps (file declaration)"
+    },
+    "scope": "无参考谱库的候选峰提取，不鉴定物相",
+    "expected_summary": [
+      "候选峰 30.2、35.1、50.4、59.8、62.8°",
+      "不进行物相确认或结构精修"
+    ],
+    "limitations": [
+      "仪器样式文本、材料名称、日期和波长仅是文件声明，未验证实验来源。",
+      "读取区域 A19:B3020；突出度 100 cps、线性基线是演示设定。",
+      "无参考谱库；仅报告候选峰及表观峰宽，不声称鉴定 3YSZ 物相。"
+    ],
+    "row_count": 3001,
+    "physical_line_count": 3020,
+    "columns": [
+      "2Theta",
+      "Intensity"
+    ],
+    "sha256": "e8e70be1a20e1bdc9ffeca4ee8874f024240538f5698916024f516466fa45ffb",
+    "bytes": 33785,
+    "reference_flow": true,
+    "provenance": {
+      "source": "User-supplied repository demo_datasets/04_3YSZ氧化锆XRD衍射_带仪器头.txt",
+      "experimental_provenance_verified": false,
+      "data_kind": "synthetic",
+      "description": "用户提供的演示样例；没有可核验实验记录，按合成/演示数据处理。原始字节保持不变。"
+    }
+  },
+  {
+    "id": "battery_cycle",
+    "icon": "🔋",
+    "title": "锂电池充放电循环特性",
+    "format": "CSV",
+    "filename": "05_锂电池充放电循环特性.csv",
+    "desc": "单循环共 1000 点，充/放电各 500 点；保留原表并分支绘制 SOC–电压曲线。",
+    "prompt": "文件名案例：锂电池充放电循环特性。请读取演示文件 {path}。单循环共 1000 点，充/放电各 500 点；保留原表并分支绘制 SOC–电压曲线。 单循环充放电曲线，不能推断循环寿命或保持率。请保留原始数据、声明单位及参数假设，搭建可修改的工作流并输出图表和 HTML 报告。只有一个循环且缺少电芯身份，不分析循环寿命、保持率或库仑效率。 每段 4990 秒、恒定电流绝对值 1.5 A，积分约 2079.17 mAh；Capacity_mAh 末值 2794.4 不一致。 SOC 使用文件列值；该列不能自动视为经校准的真实荷电状态。",
+    "cycle_count": 1,
+    "branch_counts": {
+      "Charge": 500,
+      "Discharge": 500
+    },
+    "units": {
+      "Time_s": "s (column name)",
+      "Current_A": "A (column name)",
+      "Voltage_V": "V (column name)",
+      "SOC": "fraction (demo assumption)",
+      "Capacity_mAh": "mAh (column name)"
+    },
+    "scope": "单循环充放电曲线，不能推断循环寿命或保持率",
+    "expected_summary": [
+      "充电 / 放电各 500 点；只有 Cycle = 1",
+      "容量列末值 2794.4 mAh，与电流时间积分约 2079.17 mAh 不一致"
+    ],
+    "limitations": [
+      "只有一个循环且缺少电芯身份，不分析循环寿命、保持率或库仑效率。",
+      "每段 4990 秒、恒定电流绝对值 1.5 A，积分约 2079.17 mAh；Capacity_mAh 末值 2794.4 不一致。",
+      "SOC 使用文件列值；该列不能自动视为经校准的真实荷电状态。"
+    ],
+    "row_count": 1000,
+    "physical_line_count": 1001,
+    "columns": [
+      "Time_s",
+      "Cycle",
+      "Step",
+      "Current_A",
+      "Voltage_V",
+      "SOC",
+      "Capacity_mAh"
+    ],
+    "sha256": "20d3ca71f1bd3133ac77924a6cf034a5606d048276738f1ca3271c09e47d94ff",
+    "bytes": 38546,
+    "reference_flow": true,
+    "provenance": {
+      "source": "User-supplied repository demo_datasets/05_锂电池充放电循环特性.csv",
+      "experimental_provenance_verified": false,
+      "data_kind": "synthetic",
+      "description": "用户提供的演示样例；没有可核验实验记录，按合成/演示数据处理。原始字节保持不变。"
+    }
+  }
+]

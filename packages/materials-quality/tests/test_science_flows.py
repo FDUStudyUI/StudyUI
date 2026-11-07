@@ -24,7 +24,7 @@ def test_gallery_covers_every_new_node():
     assert len(FLOWS) == 9
     classes = {e["class_name"]: e["key"] for e in entries()}
     found = set()
-    for path in FLOWS:
+    for path in [*FLOWS, *(ROOT / "examples/paper_flows").glob("*.json")]:
         data = json.loads(path.read_text(encoding="utf-8"))
         found.update(
             classes[n["data"]["type"]] for n in data["data"]["nodes"] if n["data"]["type"] in classes

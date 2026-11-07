@@ -8,12 +8,24 @@ def test_zenodo_identifier_uses_fixed_datacite_doi_endpoint(monkeypatch):
 
     def get(url, params):
         calls.append((url, params))
-        return json.dumps({"data": {"attributes": {
-            "doi": "10.5281/zenodo.12345",
-            "titles": [{"title": "Open research data"}],
-            "descriptions": [{"description": "<p>Measurement metadata</p>"}],
-            "relatedIdentifiers": [{"relatedIdentifier": "10.1/example", "relatedIdentifierType": "DOI", "relationType": "IsSupplementTo"}],
-        }}}).encode()
+        return json.dumps(
+            {
+                "data": {
+                    "attributes": {
+                        "doi": "10.5281/zenodo.12345",
+                        "titles": [{"title": "Open research data"}],
+                        "descriptions": [{"description": "<p>Measurement metadata</p>"}],
+                        "relatedIdentifiers": [
+                            {
+                                "relatedIdentifier": "10.1/example",
+                                "relatedIdentifierType": "DOI",
+                                "relationType": "IsSupplementTo",
+                            }
+                        ],
+                    }
+                }
+            }
+        ).encode()
 
     monkeypatch.setattr(academic_search, "_get", get)
     result = academic_search.search("Zenodo record 12345 battery experiment", providers=["datacite"])
@@ -27,21 +39,25 @@ def test_zenodo_identifier_uses_fixed_datacite_doi_endpoint(monkeypatch):
 
 def test_openalex_abstract_inversion(monkeypatch):
     def get(url, params):
-        return json.dumps({
-            "results": [{
-                "title": "Study of Ti Alloys",
-                "doi": "https://doi.org/10.1000/182",
-                "publication_year": 2024,
-                "authorships": [{"author": {"display_name": "Alice"}}],
-                "abstract_inverted_index": {
-                    "Titanium": [0],
-                    "alloys": [1],
-                    "exhibit": [2],
-                    "high": [3],
-                    "strength.": [4],
-                },
-            }]
-        }).encode()
+        return json.dumps(
+            {
+                "results": [
+                    {
+                        "title": "Study of Ti Alloys",
+                        "doi": "https://doi.org/10.1000/182",
+                        "publication_year": 2024,
+                        "authorships": [{"author": {"display_name": "Alice"}}],
+                        "abstract_inverted_index": {
+                            "Titanium": [0],
+                            "alloys": [1],
+                            "exhibit": [2],
+                            "high": [3],
+                            "strength.": [4],
+                        },
+                    }
+                ]
+            }
+        ).encode()
 
     monkeypatch.setattr(academic_search, "_get", get)
     result = academic_search.search("Ti alloy tensile strength", providers=["openalex"])

@@ -6,6 +6,7 @@ import csv
 import hashlib
 import io
 import math
+import os
 import re
 import zipfile
 from pathlib import Path
@@ -14,7 +15,11 @@ MAX_FILE_BYTES = 25 * 1024 * 1024
 MAX_EXPANDED_BYTES = 150 * 1024 * 1024
 SUPPORTED = {".csv", ".tsv", ".txt", ".ras", ".xlsx", ".xlsm"}
 NUMBER = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
-READ_DENIAL = re.compile(r"(?:不要|禁止|不得|不许|切勿|撤销).{0,12}(?:读取|访问|打开|检查|分析文件|文件访问)|(?:不允许|禁止).{0,8}文件(?:读取|访问)", re.I)
+READ_DENIAL = re.compile(
+    r"(?:不要|禁止|不得|不许|切勿|撤销).{0,12}(?:读取|访问|打开|检查|分析文件|文件访问)"
+    r"|(?:不允许|禁止).{0,8}文件(?:读取|访问)",
+    re.I,
+)
 
 
 def authorized_file(path, user_text):
@@ -24,28 +29,46 @@ def authorized_file(path, user_text):
     if READ_DENIAL.search(str(user_text)):
         raise PermissionError("用户已限制本次文件读取。")
     clean_path = path.strip().strip("'\"").replace("\\", "/")
-    original = Path(clean_path)
-    if not original.is_absolute():
-        original = (Path.cwd() / original).resolve()
-    needle = clean_path.casefold()
-    name_needle = original.name.casefold()
-    text = str(user_text).replace("\\", "/").casefold()
-    positions = [m.start() for m in re.finditer(re.escape(needle), text)]
-    name_positions = [m.start() for m in re.finditer(re.escape(name_needle), text)]
-    mentioned = any(
-        (end == len(text) or not (text[end].isascii() and (text[end].isalnum() or text[end] in "_-/")))
-        and not (end + 1 < len(text) and text[end] == "." and text[end + 1].isalnum())
-        for end in (start + len(needle) for start in positions)
-    ) or any(
-        (end == len(text) or not (text[end].isascii() and (text[end].isalnum() or text[end] in "_-/")))
-        and not (end + 1 < len(text) and text[end] == "." and text[end + 1].isalnum())
-        for end in (start + len(name_needle) for start in name_positions)
+    supplied = Path(clean_path)
+    cwd = Path.cwd()
+    original = cwd / supplied
+
+    message = str(user_text).replace("\\", "/")
+    quoted = re.compile(r"""(?<!\w)(?P<quote>["'`])(?P<path>[^\r\n]+?)(?P=quote)(?!\w)""")
+    mentions = {match["path"] for match in quoted.finditer(message)}
+    # Spaces are legal in paths. Unquoted paths occupy the whole line after
+    # an optional read instruction, so a suffix of a longer path cannot match.
+    prefix = re.compile(
+        r"^(?:请帮我|请|帮我|please\s+)?\s*"
+        r"(?:读取|访问|打开|检查|分析|研究|inspect|read|analy[sz]e|open|check)(?:\s+|[：:]\s*)",
+        re.IGNORECASE,
     )
-    if not mentioned:
+    for line in quoted.sub("\x00", message).splitlines():
+        path_text = line.strip()
+        if path_text.endswith((".", "。", "!", "！", "?", "？")):
+            path_text = path_text[:-1].rstrip()
+        mentions.add(prefix.sub("", path_text, count=1))
+    candidates = {clean_path, original.as_posix()}
+    resolved = original.resolve()
+    for actual_path in (original, resolved):
+        candidates.add(actual_path.as_posix())
+        if actual_path.is_relative_to(cwd):
+            relative = actual_path.relative_to(cwd).as_posix()
+            candidates.update((relative, "./" + relative))
+
+    matched = bool(candidates & mentions)
+    if not matched and os.name == "nt":
+        lowercase_paths = {candidate.lower() for candidate in candidates}
+        for mention in mentions:
+            if mention.lower() in lowercase_paths:
+                mentioned_path = (cwd / mention).resolve()
+                if mentioned_path.as_posix() == resolved.as_posix():
+                    matched = True
+                    break
+    if not matched:
         raise PermissionError("只能检查用户在会话中明确提供或提及的数据文件路径。")
     if original.is_symlink():
         raise ValueError("不支持符号链接文件；请提供真实文件路径。")
-    resolved = original.resolve(strict=True)
     if not resolved.is_file() or resolved.suffix.casefold() not in SUPPORTED:
         raise ValueError("仅支持本地 CSV、TSV、TXT、RAS 和 Excel 数据文件。")
     if resolved.stat().st_size > MAX_FILE_BYTES:
@@ -57,8 +80,10 @@ def _labels(row, row_number):
     # A mixed row may be a measurement row with sample identifiers; never
     # forward its text values as supposedly descriptive headers.
     if any(
-        isinstance(value, (int, float)) and not isinstance(value, bool)
-        or isinstance(value, str) and bool(NUMBER.fullmatch(value.strip()))
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        or isinstance(value, str)
+        and bool(NUMBER.fullmatch(value.strip()))
         for value in row
         if value is not None
     ):
@@ -100,12 +125,22 @@ def inspect_file(path):
                 numeric_positions = {}
                 header_map = {}
                 observed_rows = min(sheet.max_row or 0, 1000)
-                for row_number, row in enumerate(sheet.iter_rows(min_row=1, max_row=max(observed_rows, 1), max_col=min(sheet.max_column or 1, 512), values_only=True), 1):
+                for row_number, row in enumerate(
+                    sheet.iter_rows(
+                        min_row=1,
+                        max_row=max(observed_rows, 1),
+                        max_col=min(sheet.max_column or 1, 512),
+                        values_only=True,
+                    ),
+                    1,
+                ):
                     if row_number <= 2:
                         row_labels = _labels(row, row_number)
                         labels.extend(row_labels[:35])
                         header_map.update({item["column"]: item["label"] for item in row_labels})
-                    used_columns.update(index for index, value in enumerate(row, 1) if value is not None and value != "")
+                    used_columns.update(
+                        index for index, value in enumerate(row, 1) if value is not None and value != ""
+                    )
                     for column, value in enumerate(row, 1):
                         number = isinstance(value, (int, float)) and not isinstance(value, bool)
                         numeric_text = isinstance(value, str) and bool(NUMBER.fullmatch(value.strip()))
@@ -113,49 +148,65 @@ def inspect_file(path):
                             numeric_positions.setdefault(column, set()).add(row_number)
                     if row_number >= 3:
                         for column, value in enumerate(row, 1):
-                            if isinstance(value, str) and value.strip() and not NUMBER.fullmatch(value.strip()):
+                            if (
+                                isinstance(value, str)
+                                and value.strip()
+                                and not NUMBER.fullmatch(value.strip())
+                            ):
                                 text_positions.setdefault(column, []).append(row_number)
                             elif isinstance(value, (int, float)) and not isinstance(value, bool):
                                 numeric_columns.add(column)
                 sparse = []
                 for column, positions in text_positions.items():
-                    if column in numeric_columns or not 2 <= len(positions) <= 50 or len(positions) * 4 >= max(observed_rows - 2, 1):
+                    if (
+                        column in numeric_columns
+                        or not 2 <= len(positions) <= 50
+                        or len(positions) * 4 >= max(observed_rows - 2, 1)
+                    ):
                         continue
-                    gaps = [b - a for a, b in zip(positions, positions[1:])]
-                    sparse.append({
-                        "column": column,
-                        "nonempty_text_cells": len(positions),
-                        "rows": positions,
-                        "uniform_spacing": gaps[0] if gaps and len(set(gaps)) == 1 else None,
-                    })
+                    gaps = [b - a for a, b in zip(positions, positions[1:], strict=False)]
+                    sparse.append(
+                        {
+                            "column": column,
+                            "nonempty_text_cells": len(positions),
+                            "rows": positions,
+                            "uniform_spacing": gaps[0] if gaps and len(set(gaps)) == 1 else None,
+                        }
+                    )
                 pairs = []
                 for column, positions in numeric_positions.items():
                     shared = positions & numeric_positions.get(column + 1, set())
                     if len(shared) < 2:
                         continue
                     first, last = min(shared), max(shared)
-                    pairs.append({
-                        "columns": [column, column + 1],
-                        "candidate_headers": [header_map.get(column), header_map.get(column + 1)],
-                        "paired_finite_rows": len(shared),
-                        "first_row": first,
-                        "last_row": last,
-                        "contiguous": last - first + 1 == len(shared),
-                    })
+                    pairs.append(
+                        {
+                            "columns": [column, column + 1],
+                            "candidate_headers": [header_map.get(column), header_map.get(column + 1)],
+                            "paired_finite_rows": len(shared),
+                            "first_row": first,
+                            "last_row": last,
+                            "contiguous": last - first + 1 == len(shared),
+                        }
+                    )
                 pairs.sort(key=lambda pair: (-pair["paired_finite_rows"], pair["columns"][0]))
-                result["sheets"].append({
-                    "name": sheet.title,
-                    "rows": sheet.max_row,
-                    "columns": sheet.max_column,
-                    "observed_rows_for_used_columns": observed_rows,
-                    "observed_nonempty_columns": len(used_columns),
-                    "observed_last_nonempty_column": max(used_columns, default=0),
-                    "sparse_text_columns_after_first_two_rows": sparse[:20],
-                    "adjacent_numeric_pairs": pairs[:8],
-                    "pair_note": "仅说明相邻列数值覆盖；物理含义须依据候选表头和来源核实，不能自动认定为横轴/信号。",
-                    "first_two_rows_text_labels": labels,
-                    "labels_may_be_truncated": True,
-                })
+                result["sheets"].append(
+                    {
+                        "name": sheet.title,
+                        "rows": sheet.max_row,
+                        "columns": sheet.max_column,
+                        "observed_rows_for_used_columns": observed_rows,
+                        "observed_nonempty_columns": len(used_columns),
+                        "observed_last_nonempty_column": max(used_columns, default=0),
+                        "sparse_text_columns_after_first_two_rows": sparse[:20],
+                        "adjacent_numeric_pairs": pairs[:8],
+                        "pair_note": (
+                            "仅说明相邻列数值覆盖。列的物理含义需依据候选表头和来源核实。"
+                        ),
+                        "first_two_rows_text_labels": labels,
+                        "labels_may_be_truncated": True,
+                    }
+                )
         finally:
             book.close()
         if result.get("sheets"):
@@ -163,8 +214,16 @@ def inspect_file(path):
             result["recommended_import_config"] = {
                 "sheet": sheet0["name"],
                 "header": 0 if sheet0.get("first_two_rows_text_labels") else None,
-                "note": f"首选工作表 '{sheet0['name']}'，共 {sheet0.get('rows', 0)} 行、{sheet0.get('columns', 0)} 列。",
+                "note": (
+                    f"首选工作表 '{sheet0['name']}'，共 {sheet0.get('rows', 0)} 行、"
+                    f"{sheet0.get('columns', 0)} 列。"
+                ),
             }
+        result["standards_and_compliance"] = audit_standards_and_dimensions(
+            path,
+            [cell["label"] for sheet in result["sheets"] for cell in sheet["first_two_rows_text_labels"]],
+            None,
+        )
         return result
 
     for encoding in ("utf-8-sig", "utf-8", "gb18030", "gbk", "cp936", "shift_jis", "latin1"):
@@ -176,7 +235,11 @@ def inspect_file(path):
     else:
         raise ValueError("无法识别文本编码，仅支持常见 UTF-8、GBK/GB18030 及 Shift-JIS 编码文本文件。")
     try:
-        delimiter = " " if path.suffix.lower() == ".ras" else csv.Sniffer().sniff(text[:65536], delimiters=",;\t| ").delimiter
+        delimiter = (
+            " "
+            if path.suffix.lower() == ".ras"
+            else csv.Sniffer().sniff(text[:65536], delimiters=",;\t| ").delimiter
+        )
     except csv.Error:
         delimiter = ","
     rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
@@ -191,11 +254,13 @@ def inspect_file(path):
                 start, width = index, len(values)
         else:
             if start is not None and index - start >= 2:
-                blocks.append({"start_row": start, "end_row": index - 1, "nonempty_numeric_cells_per_row": width})
+                blocks.append(
+                    {"start_row": start, "end_row": index - 1, "nonempty_numeric_cells_per_row": width}
+                )
             start, width = (index, len(values)) if numeric else (None, None)
     result["numeric_blocks"] = sorted(blocks, key=lambda b: b["end_row"] - b["start_row"], reverse=True)[:5]
     for block in result["numeric_blocks"]:
-        selected = rows[block["start_row"] - 1:block["end_row"]]
+        selected = rows[block["start_row"] - 1 : block["end_row"]]
         values = []
         for row in selected:
             if not row or not NUMBER.fullmatch(row[0].strip()):
@@ -207,7 +272,7 @@ def inspect_file(path):
                 break
             values.append(value)
         if len(values) >= 2:
-            differences = [b - a for a, b in zip(values, values[1:])]
+            differences = [b - a for a, b in zip(values, values[1:], strict=False)]
             dec = all(d < 0 for d in differences)
             block["first_column_order"] = {
                 "checked_rows": len(values),
@@ -216,7 +281,9 @@ def inspect_file(path):
                 "adjacent_equal_count": sum(d == 0 for d in differences),
             }
             if dec:
-                block["first_column_order"]["warning"] = "第一列呈严格递减顺序。光谱或XRD等算法要求横坐标单调递增，分析前须升序排序。"
+                block["first_column_order"]["warning"] = (
+                    "第一列严格递减。如目标算法要求横轴递增，确认列含义后可对配对行按该列排序。"
+                )
             block["first_column_order_note"] = "仅为该数值区块第一列的顺序检查，不确定其物理含义。"
     result["numeric_blocks_note"] = "只统计每行非空数值单元格；空列被跳过，不一定是连续列或完整数据范围。"
     result["maximum_columns"] = max((len(row) for row in rows), default=0)
@@ -231,7 +298,10 @@ def inspect_file(path):
             recommended["skip_rows"] = main_block["start_row"] - 1
             recommended["start_row"] = main_block["start_row"]
             recommended["end_row"] = main_block["end_row"]
-            recommended["note"] = f"检测到从第 {main_block['start_row']} 行起为主要连续数值区，建议设置数据区间或跳过前置元数据行。"
+            recommended["note"] = (
+                f"第 {main_block['start_row']} 行起为主要连续数值区。"
+                "可设置数据区间或跳过前置行。"
+            )
         elif main_block["start_row"] == 2:
             recommended["header"] = 0
             recommended["note"] = "第 1 行为表头，第 2 行起为数值。"
@@ -246,101 +316,108 @@ def inspect_file(path):
     return result
 
 
+# Reference names are research hints. Applicability depends on the
+# specimen, method, instrument and edition.
+DOMAIN_HINTS = (
+    (
+        ("ti64", "tensile", "拉伸", "strain", "stress", "应力", "应变", "力学"),
+        "金属力学性能测试",
+        "ASTM E8 / GB/T 228.1",
+        (
+            ("units", "应力与应变单位"),
+            ("yield_sampling", "0.2% 偏移屈服拟合点密度"),
+            ("elongation", "原始标距及断后延伸率"),
+        ),
+    ),
+    (
+        ("xrd", "衍射", "zirconia", "2theta", "diffraction", "3ysz"),
+        "X射线晶相结构分析",
+        "ASTM E915",
+        (("axis_units", "角度列及其物理单位"), ("peak_sampling", "物相检索步长与峰形拟合")),
+    ),
+    (
+        ("spectra", "spectrum", "raman", "光谱", "wavelength"),
+        "多通道光谱分析",
+        "ASTM E1840",
+        (("axis_units", "波长或波数列及其物理单位"), ("peak_threshold", "基线噪声与寻峰阈值")),
+    ),
+    (
+        ("battery", "cycle", "soc", "充放电", "电池"),
+        "电化学储能循环测试",
+        "IEC 62660 / GB/T 31486",
+        (("cycle_direction", "充放电方向"), ("voltage_window", "电压截止窗口")),
+    ),
+    (
+        ("contrast", "组间", "显著性", "repeat", "重复"),
+        "实验组间设计与统计推断",
+        "ISO/TR 22971",
+        (("replication", "独立试样和技术重复"), ("significance", "显著性水平与置信区间")),
+    ),
+)
+
+
 def audit_standards_and_dimensions(path: Path, labels: list[str], main_block: dict | None) -> dict:
-    """Atria-style deterministic watchdog for physical dimensions and test standards compliance."""
-    filename_lower = path.name.lower()
-    labels_lower = " ".join(labels).lower()
-    combined_text = f"{filename_lower} {labels_lower}"
+    """Report structural evidence and reference hints for further review.
 
-    standard_name = "ISO 5725 / GB/T 6379 (测试方法与结果的精密度及置信度)"
-    domain = "材料综合实验数据"
-    checks = []
+    Check statuses are passed, failed, not_verified, or not_applicable. The
+    first two describe the stated criterion within its scope. A format-level
+    inspection leaves overall standards compliance undetermined.
+    """
+    filename = path.name.casefold()
+    label_text = " ".join(labels).casefold()
+    domain, standard, checks = "领域待确认", None, ()
+    hint_evidence = {"filename_terms": [], "label_terms": []}
+    for terms, candidate_domain, candidate_standard, candidate_checks in DOMAIN_HINTS:
+        filename_terms = [term for term in terms if term in filename]
+        label_terms = [term for term in terms if term in label_text]
+        if filename_terms or label_terms:
+            domain, standard, checks = candidate_domain, candidate_standard, candidate_checks
+            hint_evidence = {"filename_terms": filename_terms, "label_terms": label_terms}
+            break
 
-    if any(k in combined_text for k in ("ti64", "tensile", "拉伸", "strain", "stress", "应力", "应变", "力学")):
-        standard_name = "ASTM E8 / GB/T 228.1 (金属材料拉伸试验测试规范)"
-        domain = "金属力学性能测试"
-        checks.append({
-            "item": "物理量纲自洽性",
-            "status": "pass",
-            "detail": "应变量纲为无量纲工程应变（ratio），应力推荐统一使用 MPa (N/mm²)"
-        })
-        checks.append({
-            "item": "0.2% 屈服偏差拟合点密度",
-            "status": "pass",
-            "detail": "连续采样点数满足弹性直线段斜率及 Rp0.2 割线交点拟合精度要求"
-        })
-        checks.append({
-            "item": "破断延伸率计算准则",
-            "status": "pass",
-            "detail": "遵循标准原始标距 L0 塑性变形量测量准则"
-        })
-    elif any(k in combined_text for k in ("xrd", "衍射", "zirconia", "2theta", "diffraction", "angle", "3ysz")):
-        standard_name = "ASTM E915 / JCPDS (X射线粉末衍射测试规范)"
-        domain = "X射线晶相结构分析"
-        checks.append({
-            "item": "2θ 角度轴单调性",
-            "status": "pass",
-            "detail": "衍射角扫描为标准单调递增，避免反向谱线畸变"
-        })
-        checks.append({
-            "item": "仪器元数据头剥离",
-            "status": "pass",
-            "detail": "已通过自适应数值块嗅探自动分离前置仪器测量头"
-        })
-        checks.append({
-            "item": "物相检索步长与峰形拟合",
-            "status": "pass",
-            "detail": "角度采样密度适合高斯/洛伦兹混合伪沃伊特 (Pseudo-Voigt) 拟合"
-        })
-    elif any(k in combined_text for k in ("spectra", "spectrum", "raman", "光谱", "校正", "峰位", "wavelength")):
-        standard_name = "ASTM E1840 (拉曼/分子光谱分析与波长标定规范)"
-        domain = "多通道光谱分析"
-        checks.append({
-            "item": "波长/波数轴自洽性",
-            "status": "pass",
-            "detail": "确认横轴物理单位（nm/cm⁻¹）单调递增，无错位反转"
-        })
-        checks.append({
-            "item": "基线噪声与寻峰阈值",
-            "status": "pass",
-            "detail": "支持多项式/非对称分位数基线扣除与信噪比过滤"
-        })
-    elif any(k in combined_text for k in ("battery", "cycle", "soc", "充放电", "电池", "锂")):
-        standard_name = "IEC 62660 / GB/T 31486 (电动车用动力蓄电池测试规程)"
-        domain = "电化学储能循环测试"
-        checks.append({
-            "item": "充放电拓扑分支判定",
-            "status": "pass",
-            "detail": "识别到充放电方向转变点，需采用派生分支结构分别提取充放电支路"
-        })
-        checks.append({
-            "item": "电压截止安全窗口",
-            "status": "pass",
-            "detail": "工作电压处于典型锂电安全截止窗口范围内"
-        })
-    elif any(k in combined_text for k in ("contrast", "组间", "显著性", "repeat", "重复")):
-        standard_name = "ISO/TR 22971 (材料组间差异方差分析与假阳性控制准则)"
-        domain = "实验组间设计与统计推断"
-        checks.append({
-            "item": "伪重复误差防御",
-            "status": "pass",
-            "detail": "已建立试样级技术重复均值聚合策略，避免将技术重复误算为生物/试样独立重复"
-        })
-        checks.append({
-            "item": "显著性水平与置信区间",
-            "status": "pass",
-            "detail": "支持双尾 Student's t 检验及 Tukey HSD 多重矫正"
-        })
-    else:
-        checks.append({
-            "item": "数值连续性与缺失值体检",
-            "status": "pass",
-            "detail": "数据结构规范，支持后续统计和工作流清洗"
-        })
-
+    results = [
+        {
+            "id": key,
+            "item": label,
+            "status": "not_verified",
+            "scope": "领域候选检查",
+            "evidence": None,
+            "detail": "需结合实验记录、列定义及适用的标准条款核实。",
+        }
+        for key, label in checks
+    ]
+    order = (main_block or {}).get("first_column_order")
+    order_status = "not_verified"
+    scope = {"column": 1}
+    if main_block:
+        scope.update(start_row=main_block.get("start_row"), end_row=main_block.get("end_row"))
+    if (
+        isinstance(order, dict)
+        and isinstance(order.get("strictly_increasing"), bool)
+        and isinstance(order.get("checked_rows"), int)
+        and order["checked_rows"] >= 2
+    ):
+        order_status = "passed" if order["strictly_increasing"] else "failed"
+    results.append(
+        {
+            "id": "first_column_increasing",
+            "item": "主数值区第一列严格递增",
+            "status": order_status,
+            "scope": scope,
+            "evidence": order,
+            "detail": (
+                "判据为区块中所有相邻有限数值严格递增。"
+                "此项仅检查记录顺序，物理轴身份及标准适用性待核实。"
+            ),
+        }
+    )
     return {
-        "standard": standard_name,
+        "standard": standard,
+        "standard_status": "reference_hint" if standard else "not_verified",
         "domain": domain,
-        "checks": checks,
-        "compliance_passed": True
+        "domain_status": "suggested" if standard else "not_verified",
+        "domain_evidence": hint_evidence,
+        "checks": results,
+        "compliance_status": "not_verified",
+        "compliance_passed": None,
     }

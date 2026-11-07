@@ -15,7 +15,7 @@ from lfx.graph import Graph
 from PIL import Image
 
 from components.materials_sources.science_fixture_bundle import ScienceFixtureBundle
-from materials_quality.science.catalog import component_class, entries
+from materials_quality.science.catalog import PAPER_OPERATIONS, component_class, entries
 from materials_quality.science.ui_config_import import config_to_form
 from materials_quality.science.ui_schema import REPORT_COLLECTION_KEYS, contract_for, fields_for
 
@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / "examples/science_flows"
 IO = ROOT / "examples/science/io/fixtures"
 MAT = ROOT / "examples/science/materials/fixtures"
-CATALOG = {item["key"]: item for item in entries()}
+CATALOG = {item["key"]: item for item in entries() if item["key"] not in PAPER_OPERATIONS}
 
 
 def encoded(obj):
