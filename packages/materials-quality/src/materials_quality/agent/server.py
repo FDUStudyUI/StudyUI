@@ -702,10 +702,38 @@ async function submit(){
   let fullTargetText='';
   let turnFinishedData=null;
   let typingDone=false;
+  let collectedReasoning='';
+  let reasoningDirty=false;
+  let reasoningRaf=null;
+
+  function flushReasoningDisplay(){
+    if(!collectedReasoning)return;
+    thinkingBox.style.display='block';
+    const tBox=thinkingBox.querySelector('#live-thinking-text');
+    if(tBox){
+      const isUserScrolledUp=tBox.scrollHeight - tBox.scrollTop - tBox.clientHeight > 45;
+      tBox.textContent=collectedReasoning;
+      if(!isUserScrolledUp){tBox.scrollTop=tBox.scrollHeight;}
+    }
+    const countSpan=thinkingBox.querySelector('.thinking-char-count');
+    if(countSpan)countSpan.textContent=`· 共 ${collectedReasoning.length} 字`;
+    const isFeedScrolledUp=feed.scrollHeight - feed.scrollTop - feed.clientHeight > 80;
+    if(!isFeedScrolledUp){feed.scrollTop=feed.scrollHeight;}
+  }
+
+  function scheduleReasoningRender(){
+    if(reasoningDirty)return;
+    reasoningDirty=true;
+    reasoningRaf=requestAnimationFrame(()=>{
+      reasoningDirty=false;
+      flushReasoningDisplay();
+    });
+  }
 
   function renderFinalView(data){
     if(typingDone)return;
     typingDone=true;
+    if(reasoningRaf){cancelAnimationFrame(reasoningRaf);reasoningRaf=null;}
     clearInterval(timerInterval);
     clearInterval(typeInterval);
     send.disabled=false;
@@ -731,12 +759,13 @@ async function submit(){
       auditBox.remove();
     }
 
-    if(data.reasoning_content&&data.reasoning_content.trim()){
+    const finalReasoning=(data.reasoning_content||collectedReasoning||'').trim();
+    if(finalReasoning){
       thinkingBox.style.display='block';
       const thinkText=thinkingBox.querySelector('.thinking-content');
-      if(thinkText)thinkText.textContent=data.reasoning_content.trim();
+      if(thinkText)thinkText.textContent=finalReasoning;
       const countSpan=thinkingBox.querySelector('.thinking-char-count');
-      if(countSpan)countSpan.textContent=`· 共 ${data.reasoning_content.trim().length} 字`;
+      if(countSpan)countSpan.textContent=`· 共 ${finalReasoning.length} 字`;
       const thinkTimer=thinkingBox.querySelector('.thinking-live-timer');
       if(thinkTimer)thinkTimer.textContent=`思考耗时 ${elapsed}s`;
     }else{
@@ -763,20 +792,22 @@ async function submit(){
     refresh();
   }
 
-  // Smooth progressive typing cadence pump:
-  // Paces out ~25-35 chars/sec in small clusters every 65ms, creating a steady, natural cadence ("每隔一两秒吐出一小坨").
+  // Smooth progressive typing cadence pump with adaptive catch-up:
   const typeInterval=setInterval(()=>{
+    if(turnFinishedData){
+      displayedText=fullTargetText;
+      renderFinalView(turnFinishedData);
+      return;
+    }
     if(displayedText.length<fullTargetText.length){
       const remaining=fullTargetText.length-displayedText.length;
-      const step=remaining>200?Math.min(6,Math.ceil(remaining/25)):(remaining>50?4:(remaining>12?3:2));
+      const step=remaining>300?Math.max(20,Math.ceil(remaining/5)):(remaining>100?Math.max(12,Math.ceil(remaining/8)):(remaining>40?Math.max(6,Math.ceil(remaining/10)):Math.min(remaining,3)));
       displayedText+=fullTargetText.slice(displayedText.length,displayedText.length+step);
       contentBox.innerHTML=escapeHtml(displayedText)+'<span class="typing-cursor"></span>';
       const isFeedScrolledUp=feed.scrollHeight - feed.scrollTop - feed.clientHeight > 80;
       if(!isFeedScrolledUp){feed.scrollTop=feed.scrollHeight;}
-    }else if(turnFinishedData){
-      renderFinalView(turnFinishedData);
     }
-  },65);
+  },35);
 
   try{
     const res=await fetch(`/api/sessions/${active}/messages`,{
@@ -793,7 +824,6 @@ async function submit(){
       const reader=res.body.getReader();
       const decoder=new TextDecoder();
       let buffer='';
-      let collectedReasoning='';
       while(true){
         const {done,value}=await reader.read();
         if(done)break;
@@ -842,18 +872,12 @@ async function submit(){
                 li.innerHTML=`<span class="audit-step-icon">${step.ok?'✓':'✕'}</span><div class="audit-step-body"><div class="audit-step-title-row"><span class="audit-step-name">${step.icon||'🛠️'} ${escapeHtml(step.title||step.name)}</span><span class="audit-step-duration">${step.duration_ms||10}ms</span></div><div class="audit-step-detail">${escapeHtml(step.summary||'执行完成')}</div></div>`;
                 feed.scrollTop=feed.scrollHeight;
               }else if(eventType==='reasoning'){
-                thinkingBox.style.display='block';
-                collectedReasoning=payload.reasoning_content||(collectedReasoning+(payload.delta||''));
-                const tBox=thinkingBox.querySelector('#live-thinking-text');
-                if(tBox){
-                  const isUserScrolledUp=tBox.scrollHeight - tBox.scrollTop - tBox.clientHeight > 45;
-                  tBox.textContent=collectedReasoning;
-                  if(!isUserScrolledUp){tBox.scrollTop=tBox.scrollHeight;}
+                if(payload.reasoning_content){
+                  collectedReasoning=payload.reasoning_content;
+                }else if(payload.delta){
+                  collectedReasoning+=payload.delta;
                 }
-                const countSpan=thinkingBox.querySelector('.thinking-char-count');
-                if(countSpan)countSpan.textContent=`· 共 ${collectedReasoning.length} 字`;
-                const isFeedScrolledUp=feed.scrollHeight - feed.scrollTop - feed.clientHeight > 80;
-                if(!isFeedScrolledUp){feed.scrollTop=feed.scrollHeight;}
+                scheduleReasoningRender();
               }else if(eventType==='content_chunk'){
                 if(payload.delta){
                   fullTargetText+=payload.delta;
@@ -863,15 +887,16 @@ async function submit(){
                   fullTargetText=payload.content;
                 }
               }else if(eventType==='done'){
+                if(reasoningRaf){cancelAnimationFrame(reasoningRaf);reasoningRaf=null;}
                 const data=payload.result||payload;
                 if(data.model)activeModelName=data.model;
                 if(data.message&&data.message.length>fullTargetText.length){
                   fullTargetText=data.message;
                 }
                 turnFinishedData=data;
-                if(displayedText.length>=fullTargetText.length){
-                  renderFinalView(data);
-                }
+                displayedText=fullTargetText;
+                flushReasoningDisplay();
+                renderFinalView(data);
                 return;
               }
             }catch(err){}
@@ -883,17 +908,18 @@ async function submit(){
       if(data.model)activeModelName=data.model;
       fullTargetText=data.message||'';
       turnFinishedData=data;
-      if(!fullTargetText){
-        renderFinalView(data);
-      }
+      displayedText=fullTargetText;
+      renderFinalView(data);
     }
   }catch(e){
+    if(reasoningRaf){cancelAnimationFrame(reasoningRaf);reasoningRaf=null;}
     clearInterval(timerInterval);
     clearInterval(typeInterval);
     auditBox.remove();
     thinkingBox.remove();
     contentBox.innerHTML=`<span style="color:#b32626">出错了：${escapeHtml(e.message)}</span>`;
   }finally{
+    if(reasoningRaf){cancelAnimationFrame(reasoningRaf);reasoningRaf=null;}
     send.disabled=false;
     input.focus();
   }

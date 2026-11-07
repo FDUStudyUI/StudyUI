@@ -740,7 +740,7 @@ class StudyUIAgent:
                     st = getattr(self._turn_state, "value", {})
                     cur_r = st.get("reasoning_content", "")
                     st["reasoning_content"] = (cur_r + delta) if cur_r else delta
-                    emit("reasoning", {"reasoning_content": st["reasoning_content"], "delta": delta})
+                    emit("reasoning", {"delta": delta})
                 elif kind == "content":
                     emit("content_chunk", {"delta": delta})
 
@@ -776,8 +776,12 @@ class StudyUIAgent:
 
             if raw_reasoning:
                 cur_r = state.get("reasoning_content", "")
-                state["reasoning_content"] = (cur_r + "\n\n" + raw_reasoning).strip() if cur_r else raw_reasoning
-                emit("reasoning", {"reasoning_content": state["reasoning_content"], "delta": raw_reasoning})
+                if not cur_r:
+                    state["reasoning_content"] = raw_reasoning
+                    emit("reasoning", {"reasoning_content": raw_reasoning, "delta": raw_reasoning})
+                elif cur_r != raw_reasoning and not cur_r.endswith(raw_reasoning):
+                    state["reasoning_content"] = (cur_r + "\n\n" + raw_reasoning).strip()
+                    emit("reasoning", {"reasoning_content": state["reasoning_content"], "delta": raw_reasoning})
 
             tool_calls = response.get("tool_calls") or []
             if not tool_calls and not str(response.get("content") or "").strip() and empty_replies < 2:

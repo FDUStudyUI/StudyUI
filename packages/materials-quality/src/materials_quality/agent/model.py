@@ -46,7 +46,10 @@ class ChatModel:
 
     @property
     def deepseek_api(self):
-        return urlsplit(self.base_url).hostname in {"api.deepseek.com", "api.deepseek.cn"}
+        return (
+            urlsplit(self.base_url).hostname in {"api.deepseek.com", "api.deepseek.cn"}
+            or "deepseek" in (self.model or "").casefold()
+        )
 
     @property
     def supports_vision(self):
@@ -104,8 +107,11 @@ class ChatModel:
                                 break
                             try:
                                 chunk_obj = json.loads(data_str)
-                                choice = chunk_obj.get("choices", [{}])[0]
-                                delta = choice.get("delta", {})
+                                choices = chunk_obj.get("choices") or []
+                                if not choices:
+                                    continue
+                                choice = choices[0]
+                                delta = choice.get("delta") or {}
                                 if delta.get("reasoning_content"):
                                     r_delta = delta["reasoning_content"]
                                     accumulated_reasoning.append(r_delta)
@@ -209,7 +215,7 @@ class ChatModel:
             payload["thinking"] = {"type": "disabled" if self.reasoning_effort == "none" else "enabled"}
             if self.reasoning_effort != "none":
                 payload["reasoning_effort"] = self.reasoning_effort
-        if self.deepseek_api and self.reasoning_effort != "none":
+        if self.deepseek_api and self.reasoning_effort in {"low", "high", "max"}:
             payload["max_tokens"] = max(max_tokens, 65536 if self.reasoning_effort == "max" else 32768)
         if tools:
             payload["tools"] = tools
@@ -222,7 +228,7 @@ class ChatModel:
             payload["stream"] = True
             try:
                 msg = self._execute_http(payload, headers, is_stream=True, on_chunk=on_chunk)
-                if isinstance(msg, dict) and (msg.get("content") is not None or msg.get("tool_calls")):
+                if isinstance(msg, dict) and (msg.get("content") is not None or msg.get("tool_calls") or msg.get("reasoning_content")):
                     return msg
             except Exception:
                 pass
