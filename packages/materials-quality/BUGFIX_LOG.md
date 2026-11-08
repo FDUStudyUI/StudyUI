@@ -794,8 +794,9 @@ Fixture corrections (not counted as defects):
 - test job: the corrupt-database fixture wrote a 28-byte text file. SQLite
   builds on Linux accept files shorter than the 100-byte header as empty
   databases, so no error was raised. The fixture now writes a valid 16-byte
-  magic header with an invalid page size (528 bytes total), which every SQLite
-  build rejects.
+  magic header with an invalid page size (528 bytes total), and the query
+  reads `sqlite_master`: a bare "select 1" never touches the file on Linux
+  SQLite builds, so no content-only fixture could raise there.
 - ui job: the two rich-rendering chat fixtures did not mock `/api/workspaces`,
   so `allWorkspaces` became `{}` and the whole chat view crashed with
   `allWorkspaces.find is not a function`. After that, two assertions still
