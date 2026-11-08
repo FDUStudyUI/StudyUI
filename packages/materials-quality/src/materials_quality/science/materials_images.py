@@ -136,6 +136,11 @@ def morphology(config, data):
         )
     else:
         pixel_size = positive(pixel_size, "pixel_size")
+        if not np.isfinite(pixel_size * pixel_size):
+            raise ValueError(
+                "pixel_size is too large to produce finite calibrated areas; "
+                "choose a smaller physical pixel size"
+            )
     connectivity = config.get("connectivity", 1)
     if type(connectivity) is not int or connectivity not in {1, 2}:
         raise ValueError("connectivity must be 1 (4-neighbour) or 2 (8-neighbour)")

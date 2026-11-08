@@ -17,6 +17,44 @@ def _now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def validate_workspace_catalog(workspace, path):
+    """Validate the shared workspace catalog loaded from disk.
+
+    A corrupted or hand-edited catalog must surface one actionable ValueError
+    instead of an incidental TypeError/KeyError deep inside project handling.
+    """
+    if not isinstance(workspace, dict):
+        raise ValueError(f"workspace 目录文件格式无效：{path}；请备份后修复或删除该文件。")
+    for key in ("projects", "workspaces", "variables"):
+        value = workspace.setdefault(key, [])
+        if not isinstance(value, list):
+            raise ValueError(f"workspace 目录文件字段 {key} 必须是列表：{path}；请备份后修复或删除该文件。")
+    for row in workspace["projects"]:
+        if (
+            not isinstance(row, dict)
+            or not isinstance(row.get("id"), str)
+            or not row["id"]
+            or not isinstance(row.get("name"), str)
+        ):
+            raise ValueError(f"workspace 目录文件包含无效的项目条目：{path}；请备份后修复或删除该文件。")
+    for row in workspace["workspaces"]:
+        if not isinstance(row, dict) or not isinstance(row.get("id"), str) or not row["id"]:
+            raise ValueError(f"workspace 目录文件包含无效的工作区条目：{path}；请备份后修复或删除该文件。")
+    return workspace
+
+
+def _load_workspace_catalog(path):
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        raise
+    try:
+        workspace = json.loads(raw)
+    except ValueError as exc:
+        raise ValueError(f"workspace 目录文件已损坏：{path}（{exc}）；请备份后修复或删除该文件。") from exc
+    return validate_workspace_catalog(workspace, path)
+
+
 class SessionStore:
     def __init__(self, path, *, workspace_file=None, workflow_root=None):
         self.path = Path(path).expanduser().absolute()
@@ -32,7 +70,14 @@ class SessionStore:
             out.write((json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
             out.flush()
             os.fsync(out.fileno())
-        os.replace(temporary, path)
+        try:
+            os.replace(temporary, path)
+        finally:
+            if os.path.exists(temporary):
+                try:
+                    os.unlink(temporary)
+                except OSError:
+                    pass
 
     def _workspace_operation(self, operation=None):
         """Use the same project catalog as the canvas and mirror IDs for session foreign keys."""
@@ -40,12 +85,10 @@ class SessionStore:
             return None
         with FileLock(str(self.workspace_file) + ".lock", timeout=30), self._connect() as db:
             if self.workspace_file.exists():
-                workspace = json.loads(self.workspace_file.read_text(encoding="utf-8"))
+                workspace = _load_workspace_catalog(self.workspace_file)
             else:
                 workspace = {"projects": [], "workspaces": [], "variables": []}
-            projects = workspace.setdefault("projects", [])
-            workspace.setdefault("workspaces", [])
-            workspace.setdefault("variables", [])
+            projects = workspace["projects"]
             if not workspace.get("session_projects_migrated"):
                 known = {p["id"] for p in projects}
                 for row in db.execute(
@@ -656,31 +699,29 @@ class SessionStore:
         if since is not None:
             query += " AND created_at>=?"
             params.append(str(since))
-        query += " ORDER BY created_at,id"
+        # rowid preserves insertion order, which is the real tie-breaker for
+        # artifacts registered within the same second.
+        query += " ORDER BY created_at,rowid"
         with self._connect() as db:
             rows = db.execute(query, params).fetchall()
         return [self._public_artifact(row) for row in rows]
 
     def latest_artifacts(self, session_id):
         """Return newest artifacts by name and content while keeping all history downloadable by id."""
+        # list_artifacts is ordered by (created_at, rowid); the enumeration index
+        # carries that insertion order so same-second writes rank correctly.
         latest = {}
-        for item in self.list_artifacts(session_id):
+        for sequence, item in enumerate(self.list_artifacts(session_id)):
+            key = (item["created_at"], sequence)
             previous = latest.get(item["name"])
-            if previous is None or (item["created_at"], item["id"]) > (
-                previous["created_at"],
-                previous["id"],
-            ):
-                latest[item["name"]] = item
+            if previous is None or key > previous[0]:
+                latest[item["name"]] = (key, item)
         unique_content = {}
-        for item in latest.values():
-            digest = item["sha256"]
-            previous = unique_content.get(digest)
-            if previous is None or (item["created_at"], item["id"]) > (
-                previous["created_at"],
-                previous["id"],
-            ):
-                unique_content[digest] = item
-        return sorted(unique_content.values(), key=lambda item: (item["created_at"], item["id"]))
+        for key, item in latest.values():
+            previous = unique_content.get(item["sha256"])
+            if previous is None or key > previous[0]:
+                unique_content[item["sha256"]] = (key, item)
+        return [item for _, item in sorted(unique_content.values(), key=lambda pair: pair[0])]
 
     def get_artifact(self, artifact_id, session_id):
         with self._connect() as db:

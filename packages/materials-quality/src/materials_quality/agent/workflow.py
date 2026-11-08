@@ -6,6 +6,7 @@ import copy
 import difflib
 import hashlib
 import json
+import math
 import re
 
 MAX_ACTIONS = 24
@@ -488,7 +489,14 @@ def _add_node(data, action, components):
     _set_config(holder, config) if config else None
     index = len(nodes)
     x, y = action.get("x", 80 + (index % 3) * 380), action.get("y", 80 + (index // 3) * 280)
-    if type(x) not in {int, float} or type(y) not in {int, float} or abs(x) > 100_000 or abs(y) > 100_000:
+    if (
+        type(x) not in {int, float}
+        or type(y) not in {int, float}
+        or not math.isfinite(x)
+        or not math.isfinite(y)
+        or abs(x) > 100_000
+        or abs(y) > 100_000
+    ):
         raise ValueError("Node position must be finite and within the canvas bounds")
     nodes.append(
         {

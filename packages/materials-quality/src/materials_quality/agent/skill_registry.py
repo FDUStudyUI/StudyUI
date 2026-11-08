@@ -171,7 +171,11 @@ class SkillRegistry:
         try:
             upload = temp_root / "upload.zip"
             upload.write_bytes(raw)
-            with zipfile.ZipFile(upload) as archive:
+            try:
+                archive_context = zipfile.ZipFile(upload)
+            except zipfile.BadZipFile:
+                raise ValueError("Skill ZIP 无法读取；请上传有效的 .zip 压缩包。") from None
+            with archive_context as archive:
                 entries = [x for x in archive.infolist() if not x.is_dir()]
                 if len(entries) > MAX_SKILL_FILES:
                     raise ValueError("Skill ZIP exceeds 128 files")
@@ -195,7 +199,11 @@ class SkillRegistry:
                     if not target.resolve().is_relative_to(temp_root.resolve()):
                         raise ValueError("Skill ZIP path escaped the import directory")
                     target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_bytes(archive.read(entry))
+                    try:
+                        data = archive.read(entry)
+                    except (zipfile.BadZipFile, OSError):
+                        raise ValueError("Skill ZIP 内容已损坏；请重新打包后上传。") from None
+                    target.write_bytes(data)
             # The uploaded archive itself is not part of the extracted Skill tree.
             upload.unlink(missing_ok=True)
             candidates = [p.parent for p in temp_root.rglob("SKILL.md")]

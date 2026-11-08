@@ -51,6 +51,8 @@ def suggest_plan(
     base = base_url or os.environ.get("STUDYUI_MODEL_BASE_URL", "")
     name = model or os.environ.get("STUDYUI_MODEL", "")
     key = api_key if api_key is not None else os.environ.get("STUDYUI_MODEL_API_KEY", "")
+    if not isinstance(base, str) or not isinstance(name, str):
+        raise ValueError("模型辅助未配置：请设置 STUDYUI_MODEL_BASE_URL 和 STUDYUI_MODEL，或关闭模型辅助")
     parsed = urlsplit(base)
     if not name or not parsed.hostname:
         raise ValueError("模型辅助未配置：请设置 STUDYUI_MODEL_BASE_URL 和 STUDYUI_MODEL，或关闭模型辅助")
@@ -67,6 +69,8 @@ def suggest_plan(
         raise ValueError("模型服务须使用 HTTPS；本机测试允许 loopback HTTP，地址不得包含认证或查询参数")
     if type(timeout) not in (int, float) or not 0 < timeout <= 120:
         raise ValueError("模型超时须介于 0 和 120 秒")
+    if not isinstance(task, str):
+        raise ValueError("unknown research task")
     if task != "auto" and task not in SKILLS:
         raise ValueError("unknown research task")
     # Validate request, schema and explicit parameters before sending anything.

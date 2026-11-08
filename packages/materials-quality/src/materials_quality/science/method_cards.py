@@ -261,6 +261,9 @@ def recommend_methods(table=None, *, config=None, data=None, tables=None):
     query = config.get("query", "")
     if not isinstance(query, str):
         raise ValueError("query must be text")
+    goal = config.get("goal")
+    if goal is not None and not isinstance(goal, str):
+        raise ValueError("goal must be text")
     facts = _conditions(config, table)
     explicit = config.get("method_ids", [])
     sequence = config.get("sequence", [])

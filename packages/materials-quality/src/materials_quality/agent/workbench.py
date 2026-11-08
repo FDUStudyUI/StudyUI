@@ -32,6 +32,7 @@ if __package__ is None or __package__ == "":
 
 from .file_workflow_client import FileWorkflowClient
 from .permissions import PermissionStore
+from .store import validate_workspace_catalog
 from .workflow_api import create_workflow_router
 from .workflow_files import WorkflowFileStore
 from .workflow_host import create_file_execution_router
@@ -62,7 +63,14 @@ def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_han
 
     def read_workspace():
         if workspace_file.exists():
-            return json.loads(workspace_file.read_text(encoding="utf-8"))
+            try:
+                workspace = json.loads(workspace_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                raise HTTPException(
+                    500,
+                    f"工作区目录文件已损坏：{workspace_file}（{exc}）；请备份后修复或删除该文件。",
+                ) from exc
+            return validate_workspace_catalog(workspace, workspace_file)
         flows = store.list()
         groups = sorted({flow.get("folder_id") for flow in flows if flow.get("folder_id")})
         owned = [
@@ -91,7 +99,14 @@ def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_han
             out.write((json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
             out.flush()
             os.fsync(out.fileno())
-        os.replace(temp, workspace_file)
+        try:
+            os.replace(temp, workspace_file)
+        finally:
+            if os.path.exists(temp):
+                try:
+                    os.unlink(temp)
+                except OSError:
+                    pass
 
     # The legacy owner field is used only once to identify the imported project.
     # Persist its identity before editing workflows removes that field.
@@ -357,7 +372,7 @@ def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_han
         if uploaded is None or not getattr(uploaded, "filename", None):
             raise HTTPException(422, "File required")
         name = Path(uploaded.filename).name
-        if name in {"", ".", ".."}:
+        if name in {"", ".", ".."} or len(name) > 180 or re.search(r'[\x00-\x1f<>:"|?*]', name):
             raise HTTPException(422, "Invalid file name")
         directory = root.parent / "data" / str(flow_id)
         directory.mkdir(parents=True, exist_ok=True)

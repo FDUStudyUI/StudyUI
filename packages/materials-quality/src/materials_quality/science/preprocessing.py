@@ -2,6 +2,7 @@
 
 import ast
 from copy import deepcopy
+from decimal import Decimal
 from numbers import Integral
 
 import numpy as np
@@ -403,7 +404,18 @@ def convert_units(table=None, *, config=None, data=None, tables=None):
                 raise ValueError(f"{column}: an explicit source unit is required")
             if actual.dimensionality != destination.dimensionality:
                 raise ValueError(f"{column}: incompatible units {actual} -> {destination}")
-            quantity = _REGISTRY.Quantity(float(numeric(magnitude)), actual).to(destination)
+            exact = numeric(magnitude)
+            source_number = float(exact)
+            if not np.isfinite(source_number):
+                raise ValueError("converted values overflowed; choose a representable unit/precision")
+            # A source magnitude that is an exact integer must not silently round
+            # through binary floating point when converting it.
+            if exact == exact.to_integral_value() and Decimal(source_number) != exact:
+                raise ValueError(
+                    f"{column}: unit conversion would lose exact integer precision; "
+                    "convert the column explicitly or choose a coarser source unit"
+                )
+            quantity = _REGISTRY.Quantity(source_number, actual).to(destination)
             number = float(quantity.magnitude)
             if not np.isfinite(number):
                 raise ValueError("converted values overflowed; choose a representable unit/precision")

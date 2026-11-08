@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import importlib.util
 import json
+import math
 import os
 import re
 import shutil
@@ -20,10 +22,26 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import ProxyHandler, build_opener
 
-try:
-    from scripts.branding import strip_langflow_branding
-except ImportError:  # Running as a script from scripts/.
-    from branding import strip_langflow_branding
+
+def load_branding():
+    """Import the sibling branding.py by file path.
+
+    The repository-root scripts/ directory is shadowed whenever pytest runs
+    from packages/materials-quality (that package ships its own scripts
+    package), so neither "from scripts.branding" nor "from branding" is
+    reliable. Loading the file explicitly works for every entry point:
+    direct execution, "python -m scripts.start_demo" and importlib tests.
+    """
+    path = Path(__file__).resolve().with_name("branding.py")
+    spec = importlib.util.spec_from_file_location("studyui_branding", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load branding helpers from {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+strip_langflow_branding = load_branding().strip_langflow_branding
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "packages" / "materials-quality"
@@ -35,16 +53,63 @@ def venv_python(directory: Path) -> Path:
     return directory / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
+BACKSLASH = chr(92)
+
+
+def _dependency_array(text: str, key: str) -> str | None:
+    """Return the literal key = [...] array, tolerating brackets inside strings."""
+    start = -1
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith(key) and stripped[len(key) :].lstrip().startswith("="):
+            tail = stripped[len(key) :].lstrip()[1:].lstrip()
+            if tail.startswith("["):
+                start = offset + line.index("[")
+                break
+        offset += len(line)
+    if start < 0:
+        return None
+    depth = 0
+    quote = ""
+    escaped = False
+    index = start
+    while index < len(text):
+        char = text[index]
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == BACKSLASH:
+                escaped = True
+            elif char == quote:
+                quote = ""
+        elif char in ("'", '"'):
+            quote = char
+        elif char == "#":
+            newline = text.find(chr(10), index)
+            if newline < 0:
+                return None
+            index = newline
+        elif char == "[":
+            depth += 1
+        elif char == "]":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+        index += 1
+    return None
+
+
 def requirements(package: Path, *, optional: bool = False) -> list[str]:
     """Read the project's dependency arrays without importing project dependencies."""
     text = (package / "pyproject.toml").read_text(encoding="utf-8")
     result = [] if optional else ["langflow-base==1.13.0", "lfx==1.13.0"]
     keys = ("instruments",) if optional else ("dependencies", "langflow", "science")
     for key in keys:
-        match = re.search(r"^" + key + r"\s*=\s*(\[.*?\])", text, re.MULTILINE | re.DOTALL)
-        if match is None:
+        value = _dependency_array(text, key)
+        if value is None:
             raise ValueError(f"Missing dependency array {key} in {package / 'pyproject.toml'}")
-        result.extend(ast.literal_eval(match.group(1)))
+        result.extend(ast.literal_eval(value))
     return list(dict.fromkeys(result))
 
 
@@ -250,6 +315,14 @@ def initialize_file_workflows(root: Path) -> None:
 
 def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> None:
     """Rebuild the bundled Langflow UI entry points for StudyUI's workflow-only shell."""
+    # The child prints an install path; force UTF-8 on both sides so a Chinese
+    # or otherwise non-ASCII installation directory survives the round trip
+    # even when the OS locale is not UTF-8 (cp936, LANG=C, ...).
+    child_env = {
+        **os.environ,
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+    }
     result = subprocess.run(
         [
             str(python),
@@ -260,6 +333,8 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        env=child_env,
         timeout=15,
     )
     vendor_frontend = Path(result.stdout.strip())
@@ -668,17 +743,24 @@ def start_studyui_service(python: Path, runtime: Path, port: int, ready_timeout:
             stderr=subprocess.STDOUT,
             **options,
         )
+    log_path = runtime / "logs" / "studyui-server.log"
     deadline = time.monotonic() + ready_timeout
-    while process.poll() is None and time.monotonic() < deadline:
-        try:
-            with build_opener(ProxyHandler({})).open(url + "/api/health", timeout=3) as response:
-                if response.status == 200:
-                    return process
-        except (URLError, OSError):
-            pass
-        time.sleep(0.25)
+    try:
+        while process.poll() is None and time.monotonic() < deadline:
+            try:
+                with build_opener(ProxyHandler({})).open(url + "/api/health", timeout=3) as response:
+                    if response.status == 200:
+                        return process
+            except (URLError, OSError):
+                pass
+            time.sleep(0.25)
+    except BaseException:
+        # Ctrl+C during startup must not leave the detached server holding the
+        # loopback port after the launcher exits.
+        stop_studyui_service(process)
+        raise
     stop_studyui_service(process)
-    raise RuntimeError("StudyUI did not start on the shared port; read .demo-runtime/logs/studyui-server.log")
+    raise RuntimeError(f"StudyUI did not start on the shared port; read {log_path}")
 
 
 def stop_studyui_service(process: subprocess.Popen) -> None:
@@ -754,6 +836,20 @@ def valid_port(value: str) -> int:
     return port
 
 
+def runtime_path(value: str) -> Path:
+    text = str(value).strip()
+    if not text:
+        raise argparse.ArgumentTypeError("runtime directory must not be empty")
+    return Path(text)
+
+
+def positive_timeout(value: str) -> float:
+    number = float(value)
+    if not math.isfinite(number) or number <= 0:
+        raise argparse.ArgumentTypeError("ready timeout must be a positive finite number of seconds")
+    return number
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -772,10 +868,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Use an existing Python 3.10 environment read-only; incompatible with --setup",
     )
     parser.add_argument("--port", type=valid_port, default=7880, help="StudyUI main application port")
-    parser.add_argument("--runtime", type=Path, default=ROOT / ".demo-runtime")
+    parser.add_argument("--runtime", type=runtime_path, default=ROOT / ".demo-runtime")
     parser.add_argument(
         "--ready-timeout",
-        type=float,
+        type=positive_timeout,
         default=240,
         help="Startup deadline in seconds (default: 240)",
     )

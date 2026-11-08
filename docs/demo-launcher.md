@@ -24,7 +24,7 @@ macOS/Linux：
 sh ./start_demo.sh --setup
 ```
 
-启动器只向仓库的 `.demo-venv` 安装 `packages/materials-quality[langflow,science,instruments]` 和 `langflow-base==1.13.0`。没有安装成功时，检查错误信息及 `.demo-runtime/logs/studyui-launcher.log`，修复网络或系统依赖后重试。
+启动器只向仓库的 `.demo-venv` 安装 `packages/materials-quality[langflow,science,instruments]` 和 `langflow-base==1.13.0`。没有安装成功时，检查终端中的错误信息，修复网络或系统依赖后重试；服务启动失败时查看 `.demo-runtime/logs/studyui-server.log`。
 
 ## 正常启动与停止
 
@@ -85,7 +85,7 @@ sh ./start_demo.sh --check
 | 7880 已占用 | 选择空闲端口，例如 `--port 7886`。启动器不会复用或终止该端口现有服务。 |
 | StudyUI 界面打开但模型不可用 | 检查设置中的 API 地址、模型名与凭据，然后使用“测试连接”；远端地址必须 HTTPS。 |
 | 含脚本 Skill 无法运行 | 选择“审核后沙箱 Skill”，对当前版本进行信任审批，并确保 Docker 已安装、镜像已预拉取。无 Docker 时会拒绝执行。 |
-| 内部画布打不开或工作流报错 | 查看 `.demo-runtime/logs/studyui-launcher.log` 与 `.demo-runtime/logs/studyui-server.log`；确认工作流节点都来自已安装 StudyUI 组件，并检查项目归属与输入文件路径。 |
+| 内部画布打不开或工作流报错 | 查看 `.demo-runtime/logs/studyui-server.log`；确认工作流节点都来自已安装 StudyUI 组件，并检查项目归属与输入文件路径。 |
 
 ## 其他启动选项
 

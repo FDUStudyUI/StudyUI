@@ -146,9 +146,9 @@ def make_plan(table, task="auto", request="", parameters=None, proposal=None):
     if not isinstance(request, str) or len(request) > 8000:
         raise ValueError("request must be text up to 8000 characters")
     supplied = deepcopy(parameters or {})
-    explicit_fields = set(supplied)
     if not isinstance(supplied, dict):
         raise ValueError("parameters must be an object")
+    explicit_fields = set(supplied)
     if proposal is not None:
         if (
             not isinstance(proposal, dict)
@@ -348,22 +348,32 @@ def _units(table, task, p, issue):
         "mechanics": [("strain", "strain_unit"), ("stress", "stress_unit")],
         "contrast": [("value", "value_unit")],
     }[task]
+    stored_units = table.attrs.get("units", {})
+    if not isinstance(stored_units, dict):
+        issue("contract", "数据表的单位声明必须为列名到单位的映射。")
+        stored_units = {}
     for column, key in pairs:
         unit = p.get(key)
         if not unit:
             continue
         try:
             actual = _unit("dimensionless" if unit == "fraction" else unit)
-            for stored in (
-                table.attrs.get("units", {}).get(p.get(column)),
-                semantic_units.get(p.get(column)),
-            ):
-                if stored is not None and _unit(stored) != actual:
-                    issue(key, f"声明单位与上游单位冲突：{stored} / {unit}。")
-            if task == "spectra" and key == "x_unit" and not actual.is_compatible_with(_unit("nm")):
-                issue(key, "候选波长窗口要求长度单位。")
         except Exception:
             issue(key, f"无法识别单位：{unit}。")
+            continue
+        for stored in (stored_units.get(p.get(column)), semantic_units.get(p.get(column))):
+            if stored is None:
+                continue
+            try:
+                parsed = _unit(stored)
+            except Exception:
+                # Name the unparseable upstream value, not the declared unit.
+                issue(key, f"无法识别上游单位：{stored}。")
+                continue
+            if parsed != actual:
+                issue(key, f"声明单位与上游单位冲突：{stored} / {unit}。")
+        if task == "spectra" and key == "x_unit" and not actual.is_compatible_with(_unit("nm")):
+            issue(key, "候选波长窗口要求长度单位。")
 
 
 def validate_plan(table, plan):

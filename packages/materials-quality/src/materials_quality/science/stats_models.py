@@ -214,6 +214,16 @@ def _group_boundary(groups, train, test):
         raise ValueError("temporal validation would split a group_column experimental unit across train/test")
 
 
+def _check_fold_sizes(splits):
+    for index, (train, test) in enumerate(splits):
+        if len(train) < 2 or len(test) < 2:
+            raise ValueError(
+                f"cross-validation fold {index} must contain at least two training and two test "
+                "observations; reduce folds or merge singleton groups"
+            )
+    return splits
+
+
 def _evaluation_splits(frame, c, groups, evaluation):
     """Return original row positions; equal times never cross a temporal boundary."""
     mode = c.get("validation_split", "random")
@@ -237,7 +247,7 @@ def _evaluation_splits(frame, c, groups, evaluation):
                 if len(np.unique(groups)) < folds:
                     raise ValueError("fold count exceeds number of independent groups")
                 splitter = GroupKFold(n_splits=folds)
-            return list(splitter.split(np.arange(n), groups=groups)), mode
+            return _check_fold_sizes(list(splitter.split(np.arange(n), groups=groups))), mode
     elif mode == "blocked_cv":
         raise ValueError("blocked_cv requires method='cv', not a saved holdout model")
     times = _time_values(frame, c)

@@ -27,6 +27,17 @@ def _finite(value):
     return value if np.isfinite(value) else None
 
 
+def _finite_tree(value):
+    """Keep result payloads strictly JSON-serializable: non-finite numbers become null."""
+    if isinstance(value, float):
+        return value if np.isfinite(value) else None
+    if isinstance(value, list):
+        return [_finite_tree(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _finite_tree(item) for key, item in value.items()}
+    return value
+
+
 def _alpha(c):
     alpha = float(c.get("alpha", 0.05))
     if not 0 < alpha < 1:
@@ -292,6 +303,7 @@ def significance(table=None, *, config=None, data=None, tables=None):
     out.update(
         statistic=float(result.statistic), pvalue=float(result.pvalue), reject=bool(result.pvalue < alpha)
     )
+    out = _finite_tree(out)
     return NodeResult(
         pd.DataFrame(
             [

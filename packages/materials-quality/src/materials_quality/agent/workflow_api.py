@@ -193,7 +193,9 @@ def create_workflow_router(
         form = await request.form()
         folder_id = folder_id or form.get("folder_id")
         authorize(folder_id, "workflow.create")
-        uploaded = []
+        # Parse and validate every candidate before the first write: a rejected
+        # member of a multi-flow upload must not leave earlier flows behind.
+        prepared = []
         for item in form.values():
             if not hasattr(item, "read"):
                 continue
@@ -215,10 +217,23 @@ def create_workflow_router(
                 candidate.pop("user_id", None)
                 candidate.pop("version_token", None)
                 validate(candidate)
-                revision = await run_in_threadpool(store.save, candidate, create_only=True)
-                uploaded.append(public(candidate, revision))
-        if not uploaded:
+                prepared.append(candidate)
+        if not prepared:
             raise HTTPException(422, "No workflow file supplied")
+        uploaded = []
+        saved_ids = []
+        try:
+            for candidate in prepared:
+                revision = await run_in_threadpool(store.save, candidate, create_only=True)
+                saved_ids.append(candidate["id"])
+                uploaded.append(public(candidate, revision))
+        except Exception:
+            for flow_id in saved_ids:
+                try:
+                    await run_in_threadpool(store.delete, flow_id)
+                except OSError:
+                    pass
+            raise
         return uploaded
 
     @router.delete("/flows/")
@@ -299,8 +314,7 @@ def create_workflow_router(
         try:
             flow, _ = await run_in_threadpool(store.read, str(flow_id))
             authorize(flow.get("folder_id"), "workflow.edit")
-            flow = await run_in_threadpool(store.restore, str(flow_id), revision)
-            validate(flow)
+            flow = await run_in_threadpool(store.restore, str(flow_id), revision, validator=validate)
             return {**flow, "version_token": (await run_in_threadpool(store.read, str(flow_id)))[1]}
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail="Workflow revision not found") from None

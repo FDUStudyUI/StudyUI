@@ -9,6 +9,8 @@ from urllib.parse import urlparse
 
 import pandas as pd
 
+from materials_quality.common import missing
+
 LOCATION_FIELDS = ("doi", "page", "table_id", "figure_id", "source_file", "url", "bbox", "confidence")
 NUMBER = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 # Include the sign and exponent in each token; never salvage a numeric suffix.
@@ -44,7 +46,9 @@ def documents(table=None, data=None):
 def evidence(doc, start=0, end=None):
     end = len(doc["text"]) if end is None else end
     return {
-        **{k: deepcopy(doc[k]) for k in LOCATION_FIELDS if k in doc},
+        # Missing provenance (NaN/None/blank) is not a location value; keep it absent
+        # so it cannot be mistaken for a conflicting or printable identifier (nan).
+        **{k: deepcopy(doc[k]) for k in LOCATION_FIELDS if k in doc and not missing(doc[k])},
         "source_id": doc["source_id"],
         "quote": doc["text"][start:end],
         "span_start": start,
@@ -53,11 +57,19 @@ def evidence(doc, start=0, end=None):
 
 
 def citation(row):
-    link = f"https://doi.org/{row['doi']}" if row.get("doi") else row.get("url")
-    link = link or row.get("source_file") or row["source_id"]
-    parts = [str(link)]
+    # Missing values arrive as NaN from table inputs; they must never render as
+    # "https://doi.org/nan" or "page nan", which would fabricate an identifier.
+    if not missing(row.get("doi")):
+        link = f"https://doi.org/{row['doi']}"
+    elif not missing(row.get("url")):
+        link = str(row["url"])
+    elif not missing(row.get("source_file")):
+        link = str(row["source_file"])
+    else:
+        link = str(row.get("source_id", ""))
+    parts = [link]
     for field, label in [("page", "page"), ("table_id", "table"), ("figure_id", "figure")]:
-        if row.get(field) is not None:
+        if not missing(row.get(field)):
             parts.append(f"{label} {row[field]}")
     return "; ".join(parts)
 
@@ -77,7 +89,10 @@ def request_json(url, *, config=None, payload=None, headers=None, params=None):
         raise ValueError("endpoint must be an HTTP(S) URL without embedded credentials or fragment")
     if parsed.scheme == "http" and parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
         raise ValueError("remote endpoints require HTTPS; HTTP is limited to local services")
-    timeout = float(cfg.get("timeout", 20))
+    try:
+        timeout = float(cfg.get("timeout", 20))
+    except (TypeError, ValueError):
+        raise ValueError("timeout must be a number in (0, 60] seconds") from None
     if not 0 < timeout <= 60:
         raise ValueError("timeout must be in (0, 60] seconds")
     try:

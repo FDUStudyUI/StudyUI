@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -12,10 +13,24 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-try:
-    from scripts.branding import strip_langflow_branding
-except ImportError:  # Running as a script from scripts/.
-    from branding import strip_langflow_branding
+
+def load_branding():
+    """Import the sibling branding.py by file path (see scripts/start_demo.py).
+
+    "from scripts.branding" resolves to packages/materials-quality/scripts
+    whenever that package shadows the repository root on sys.path, so neither
+    it nor a bare "from branding" import is reliable.
+    """
+    path = Path(__file__).resolve().with_name("branding.py")
+    spec = importlib.util.spec_from_file_location("studyui_branding", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load branding helpers from {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+strip_langflow_branding = load_branding().strip_langflow_branding
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "beta-demo"
@@ -90,8 +105,10 @@ FORBIDDEN_SUFFIXES = {
     ".pem",
     ".key",
     ".p12",
+    ".env",
 }
 FORBIDDEN_NAMES = {".env", "credentials.json", "workspace.json", "workspace.json.lock"}
+FORBIDDEN_NAMES_CASEFOLD = {name.casefold() for name in FORBIDDEN_NAMES}
 
 FULL_TEXT = f"""StudyUI {VERSION} - Windows x64 portable
 ==========================================
@@ -125,7 +142,7 @@ def _skip(path: Path) -> bool:
     relative = path.relative_to(ROOT)
     if any(part in SKIP_DIRS for part in relative.parts):
         return True
-    if path.name in FORBIDDEN_NAMES or path.suffix.casefold() in FORBIDDEN_SUFFIXES:
+    if path.name.casefold() in FORBIDDEN_NAMES_CASEFOLD or path.suffix.casefold() in FORBIDDEN_SUFFIXES:
         raise ValueError(f"Forbidden portable file: {relative.as_posix()}")
     return path.suffix.casefold() in SKIP_SUFFIXES
 

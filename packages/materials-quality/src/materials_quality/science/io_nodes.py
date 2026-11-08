@@ -30,15 +30,49 @@ _DECIMAL_COMMA_NUMBER = re.compile(r"^[+-]?(?:\d+(?:,\d*)?|,\d+)(?:[eE][+-]?\d+)
 _DECIMAL_POINT_NUMBER = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
 
 
+def _utf16_without_bom(raw):
+    """Detect BOM-less UTF-16 text instead of decoding NUL bytes as UTF-8 garbage."""
+    if len(raw) < 4 or len(raw) % 2 or b"\x00" not in raw:
+        return None
+    even_nuls = raw[0::2].count(0)
+    odd_nuls = raw[1::2].count(0)
+    if odd_nuls > even_nuls:
+        candidate, dominant = "utf-16-le", odd_nuls
+    elif even_nuls > odd_nuls:
+        candidate, dominant = "utf-16-be", even_nuls
+    else:
+        return None
+    # Genuine UTF-16 ASCII/measurement text has a NUL in about half of its bytes.
+    # One stray NUL in single-byte text must not silently flip the whole codec.
+    if dominant * 4 < len(raw):
+        return None
+    try:
+        text = raw.decode(candidate)
+    except UnicodeDecodeError:
+        return None
+    # A decodable byte sequence is only text when the interleaved NUL bytes vanish.
+    if "\x00" in text:
+        return None
+    return text, candidate
+
+
 def _decode(path, config):
     raw = path.read_bytes()
     encoding = config.get("encoding", "auto")
     if encoding != "auto":
-        return raw.decode(encoding), encoding
+        text = raw.decode(encoding)
+        # A declared encoding must not leak a byte-order mark into the first column
+        # name (UTF-8 CSV exported by spreadsheet software commonly carries one).
+        if text.startswith("\ufeff"):
+            text = text[1:]
+        return text, encoding
     if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
         return raw.decode("utf-16"), "utf-16"
     if raw.startswith(b"\xef\xbb\xbf"):
         return raw.decode("utf-8-sig"), "utf-8-sig"
+    bomless_utf16 = _utf16_without_bom(raw)
+    if bomless_utf16 is not None:
+        return bomless_utf16
     for candidate in ("utf-8", "gb18030"):
         try:
             return raw.decode(candidate), candidate
@@ -69,11 +103,35 @@ def _delimiter(text, config):
         if not isinstance(delimiter, str) or len(delimiter) != 1:
             raise ValueError("delimiter must be one character or auto")
         return delimiter
+    decimal_comma = config.get("decimal_separator", ".") == ","
+    # A comma cannot be inferred as the field separator when the same character is
+    # declared the decimal mark: "1.234,56" would silently split into two cells.
+    candidates = ";\t|\u3000" if decimal_comma else ",;\t|\u3000"
     try:
-        return csv.Sniffer().sniff(text[:65536], delimiters=",;\t|\u3000").delimiter
+        return csv.Sniffer().sniff(text[:65536], delimiters=candidates).delimiter
     except csv.Error:
-        # A one-column file is valid, but inconsistent multi-column rows are not.
+        # A one-column file is valid. With a decimal comma the separator must be a
+        # character that never occurs in the file, otherwise values are split.
+        if decimal_comma:
+            for candidate in candidates:
+                if candidate not in text[:65536]:
+                    return candidate
+            return "\u0000"
         return ","
+
+
+def _delimited_rows(text, delimiter):
+    """Read CSV rows, tolerating large embedded cells and reporting csv errors cleanly."""
+    previous_limit = csv.field_size_limit()
+    csv.field_size_limit(min(max(len(text), 128 * 1024) + 1, 64 * 1024 * 1024))
+    try:
+        return list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
+    except csv.Error as exc:
+        raise ValueError(
+            f"cannot parse delimited text: {exc}; check encoding, delimiter or quoted cells"
+        ) from exc
+    finally:
+        csv.field_size_limit(previous_limit)
 
 
 def _rectangle(frame, selection):
@@ -391,7 +449,7 @@ def table_import(table=None, *, config=None, data=None, tables=None):
         delimiter = _delimiter(text, config)
         # Preserve CSV's universal-newline handling for CRLF, LF and CR files.
         # The published repository mixes line-ending styles across conditions.
-        rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
+        rows = _delimited_rows(text, delimiter)
         frame = pd.DataFrame(rows)
         metadata.update(
             encoding=encoding,
@@ -478,18 +536,30 @@ def _safe_artifact(config, filename, source=None):
     return output
 
 
-def pdf_import(table=None, *, config=None, data=None, tables=None):
-    """Extract native PDF blocks and render pages without native text for OCR."""
+def _open_pdf(path):
+    """Open a PDF with actionable errors for empty, corrupt or encrypted files."""
     import fitz
 
+    try:
+        document = fitz.open(path)
+    except (RuntimeError, OSError) as exc:
+        raise ValueError("cannot open PDF: the file is empty, corrupt or not a PDF document") from exc
+    if document.needs_pass:
+        document.close()
+        raise ValueError("PDF is encrypted; provide an unlocked copy before import")
+    return document
+
+
+def pdf_import(table=None, *, config=None, data=None, tables=None):
+    """Extract native PDF blocks and render pages without native text for OCR."""
     config = dict(config or {})
     path = read_path(config, data)
     dpi = int(config.get("dpi", 150))
     if not 36 <= dpi <= 1200:
         raise ValueError("dpi must be between 36 and 1200")
     pages, artifacts = [], []
-    with fitz.open(path) as document:
-        metadata = dict(document.metadata)
+    with _open_pdf(path) as document:
+        metadata = dict(document.metadata or {})
         for number in _pages(document, config):
             page = document[number - 1]
             blocks = [
@@ -525,7 +595,13 @@ def image_import(table=None, *, config=None, data=None, tables=None):
     from materials_quality.agent.execution_context import register_upstream_image
 
     path = read_path(config or {}, data)
-    with Image.open(path) as image:
+    try:
+        image = Image.open(path)
+    except (OSError, ValueError) as exc:
+        raise ValueError(
+            "cannot decode raster image: the file is corrupt or not a supported image format"
+        ) from exc
+    with image:
         metadata = {str(ExifTags.TAGS.get(key, key)): str(value) for key, value in image.getexif().items()}
         info = {
             str(key): value if isinstance(value, (str, int, float, tuple, list)) else repr(value)
@@ -567,7 +643,8 @@ def _jcamp(path, config):
         try:
             count = int(metadata["NPOINTS"])
             first, last = float(metadata["FIRSTX"]), float(metadata["LASTX"])
-            step = float(metadata.get("DELTAX", (last - first) / (count - 1)))
+            # XFACTOR scales every X value, so the reported spacing scales with it too.
+            step = float(metadata.get("DELTAX", (last - first) / (count - 1))) * xf
         except (KeyError, ZeroDivisionError) as exc:
             raise ValueError(
                 "JCAMP incremental XYDATA requires NPOINTS, FIRSTX, LASTX or explicit spacing"
@@ -605,7 +682,13 @@ def instrument_import(table=None, *, config=None, data=None, tables=None):
     ):
         from .instrument_arrays import import_array
 
-        return import_array(candidate, config)
+        try:
+            return import_array(candidate, config)
+        except (OSError, ImportError) as exc:
+            raise ValueError(
+                "cannot read array file: the file is corrupt or not a supported "
+                "HDF5/NetCDF/Zarr container; supply an explicit converter instead"
+            ) from exc
     if config.get("mode", "read") != "read":
         raise ValueError("browse mode is available for HDF5, NetCDF and local Zarr arrays")
     path = read_path(config, data)
@@ -616,11 +699,17 @@ def instrument_import(table=None, *, config=None, data=None, tables=None):
         if ":" not in target:
             raise ValueError("plugin must be an importable module:function")
         module, function = target.rsplit(":", 1)
+        try:
+            plugin_function = getattr(importlib.import_module(module), function)
+        except (ImportError, AttributeError) as exc:
+            raise ValueError(
+                f"cannot load instrument plugin {target!r}; provide an importable module:function"
+            ) from exc
         with tempfile.TemporaryDirectory(prefix="studyui-instrument-") as staging:
             isolated = Path(staging) / path.name
             shutil.copy2(path, isolated)
             plugin_config = {**config, "path": str(isolated), "file_path": str(isolated)}
-            converted = getattr(importlib.import_module(module), function)(isolated, plugin_config)
+            converted = plugin_function(isolated, plugin_config)
             if isinstance(converted, pd.DataFrame):
                 frame = require_table(converted)
             elif isinstance(converted, (str, Path)):
@@ -836,20 +925,79 @@ def _rest(config):
     )
 
 
+def _sql_without_literals(query):
+    """Blank string literals, quoted identifiers and comments before SQL keyword checks.
+
+    Semicolons and write keywords inside literal data are values, not statements, so
+    a valid single SELECT must not be rejected just because its data contains them.
+    """
+    result, index, length = [], 0, len(query)
+    while index < length:
+        char = query[index]
+        following = query[index + 1] if index + 1 < length else ""
+        if char == "-" and following == "-":
+            newline = query.find("\n", index + 2)
+            if newline == -1:
+                break
+            result.append(" ")
+            index = newline + 1
+        elif char == "/" and following == "*":
+            end = query.find("*/", index + 2)
+            if end == -1:
+                raise ValueError("read-only query contains an unterminated comment")
+            inner = query[index + 2 : end]
+            # MySQL executable comments are code, not commentary; keep their content.
+            result.append(inner if inner.startswith("!") else " ")
+            index = end + 2
+        elif char in "'\"\x60":
+            closing = index + 1
+            while True:
+                closing = query.find(char, closing)
+                if closing == -1:
+                    raise ValueError("read-only query has an unterminated quoted value")
+                if closing + 1 < length and query[closing + 1] == char:
+                    closing += 2
+                    continue
+                break
+            result.append(" ")
+            index = closing + 1
+        elif char == "[":
+            closing = query.find("]", index + 1)
+            if closing == -1:
+                raise ValueError("read-only query has an unterminated quoted identifier")
+            result.append(" ")
+            index = closing + 1
+        else:
+            result.append(char)
+            index += 1
+    return "".join(result)
+
+
 def _query(config):
     query = config.get("query", "")
     if not isinstance(query, str) or not re.match(r"^\s*(SELECT|WITH)\b", query, flags=re.I):
         raise ValueError("read-only queries must start with SELECT or WITH")
-    if ";" in query.rstrip().rstrip(";"):
+    statement = _sql_without_literals(query).strip()
+    while statement.endswith(";"):
+        statement = statement[:-1].rstrip()
+    if ";" in statement:
         raise ValueError("read-only query must contain a single SQL statement")
     # Fail closed for common writable CTEs, extension loads and file exports.
     forbidden = (
         r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|ATTACH|DETACH|REPLACE|VACUUM|PRAGMA|COPY|INTO|"
         r"load_extension)\b"
     )
-    if re.search(forbidden, query, flags=re.I):
+    if re.search(forbidden, statement, flags=re.I):
         raise ValueError("read-only SELECT query contains a forbidden write or extension operation")
     return query
+
+
+def _executable_query(query):
+    """Strip trailing statement terminators so a single-statement driver accepts it."""
+    statement = query.strip()
+    while statement.endswith(";"):
+        statement = statement[:-1].rstrip()
+    return statement
 
 
 def database_import(table=None, *, config=None, data=None, tables=None):
@@ -859,41 +1007,52 @@ def database_import(table=None, *, config=None, data=None, tables=None):
     if method == "rest":
         return _rest(config)
     query = _query(config)
+    execution_query = _executable_query(query)
     if method == "sqlite":
         path = read_path(config, data)
-        with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as connection:
-            connection.execute("PRAGMA query_only=ON")
-            frame = pd.read_sql_query(query, connection, params=config.get("parameters", {}))
+        try:
+            with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as connection:
+                connection.execute("PRAGMA query_only=ON")
+                frame = pd.read_sql_query(execution_query, connection, params=config.get("parameters", {}))
+        except (sqlite3.Error, pd.errors.DatabaseError) as exc:
+            raise ValueError(f"database query failed: {exc}") from exc
         source = str(path)
     elif method == "sqlalchemy":
         from sqlalchemy import create_engine, text
         from sqlalchemy.engine import make_url
+        from sqlalchemy.exc import SQLAlchemyError
 
-        url = make_url(config.get("url", ""))
-        if url.get_backend_name() == "sqlite":
-            if not url.database or url.database == ":memory:":
-                raise ValueError("read-only SQLAlchemy SQLite requires an existing database file")
-            path = Path(url.database).resolve()
-            if not path.is_file():
-                raise ValueError("read-only database does not exist")
-            url = url.set(
-                database="file:" + path.as_posix(), query={**url.query, "mode": "ro", "uri": "true"}
-            )
-        engine = create_engine(url)
         try:
-            with engine.connect() as connection, connection.begin():
-                dialect = engine.dialect.name
-                if dialect == "sqlite":
-                    connection.exec_driver_sql("PRAGMA query_only=ON")
-                elif dialect in {"postgresql", "mysql", "mariadb"}:
-                    connection.exec_driver_sql("SET TRANSACTION READ ONLY")
-                else:
-                    raise ValueError(
-                        f"read-only transactions unsupported for dialect {dialect}; use a read-only connector"
+            url = make_url(config.get("url", ""))
+            if url.get_backend_name() == "sqlite":
+                if not url.database or url.database == ":memory:":
+                    raise ValueError("read-only SQLAlchemy SQLite requires an existing database file")
+                path = Path(url.database).resolve()
+                if not path.is_file():
+                    raise ValueError("read-only database does not exist")
+                url = url.set(
+                    database="file:" + path.as_posix(), query={**url.query, "mode": "ro", "uri": "true"}
+                )
+            engine = create_engine(url)
+            try:
+                with engine.connect() as connection, connection.begin():
+                    dialect = engine.dialect.name
+                    if dialect == "sqlite":
+                        connection.exec_driver_sql("PRAGMA query_only=ON")
+                    elif dialect in {"postgresql", "mysql", "mariadb"}:
+                        connection.exec_driver_sql("SET TRANSACTION READ ONLY")
+                    else:
+                        raise ValueError(
+                            f"read-only transactions unsupported for dialect {dialect}; "
+                            "use a read-only connector"
+                        )
+                    frame = pd.read_sql_query(
+                        text(execution_query), connection, params=config.get("parameters", {})
                     )
-                frame = pd.read_sql_query(text(query), connection, params=config.get("parameters", {}))
-        finally:
-            engine.dispose()
+            finally:
+                engine.dispose()
+        except (SQLAlchemyError, pd.errors.DatabaseError) as exc:
+            raise ValueError(f"database query failed: {exc}") from exc
         source = url.render_as_string(hide_password=True)
     else:
         raise ValueError("database method must be sqlite, sqlalchemy or rest")

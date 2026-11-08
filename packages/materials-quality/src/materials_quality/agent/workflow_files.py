@@ -51,7 +51,16 @@ class WorkflowFileStore:
 
     def list(self) -> list[dict]:
         with self._lock:
-            return [self.read(path.stem)[0] for path in sorted(self.root.glob("*.json"))]
+            flows = []
+            for path in sorted(self.root.glob("*.json")):
+                try:
+                    flows.append(self.read(path.stem)[0])
+                except (OSError, ValueError):
+                    # Unrelated manifests/backups and damaged files must not
+                    # break every workflow listing, project migration and
+                    # delete; the readable workflows are still served.
+                    continue
+            return flows
 
     def save(self, flow: dict, *, expected_revision: str | None = None, create_only: bool = False) -> str:
         if not isinstance(flow, dict) or not isinstance(flow.get("data"), dict):
@@ -104,7 +113,11 @@ class WorkflowFileStore:
         if not directory.is_dir():
             return []
         rows = []
-        for path in sorted(directory.glob("*.json"), reverse=True):
+        # File names start with the content revision, so sort by the saved_at
+        # suffix instead: callers expect the most recently saved version first.
+        for path in sorted(
+            directory.glob("*.json"), key=lambda item: item.stem.rsplit("-", 1)[-1], reverse=True
+        ):
             raw = path.read_bytes()
             try:
                 flow = json.loads(raw.decode("utf-8"))
@@ -120,7 +133,7 @@ class WorkflowFileStore:
             )
         return rows
 
-    def restore(self, flow_id: str, revision: str):
+    def restore(self, flow_id: str, revision: str, validator=None):
         if not isinstance(revision, str) or not re.fullmatch(r"[a-f0-9]{64}", revision):
             raise ValueError("Invalid workflow revision")
         flow_path = self._path(flow_id)
@@ -130,6 +143,12 @@ class WorkflowFileStore:
             raise FileNotFoundError("Workflow revision not found")
         current, expected = self.read(flow_id)
         restored = json.loads(candidates[0].read_text(encoding="utf-8"))
+        # Validate before writing: a historical revision that no longer passes
+        # today's validation must not replace the current saved workflow.
+        if validator is not None:
+            normalized = validator(restored)
+            if normalized is not None:
+                restored = normalized
         restored["updated_at"] = datetime.now(timezone.utc).isoformat()
         self.save(restored, expected_revision=expected)
         return restored

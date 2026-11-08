@@ -42,6 +42,9 @@ MAX_COMPONENT_SEARCHES_PER_TURN = 16
 MAX_COMPONENT_SEARCH_RESULTS = 12
 MAX_TOOL_RESULT_CHARS = 8_000
 MAX_AUTO_SKILL_CONTEXT_CHARS = 36_000
+# A provider length cutoff can split one long answer; ask the model to continue
+# from the cut-off point at most this many times before returning partial text.
+MAX_TRUNCATED_CONTINUATIONS = 2
 
 
 def _normalized_usage(value):
@@ -234,9 +237,19 @@ def _bounded_tool_content(name, result):
             payload["edges"] = edges
         if len(json.dumps(payload, ensure_ascii=False)) > MAX_TOOL_RESULT_CHARS:
             for node in payload["nodes"]:
-                node["config_fields"] = list(node.pop("config", {}))
+                config = node.pop("config", {})
+                node["config_fields"] = list(config)
+                # Keep scalar configuration (paths, column names, units) so a
+                # failing node can still be diagnosed; drop long/default blobs.
+                node["config"] = {
+                    str(key)[:80]: value
+                    for key, value in config.items()
+                    if (isinstance(value, (str, int, float, bool)) or value is None)
+                    and len(str(value)) <= 200
+                }
             payload["message"] = (
-                "节点概览和返回的连线已保留；使用 inspect_workflow 的 node_id 参数查询指定节点的配置。"
+                "节点概览、标量配置和返回的连线已保留；"
+                "使用 inspect_workflow 的 node_id 参数查询指定节点的完整配置。"
             )
     if name == "list_components" and isinstance(result, dict):
         payload = json.loads(json.dumps(result, ensure_ascii=False))
@@ -283,6 +296,7 @@ def _bounded_tool_content(name, result):
                 ]
                 payload["truncated"] = True
                 break
+    payload = _strict_json_value(payload)
     encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     if len(encoded) <= MAX_TOOL_RESULT_CHARS:
         return encoded
@@ -293,6 +307,19 @@ def _bounded_tool_content(name, result):
         "result_keys": sorted(result.keys())[:24] if isinstance(result, dict) else [],
     }
     return json.dumps(fallback, ensure_ascii=False, separators=(",", ":"))
+
+
+def _strict_json_value(value, depth=0):
+    """Replace non-finite floats so model/HTTP/task payloads remain strict JSON."""
+    if depth > 20:
+        return None
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {str(key): _strict_json_value(item, depth + 1) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_strict_json_value(item, depth + 1) for item in value]
+    return value
 
 
 GRAPH_ACTION_SCHEMA = {
@@ -704,6 +731,9 @@ class StudyUIAgent:
             "科学先验与单调性守卫：光谱与 XRD 拟合前必须确保横坐标（波长/角度）严格单调递增；"
             "力学拉伸计算应变与屈服强度前必须核实应变单位（小数 vs 百分比）与模量量纲（MPa vs GPa，"
             "金属模量多在 50~220 GPa，切勿相差千倍）。"
+            "力学结果表绘图：科学分析节点输出的结果表列名是派生列 strain_fraction 与 stress_MPa，"
+            '应设 cfg_x="strain_fraction"、cfg_y="stress_MPa"（样例行 cfg_sample 可选）；'
+            "若改为绘制原始导入表，则连接其 strain、stress、specimen 列。"
             "多表连接规范：Merge/Join 前必须核验两端连接键列名完全一致且去除非法空格，"
             "确保连接键存在真实交集，避免 Inner Join 产出空表。"
             "运行时自愈与定向修补：工作流执行报错时，严禁无故删除或重建整个工作流！"
@@ -944,6 +974,16 @@ class StudyUIAgent:
         if not self.store.has_session(session_id):
             raise ValueError("Conversation session does not exist")
         internal = isinstance(internal_context, dict)
+        if isinstance(user_text, str):
+            try:
+                user_text.encode("utf-8")
+            except UnicodeEncodeError:
+                raise ValueError("Message must contain valid Unicode text") from None
+        if internal:
+            try:
+                json.dumps(internal_context, ensure_ascii=False).encode("utf-8")
+            except UnicodeEncodeError:
+                raise ValueError("Harness continuation context must contain valid Unicode text") from None
         if internal and len(json.dumps(internal_context, ensure_ascii=False)) > 12_000:
             raise ValueError("Harness continuation context exceeded the size limit")
         if (
@@ -1144,6 +1184,7 @@ class StudyUIAgent:
                 ]
             )
         empty_replies = 0
+        truncated_continues = 0
         time.time()
 
         profile = self.model_profiles.active()
@@ -1315,6 +1356,33 @@ class StudyUIAgent:
                         "reasoning", {"reasoning_content": state["reasoning_content"], "delta": raw_reasoning}
                     )
 
+            if response.get("truncated") and not (response.get("tool_calls") or []):
+                partial = str(response.get("content") or "")
+                if truncated_continues < MAX_TRUNCATED_CONTINUATIONS:
+                    truncated_continues += 1
+                    if partial.strip():
+                        messages.append({"role": "assistant", "content": partial})
+                    messages.append(
+                        {
+                            "role": "system",
+                            "content": (
+                                "上一次模型回复因输出长度上限被截断，内容不完整。"
+                                "请从截断处继续完成当前任务，不要重复已经给出的内容；"
+                                "如尚未发出必要的工具调用，请完整重新给出该工具调用。"
+                            ),
+                        }
+                    )
+                    state["truncated_continuations"] = truncated_continues
+                    emit(
+                        "content_truncated",
+                        {
+                            "continuation": truncated_continues,
+                            "characters": len(partial),
+                            "finish_reason": response.get("finish_reason"),
+                        },
+                    )
+                    checkpoint()
+                    continue
             tool_calls = response.get("tool_calls") or []
             if not tool_calls and not str(response.get("content") or "").strip() and empty_replies < 2:
                 empty_replies += 1
@@ -1351,6 +1419,19 @@ class StudyUIAgent:
             messages.append(assistant_message)
             if not tool_calls:
                 text = str(response.get("content") or "")
+                if response.get("truncated") and truncated_continues >= MAX_TRUNCATED_CONTINUATIONS:
+                    text += (
+                        "\n\n（模型输出多次达到长度上限并被截断；以上为可保留的部分内容，"
+                        "任务可能尚未完成，请继续本次会话以完成剩余工作。）"
+                    )
+                    self.store.append_event(
+                        session_id,
+                        "model_output_truncated",
+                        {
+                            "continuations": truncated_continues,
+                            "finish_reason": response.get("finish_reason"),
+                        },
+                    )
                 if not text.strip():
                     state["task_status"] = "failed"
                     text = "模型连续返回空答复；已有工具结果和工作流记录已保留，请稍后继续本次会话。"
@@ -1819,7 +1900,13 @@ class StudyUIAgent:
             )
             return {"status": "created", "title": title, "artifact": row}
         if name == "inspect_research_file":
-            res = inspect_file(self._authorized_research_file(session_id, args.get("path"), user_text))
+            requested_path = args.get("path")
+            if not isinstance(requested_path, str) or not requested_path.strip():
+                raise PermissionError(
+                    "缺少要检查的文件路径。请让用户在当前对话中上传该文件，"
+                    "或提供项目已授权文件夹中的完整路径。"
+                )
+            res = inspect_file(self._authorized_research_file(session_id, requested_path, user_text))
             self._pin_dataset_schema(session_id, res)
             return res
         if name == "list_project_files":
@@ -2056,14 +2143,28 @@ class StudyUIAgent:
                 if snapshot_digest
                 else {}
             )
+            run_kwargs = {
+                "input_value": args.get("input_value", ""),
+                "tweaks": tweaks,
+                "external_data_approved": approved_external_data,
+                **approved_snapshot,
+            }
             try:
-                result = self.langflow.run_flow(
-                    flow.get("id", flow_id),
-                    input_value=args.get("input_value", ""),
-                    tweaks=tweaks,
-                    external_data_approved=approved_external_data,
-                    **approved_snapshot,
-                )
+                try:
+                    # Ask the executor for every executed node so the agent can
+                    # see intermediate mechanics/statistics results, not only
+                    # the workflow sinks. Bounded compaction caps the reply.
+                    result = self.langflow.run_flow(
+                        flow.get("id", flow_id),
+                        include_all_nodes=True,
+                        **run_kwargs,
+                    )
+                except TypeError as exc:
+                    if "include_all_nodes" not in str(exc):
+                        raise
+                    # Compatible workflow clients may not expose the visibility
+                    # flag; keep running instead of failing the whole tool call.
+                    result = self.langflow.run_flow(flow.get("id", flow_id), **run_kwargs)
             finally:
                 reset_subagent_model_scope(model_token)
                 reset_subagent_audit_context(audit_token)
@@ -2263,9 +2364,13 @@ class StudyUIAgent:
                 raise ValueError("所选路径不是文件夹。")
             roots = [selected]
         if not roots:
-            raise PermissionError("当前项目尚未添加可访问的本地文件夹。")
+            raise PermissionError(
+                "当前项目尚未添加可访问的本地文件夹。请先在项目菜单添加目录，"
+                "或让用户在当前对话中上传文件后重试。"
+            )
 
         directories, files = [], []
+        truncated = False
         for root in roots:
             try:
                 children = sorted(root.iterdir(), key=lambda item: item.name.casefold())
@@ -2281,28 +2386,67 @@ class StudyUIAgent:
                         files.append({"name": child.name, "path": str(child), "bytes": child.stat().st_size})
                 except OSError:
                     continue
-                if len(directories) + len(files) >= 300:
+                if len(directories) + len(files) > 300:
+                    truncated = True
                     break
+            if truncated:
+                break
         directories.sort(key=lambda item: item["name"].casefold())
         files.sort(key=lambda item: item["name"].casefold())
         self.store.append_event(
             session_id,
             "project_files_listed",
-            {"directory_count": len(directories), "file_count": len(files)},
+            {"directory_count": len(directories), "file_count": len(files), "truncated": truncated},
         )
         return {
             "directories": directories[:100],
             "files": files[:200],
-            "truncated": len(directories) + len(files) > 300,
+            "truncated": truncated,
         }
 
     def _require_project_local_path(self, session_id, path):
         if not self._project_local_path_allowed(session_id, path):
-            raise PermissionError(
-                "此本地路径未授权给当前项目。请先在项目菜单的“管理可访问的本地文件夹”中添加该目录。"
+            raise PermissionError(self._local_path_permission_message(session_id, path))
+
+    def _local_path_permission_message(self, session_id, path):
+        """Explain the actionable fix for a rejected local path."""
+        raw = str(path or "").strip().strip("'\"")
+        bare_name = bool(raw) and not Path(raw).is_absolute() and "/" not in raw and "\\" not in raw
+        workspace = self.working_directory(session_id)
+        candidate = Path(raw).expanduser() if raw else workspace / "missing-file"
+        if not candidate.is_absolute():
+            candidate = workspace / candidate
+        resolved = candidate.resolve(strict=False)
+        uploads = (workspace / "uploads").resolve(strict=False)
+        try:
+            relative = resolved.relative_to(uploads)
+        except ValueError:
+            relative = None
+        if relative is not None and relative.parts:
+            if str(relative.parts[0]) != str(session_id):
+                return (
+                    "该文件位于其他会话（旧聊天）的上传目录，当前对话无法读取。"
+                    "请让用户在当前对话中重新上传该文件，或把文件复制到项目已授权的文件夹后再试。"
+                )
+            return (
+                f"当前对话的上传目录中未找到文件 {resolved.name!r}。"
+                "请让用户在当前对话中重新上传该文件，或提供项目已授权文件夹中的完整路径。"
             )
+        if bare_name:
+            return (
+                f"未解析到本地文件 {raw!r}：当前项目授权目录和本对话上传目录中都没有该文件。"
+                "请让用户在当前对话中重新上传该文件，或在项目菜单的“管理可访问的本地文件夹”中添加其所在目录。"
+            )
+        return (
+            "此本地路径未授权给当前项目。请先在项目菜单的“管理可访问的本地文件夹”中添加该目录；"
+            "如果文件是在某个旧对话中上传的，请让用户在当前对话中重新上传，而不是添加旧的会话上传目录。"
+        )
 
     def _validate_workflow_local_paths(self, session_id, flow, tweaks=None):
+        # Langflow stores every configured input as a field object whose only
+        # user-supplied value is ``value``; ``name``/``display_name``/``info``
+        # are metadata and must never be treated as filesystem paths. Generated
+        # component inputs use a ``cfg_`` prefix (cfg_output_dir, cfg_model_path).
         path_keys = {
             "path",
             "file_path",
@@ -2313,13 +2457,27 @@ class StudyUIAgent:
             "input_path",
             "output_path",
             "folder_path",
+            "output_dir",
+            "ocr_config_path",
+            "model_path",
+            "manifest_path",
         }
         values = []
+
+        def is_path_key(key):
+            name = str(key).casefold()
+            if name.startswith("cfg_"):
+                name = name[len("cfg_") :]
+            return name in path_keys
 
         def collect(value, path_context=False):
             if isinstance(value, dict):
                 for key, child in value.items():
-                    collect(child, path_context or str(key).casefold() in path_keys)
+                    field_is_path = is_path_key(key)
+                    if field_is_path and isinstance(child, dict) and "value" in child:
+                        collect(child.get("value"), True)
+                        continue
+                    collect(child, path_context or field_is_path)
             elif isinstance(value, list):
                 for child in value:
                     collect(child, path_context)
@@ -2462,9 +2620,20 @@ class StudyUIAgent:
                 resolved = authorized_file(path, candidate)
             except PermissionError:
                 continue
+            except ValueError as exc:
+                raw = str(path or "").strip().strip("'\"")
+                if raw and not Path(raw).is_absolute() and "/" not in raw and "\\" not in raw:
+                    raise ValueError(
+                        f"未能在项目中定位文件 {raw!r} 的完整路径；"
+                        "请让用户在当前对话中重新上传该文件，或提供完整绝对路径。"
+                    ) from exc
+                raise
             self._require_project_local_path(session_id, resolved)
             return resolved
-        raise PermissionError("只能检查用户在本会话明确提供的数据文件路径。")
+        raise PermissionError(
+            "未能在当前项目中定位该数据文件。请让用户在当前对话中重新上传该文件，"
+            "在消息中给出完整路径，或在项目菜单的“管理可访问的本地文件夹”中添加其所在目录。"
+        )
 
     def _authorize_tool(self, session_id, name, args, user_text):
         if name not in {row["function"]["name"] for row in TOOLS}:
@@ -3061,7 +3230,7 @@ class StudyUIAgent:
         ]
         if state.get("canvas_run") and state.get("workflow_run_result") is not None:
             response["workflow_result"] = state["workflow_run_result"]
-        return response
+        return _strict_json_value(response)
 
 
 _LOCAL_PATH_IN_TEXT = re.compile(
@@ -3098,10 +3267,26 @@ def _explicit_research_task_intent(text):
     )
 
 
+REQUEST_NEGATION = (
+    r"(?:不要|不需要|不用|不必|无需|没必要|用不着|不打算|不想|不希望|不愿(?:意)?|"
+    r"暂不|先别|先不|禁止|切勿|勿|"
+    r"do not|don't|no need to)"
+)
+
+
+def _negated_request_before(value, index, window=12):
+    """True when a negative request phrase directly precedes the matched action."""
+    prefix = value[max(0, index - window) : index]
+    return re.search(REQUEST_NEGATION + r"[^，,。；;!?！？\n]{0,8}$", prefix, re.I) is not None
+
+
 def _research_task_declined(text):
     value = _authorization_text(text).casefold()
     actions = r"(?:研究|分析|处理|比较|计算|统计|评估|检验|核查|测试|表征|测定|探索)"
-    negation = r"(?:不要|不需要|不想|不希望|不愿(?:意)?|无需|暂不|先别|先不|禁止|停止|取消|不再)"
+    negation = (
+        r"(?:不要|不需要|不用|不必|无需|没必要|用不着|不打算|不想|不希望|不愿(?:意)?|"
+        r"暂不|先别|先不|禁止|停止|取消|不再|切勿|勿)"
+    )
     for match in re.finditer(actions, value):
         prefix = value[max(0, match.start() - 24) : match.start()]
         clause = re.split(r"[，,。；;\n]|但是|但|however|but", prefix)[-1]
@@ -3112,7 +3297,7 @@ def _research_task_declined(text):
 
 def _explicit_workflow_proposal_intent(text):
     value = _authorization_text(text).casefold()
-    if re.search(r"(?:不要|不需要|无需|禁止|切勿|别).{0,12}(?:提交|生成|提出|创建).{0,12}提案", value):
+    if re.search(REQUEST_NEGATION + r"[^，,。；;\n]{0,12}(?:提交|生成|提出|创建).{0,12}提案", value, re.I):
         return False
     return (
         ("工作流" in value or "workflow" in value)
@@ -3186,7 +3371,7 @@ def _explicit_build_intent(text):
     def negated(start):
         prefix = value[:start]
         clause = re.split(r"[，,。；;\n]|但是|但|however|but", prefix)[-1]
-        return bool(re.search(r"不要|不需要|不想|不希望|无需|暂不|先别|先不|禁止|don't|do not", clause, re.I))
+        return bool(re.search(REQUEST_NEGATION, clause, re.I))
 
     flexible_action = re.compile(
         r"(?:搭建|创建|建立|构建|生成|新建|修改|调整|优化|修复|修正|迭代|完成|设计|设置).{0,48}工作流"
@@ -3282,18 +3467,21 @@ def _approval_summary(name, args, reason):
 
 def _explicit_skill_run(text):
     value = _authorization_text(text).casefold()
-    return any(
-        phrase in value
-        for phrase in (
-            "运行 skill",
-            "运行这个 skill",
-            "执行 skill",
-            "运行技能脚本",
-            "执行技能脚本",
-            "run the skill",
-            "run skill script",
-        )
-    )
+    for phrase in (
+        "运行 skill",
+        "运行这个 skill",
+        "执行 skill",
+        "运行技能脚本",
+        "执行技能脚本",
+        "run the skill",
+        "run skill script",
+    ):
+        start = value.find(phrase)
+        while start >= 0:
+            if not _negated_request_before(value, start):
+                return True
+            start = value.find(phrase, start + 1)
+    return False
 
 
 def _explicit_delete_intent(text):
@@ -3301,9 +3489,13 @@ def _explicit_delete_intent(text):
     stripped = value.strip(" \t\r\n，。！？,!?~")
     if stripped in {"删除", "删除工作流", "移除工作流", "清空工作流", "delete", "delete workflow"}:
         return True
-    return any(
-        phrase in value for phrase in ("删除工作流", "移除工作流", "delete the workflow", "delete workflow")
-    )
+    for phrase in ("删除工作流", "移除工作流", "delete the workflow", "delete workflow"):
+        start = value.find(phrase)
+        while start >= 0:
+            if not _negated_request_before(value, start):
+                return True
+            start = value.find(phrase, start + 1)
+    return False
 
 
 def _explicit_run_intent(text):
@@ -3393,9 +3585,7 @@ def _explicit_run_intent(text):
         "处理并画图",
         "画一下图",
     )
-    negation = re.compile(
-        r"(?:不要|不需要|不想|不希望|无需|暂不|先别|先不|禁止|don't|do not)(?:.{0,6})$", re.I
-    )
+    negation = re.compile(REQUEST_NEGATION + r"[^，,。；;\n]{0,6}$", re.I)
     for phrase in direct_requests:
         start = value.find(phrase)
         if start >= 0 and not negation.search(value[max(0, start - 10) : start].rstrip()):
@@ -3436,7 +3626,10 @@ def _explicit_task_revocation(text):
 
 def _explicit_intent_decline(intent, text):
     value = _authorization_text(text).casefold()
-    negator = r"(?:不要|不需要|无需|先别|暂不|禁止|停止|取消|不执行|不运行|不跑)"
+    negator = (
+        r"(?:不要|不需要|不用|不必|无需|没必要|用不着|不打算|不想|先别|暂不|禁止|停止|取消|"
+        r"不执行|不运行|不跑|切勿|勿)"
+    )
     if intent in {"run", "build"} and _research_task_declined(value):
         return True
     if intent == "run":
@@ -3463,12 +3656,21 @@ def _explicit_intent_decline(intent, text):
 
 def _explicit_cancel_approval(text):
     value = _authorization_text(text).casefold()
-    return bool(
-        re.search(
-            r"(?:取消|撤销|放弃|拒绝|不批准).{0,12}(?:审批|批准|授权|请求)|(?:审批|请求).{0,12}(?:取消|撤销|放弃|拒绝|不批准)",
-            value,
-        )
+    target = r"(?:取消|撤销|放弃|拒绝|不批准)"
+    noun = r"(?:审批|批准|授权|请求)"
+    negated = re.compile(
+        REQUEST_NEGATION
+        + r"[^，,。；;\n]{0,10}"
+        + target
+        + "|"
+        + noun
+        + r"[^，,。；;\n]{0,10}"
+        + REQUEST_NEGATION,
+        re.I,
     )
+    if negated.search(value):
+        return False
+    return bool(re.search(target + r".{0,12}" + noun + "|" + noun + r".{0,12}" + target, value))
 
 
 def _explicit_report_intent(user_text):
@@ -3491,9 +3693,7 @@ def _explicit_report_intent(user_text):
         r"(?:请|帮我|确认|开始|立即)?(?:生成|输出|撰写|编写|写|制作|出|做|整理)(?:一下)?报告", stripped
     ):
         return True
-    if re.search(
-        r"(?:不要|不需要|无需|禁止|别|不必|do not|don't|no need to)[^，,。；;\n]{0,20}(?:报告|report)", value
-    ):
+    if re.search(REQUEST_NEGATION + r"[^，,。；;\n]{0,20}(?:报告|report)", value, re.I):
         return False
     return bool(
         re.search(
@@ -3509,108 +3709,26 @@ def _explicit_report_intent(user_text):
 
 
 def _bounded_run_workflow_result(result):
-    """Keep useful scientific summaries and artifact provenance in large run replies."""
+    """Keep every executed node visible and trim per-node detail until it fits."""
     source = result if isinstance(result, dict) else {}
     workflow_result = source.get("result") if isinstance(source.get("result"), dict) else {}
-    outputs = []
-    for node in workflow_result.get("outputs", [])[:40]:
-        if not isinstance(node, dict):
-            continue
-        ports = node.get("outputs") if isinstance(node.get("outputs"), dict) else {}
-        compact_ports = {}
-        for name, value in list(ports.items())[:12]:
-            key = str(name).casefold()
-            if not isinstance(value, dict):
-                continue
-            if key in {"table", "features"}:
-                summary = {}
-                for field in (
-                    "rows",
-                    "aggregate_total_rows",
-                    "aggregate_suppressed_rows",
-                    "scope",
-                    "generated_features_total",
-                    "generated_features_previewed",
-                    "generated_features_omitted",
-                ):
-                    if field in value:
-                        summary[field] = value[field]
-                if isinstance(value.get("instrument_structure"), dict):
-                    summary["instrument_structure"] = value["instrument_structure"]
-                if isinstance(value.get("columns"), list):
-                    summary["columns"] = value["columns"][:32]
-                if isinstance(value.get("header_diagnostics"), dict):
-                    summary["header_diagnostics"] = _summary_fields(
-                        {"header_diagnostics": value["header_diagnostics"]}
-                    ).get("header_diagnostics", {})
-                if isinstance(value.get("warnings"), list):
-                    summary["warnings"] = [str(item)[:240] for item in value["warnings"][:10]]
-                if isinstance(value.get("generated_features"), list):
-                    summary["generated_features"] = value["generated_features"][:12]
-                ranges = value.get("aggregate_ranges")
-                if isinstance(ranges, dict):
-                    summary["aggregate_ranges"] = dict(list(ranges.items())[:20])
-                preview = value.get("aggregate_preview")
-                if isinstance(preview, list):
-                    summary["aggregate_preview"] = [
-                        {key: cell for key, cell in list(row.items())[:10]}
-                        for row in preview[:4]
-                        if isinstance(row, dict)
-                    ]
-                elif value.get("aggregate_preview_omitted"):
-                    summary["aggregate_preview_omitted"] = True
-                compact_ports[key] = summary
-            elif key in {"report", "summary", "analysis"}:
-                text = value.get("text")
-                if isinstance(text, str):
-                    compact_ports[key] = {
-                        "text": text[:1400],
-                        "text_characters": value.get("text_characters", len(text)),
-                        "text_is_excerpt": value.get("text_is_excerpt", len(text) > 1400),
-                    }
-                else:
-                    compact_ports[key] = {
-                        field: value[field]
-                        for field in (
-                            "status",
-                            "coverage",
-                            "limitations",
-                            "conclusion",
-                            "format",
-                            "width",
-                            "height",
-                            "mode",
-                            "dpi",
-                            "frames",
-                            "metadata",
-                            "info",
-                            "sha256",
-                            "source_sha256",
-                            "source_bytes",
-                            "execution_status",
-                            "source_files",
-                            "provenance",
-                        )
-                        if field in value and isinstance(value[field], (str, int, float, bool, dict, list))
-                    }
-                    compact_ports[key].update(_summary_fields(value))
-            elif key in {"artifacts", "artifact_files"}:
-                compact_ports[key] = {
-                    "count": value.get(
-                        "count", len(value.get("files", [])) if isinstance(value.get("files"), list) else 0
-                    ),
-                    "files": [str(item)[:160] for item in value.get("files", [])[:20]]
-                    if isinstance(value.get("files"), list)
-                    else [],
-                }
-        outputs.append({"node_id": node.get("node_id"), "outputs": compact_ports})
-    artifact_rows = source.get("artifacts", [])
+    raw_nodes = [
+        node
+        for node in (
+            workflow_result.get("outputs") if isinstance(workflow_result.get("outputs"), list) else []
+        )
+        if isinstance(node, dict)
+    ]
+    nodes = raw_nodes[:40]
+    total_nodes = len(raw_nodes)
+    declared_omitted = workflow_result.get("nodes_omitted")
+    if isinstance(declared_omitted, int) and not isinstance(declared_omitted, bool):
+        total_nodes += max(0, declared_omitted)
     artifacts = []
-    if isinstance(artifact_rows, list):
-        for item in artifact_rows[:24]:
-            if not isinstance(item, dict):
-                continue
-            artifacts.append({key: item[key] for key in ("id", "name", "sha256", "size") if key in item})
+    if isinstance(source.get("artifacts"), list):
+        for item in source["artifacts"][:24]:
+            if isinstance(item, dict):
+                artifacts.append({key: item[key] for key in ("id", "name", "sha256", "size") if key in item})
     subagent_audit = []
     for item in (
         source.get("subagent_audit", [])[:20] if isinstance(source.get("subagent_audit"), list) else []
@@ -3638,63 +3756,254 @@ def _bounded_run_workflow_result(result):
     bounded = {key: source[key] for key in ("status", "flow_name") if key in source}
     bounded["result"] = {
         "session_id": workflow_result.get("session_id"),
-        "outputs": outputs,
+        "execution_status": workflow_result.get("execution_status") or source.get("status") or "completed",
+        "nodes_total": total_nodes,
+        "outputs": [],
     }
+    if total_nodes > len(nodes):
+        bounded["result"]["nodes_omitted"] = total_nodes - len(nodes)
+    if isinstance(workflow_result.get("failed_nodes"), list):
+        bounded["result"]["failed_nodes"] = workflow_result["failed_nodes"][:20]
     bounded["artifacts"] = artifacts
     if subagent_audit:
         bounded["subagent_audit"] = subagent_audit
-    encoded = json.dumps(bounded, ensure_ascii=False, separators=(",", ":"))
-    if len(encoded) <= MAX_TOOL_RESULT_CHARS:
-        return bounded
-    # Retain quantitative ranges, concise column schemas, and artifact names
-    # while progressively dropping only presentation details.
-    outputs.sort(
-        key=lambda node: any(
-            isinstance(value, dict) and (value.get("aggregate_ranges") or value.get("text"))
-            for value in node["outputs"].values()
-        ),
-        reverse=True,
-    )
-    bounded["result"]["outputs_omitted"] = max(0, len(outputs) - 6)
-    for node in outputs:
-        for value in node["outputs"].values():
-            if "aggregate_preview" in value:
-                value["aggregate_preview"] = value["aggregate_preview"][:2]
-                value["aggregate_preview_truncated"] = True
-            if "columns" in value:
-                value["columns"] = value["columns"][:16]
-            if isinstance(value.get("aggregate_ranges"), dict):
-                value["aggregate_ranges"] = dict(list(value["aggregate_ranges"].items())[:10])
-            if isinstance(value.get("text"), str):
-                value["text"] = value["text"][:800]
-                value["text_is_excerpt"] = True
-            if isinstance(value.get("generated_features"), list):
-                value["generated_features"] = value["generated_features"][:8]
-                for feature in value["generated_features"]:
-                    if isinstance(feature, dict):
-                        for field in ("definition", "rationale", "evidence"):
-                            if isinstance(feature.get(field), str):
-                                feature[field] = feature[field][:180]
-    del outputs[6:]
-    encoded = json.dumps(bounded, ensure_ascii=False, separators=(",", ":"))
-    if len(encoded) <= MAX_TOOL_RESULT_CHARS:
-        return bounded
-    bounded["artifacts"] = artifacts[:8]
-    for node in outputs:
-        for value in node["outputs"].values():
-            if "aggregate_preview" in value:
-                value.pop("aggregate_preview", None)
-                value["aggregate_preview_omitted"] = True
-            if isinstance(value.get("aggregate_ranges"), dict):
-                value["aggregate_ranges"] = dict(list(value["aggregate_ranges"].items())[:6])
-            if "columns" in value:
-                value["columns"] = value["columns"][:8]
-    encoded = json.dumps(bounded, ensure_ascii=False, separators=(",", ":"))
-    if len(encoded) <= MAX_TOOL_RESULT_CHARS:
-        return bounded
-    bounded["result"]["outputs_omitted"] += max(0, len(outputs) - 4)
-    del outputs[4:]
-    bounded["artifacts"] = artifacts[:4]
+    priorities = [index for index, node in enumerate(nodes) if _quantitative_node(node)]
+    # Detail is spent on nodes with quantitative/report content first, while
+    # every other executed node keeps a one-line bounded record. The detailed
+    # order is stable because it follows the executor output order.
+    for detail_count in (6, 3, 2, 1):
+        detailed = set(priorities[:detail_count])
+        bounded["artifacts"] = artifacts[: 24 if detail_count >= 3 else 4]
+        bounded["result"]["outputs"] = [
+            _bounded_run_node(node, 2 if index in detailed else 0) for index, node in enumerate(nodes)
+        ]
+        encoded = json.dumps(_strict_json_value(bounded), ensure_ascii=False, separators=(",", ":"))
+        if len(encoded) <= MAX_TOOL_RESULT_CHARS:
+            return _strict_json_value(bounded)
+    # Extreme case: never drop nodes silently; keep the same per-node shape
+    # (an "outputs" mapping) with ultra-short port values plus available_ports.
+    bounded["result"]["outputs"] = [
+        {
+            "node_id": node.get("node_id"),
+            "available_ports": [str(name)[:60] for name in list((node.get("outputs") or {}).keys())[:8]],
+            "outputs": {
+                str(name)[:60]: _ultra_compact_port(value)
+                for name, value in list((node.get("outputs") or {}).items())[:8]
+            },
+        }
+        for node in nodes
+    ]
+    bounded["artifacts"] = artifacts[:2]
+    if subagent_audit:
+        bounded["subagent_audit"] = subagent_audit[:4]
+    encoded = json.dumps(_strict_json_value(bounded), ensure_ascii=False, separators=(",", ":"))
+    if len(encoded) > MAX_TOOL_RESULT_CHARS:
+        bounded["result"]["outputs"] = [
+            {
+                "node_id": node.get("node_id"),
+                "available_ports": [str(name)[:60] for name in list((node.get("outputs") or {}).keys())[:8]],
+                "outputs": {},
+            }
+            for node in nodes
+        ]
+        bounded["result"]["port_values_omitted"] = True
+    return _strict_json_value(bounded)
+
+
+def _ultra_compact_port(value):
+    if isinstance(value, dict):
+        if "text" in value:
+            text = str(value.get("text") or "")
+            return {"text": text[:80], "text_is_excerpt": True}
+        for field in ("rows", "count"):
+            if field in value:
+                return {field: value[field]}
+        return {"keys": [str(name)[:40] for name in list(value)[:4]]}
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    return str(value)[:80]
+
+
+def _quantitative_node(node):
+    """Prefer spending reply budget on nodes that expose numbers or reports."""
+    ports = node.get("outputs") if isinstance(node.get("outputs"), dict) else {}
+    for value in ports.values():
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return True
+        if not isinstance(value, dict):
+            continue
+        if isinstance(value.get("aggregate_ranges"), dict) and value["aggregate_ranges"]:
+            return True
+        if isinstance(value.get("text"), str) and value["text"].strip():
+            return True
+        if isinstance(value.get("columns"), list) and value["columns"]:
+            return True
+    return False
+
+
+_BOUNDED_RUN_LEVELS = {
+    2: {
+        "text": 800,
+        "columns": 16,
+        "preview": 2,
+        "ranges": 10,
+        "features": 8,
+        "warnings": 6,
+        "files": 8,
+        "patterns": 8,
+        "limit": 400,
+        "items": 6,
+        "fields": 12,
+    },
+    1: {
+        "text": 400,
+        "columns": 8,
+        "preview": 1,
+        "ranges": 6,
+        "features": 4,
+        "warnings": 3,
+        "files": 4,
+        "patterns": 4,
+        "limit": 240,
+        "items": 3,
+        "fields": 8,
+    },
+    0: {
+        "text": 160,
+        "columns": 2,
+        "preview": 0,
+        "ranges": 0,
+        "features": 1,
+        "warnings": 1,
+        "files": 2,
+        "patterns": 2,
+        "limit": 120,
+        "items": 2,
+        "fields": 5,
+    },
+}
+
+
+def _bound_port_value(value, level):
+    caps = _BOUNDED_RUN_LEVELS[level]
+    if isinstance(value, str):
+        return value[: caps["text"]]
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, (int, float)):
+        return value if not isinstance(value, float) or math.isfinite(value) else None
+    if isinstance(value, list):
+        rows = []
+        for item in value[: caps["items"]]:
+            if isinstance(item, dict):
+                rows.append(
+                    {
+                        str(name)[:60]: _bound_port_value(cell, level)
+                        for name, cell in list(item.items())[: caps["fields"]]
+                    }
+                )
+            else:
+                rows.append(_bound_port_value(item, level))
+        if len(value) > len(rows):
+            rows.append({"_omitted_items": len(value) - len(rows)})
+        return rows
+    if isinstance(value, dict):
+        result = {}
+        for name, item in list(value.items())[: caps["fields"]]:
+            result[str(name)[:80]] = _bound_port_value(item, level)
+        if len(value) > len(result):
+            result["_omitted_fields"] = len(value) - len(result)
+        return result
+    return str(value)[: caps["limit"]]
+
+
+def _bounded_port(port_name, value, level):
+    """Copy one node output port at the requested detail level."""
+    caps = _BOUNDED_RUN_LEVELS[level]
+    key = str(port_name).casefold()
+    if not isinstance(value, dict):
+        return _bound_port_value(value, level)
+    if key in {"table", "features"}:
+        summary = {
+            field: _bound_port_value(value[field], level)
+            for field in (
+                "rows",
+                "aggregate_total_rows",
+                "aggregate_suppressed_rows",
+                "generated_features_total",
+                "generated_features_previewed",
+                "generated_features_omitted",
+                "header_diagnostics",
+            )
+            if field in value
+        }
+        if "scope" in value:
+            summary["scope"] = str(value["scope"])[:40]
+        if isinstance(value.get("instrument_structure"), dict):
+            structure = value["instrument_structure"]
+            bounded_structure = {
+                name: _bound_port_value(item, level)
+                for name, item in structure.items()
+                if name != "path_patterns"
+            }
+            patterns = structure.get("path_patterns")
+            if isinstance(patterns, list):
+                bounded_structure["path_patterns"] = [
+                    _bound_port_value(item, 2)
+                    for item in patterns[: caps["patterns"]]
+                    if isinstance(item, dict)
+                ]
+            summary["instrument_structure"] = bounded_structure
+        if isinstance(value.get("columns"), list):
+            summary["columns"] = [str(column)[:120] for column in value["columns"][: caps["columns"]]]
+        if isinstance(value.get("warnings"), list):
+            summary["warnings"] = [str(item)[:240] for item in value["warnings"][: caps["warnings"]]]
+        if isinstance(value.get("generated_features"), list):
+            summary["generated_features"] = [
+                _bound_port_value(item, level) for item in value["generated_features"][: caps["features"]]
+            ]
+        if isinstance(value.get("aggregate_ranges"), dict) and caps["ranges"]:
+            summary["aggregate_ranges"] = {
+                name: item for name, item in list(value["aggregate_ranges"].items())[: caps["ranges"]]
+            }
+        preview = value.get("aggregate_preview")
+        if isinstance(preview, list) and caps["preview"]:
+            summary["aggregate_preview"] = [
+                {
+                    str(name)[:60]: cell
+                    for name, cell in list(row.items())[:10]
+                    if isinstance(cell, (int, float, bool)) or cell is None
+                }
+                for row in preview[: caps["preview"]]
+                if isinstance(row, dict)
+            ]
+        elif level >= 1 and isinstance(preview, list):
+            summary["aggregate_preview_omitted"] = True
+        return summary
+    if key in {"report", "summary", "analysis"} and isinstance(value.get("text"), str):
+        text = value["text"]
+        return {
+            "text": text[: caps["text"]],
+            "text_characters": value.get("text_characters", len(text)),
+            "text_is_excerpt": bool(value.get("text_is_excerpt", False)) or len(text) > caps["text"],
+        }
+    if key in {"artifacts", "artifact_files"}:
+        files = value.get("files") if isinstance(value.get("files"), list) else []
+        return {
+            "count": value.get("count", len(files)),
+            "files": [str(item)[:160] for item in files[: caps["files"]]],
+        }
+    return _bound_port_value(value, level)
+
+
+def _bounded_run_node(node, level):
+    ports = node.get("outputs") if isinstance(node.get("outputs"), dict) else {}
+    bounded = {"node_id": node.get("node_id"), "outputs": {}}
+    for name in ("node_name", "execution_status", "error"):
+        if node.get(name):
+            bounded[name] = str(node[name])[:300]
+    for name, value in list(ports.items())[:12]:
+        bounded["outputs"][str(name)[:80]] = _bounded_port(name, value, level)
     return bounded
 
 
@@ -3996,12 +4305,17 @@ def _extract_dataset_schema_summary(inspected_result):
 def _compact_run_result(result, *, flow=None):
     if not isinstance(result, dict):
         return {"result_type": type(result).__name__}
-    runs = result.get("outputs", [])
-    types = {
-        node.get("id"): node.get("data", {}).get("type")
-        for node in (flow or {}).get("data", {}).get("nodes", [])
-        if isinstance(node, dict)
-    }
+    runs = result.get("outputs")
+    runs = runs if isinstance(runs, list) else []
+    flow_data = flow.get("data") if isinstance(flow, dict) else None
+    flow_nodes = flow_data.get("nodes") if isinstance(flow_data, dict) else []
+    types = {}
+    for node in flow_nodes if isinstance(flow_nodes, list) else []:
+        if not isinstance(node, dict):
+            continue
+        node_data = node.get("data")
+        if isinstance(node_data, dict):
+            types[node.get("id")] = node_data.get("type")
     aggregate_ports = {
         "ScienceStatsGrouped": {"table"},
         "ScienceMaterialsXrd": {"features"},
@@ -4009,7 +4323,9 @@ def _compact_run_result(result, *, flow=None):
         "ScienceMaterialsThermal": {"features"},
     }
     compact = []
-    for run in runs[:30] if isinstance(runs, list) else []:
+    failed = []
+    nodes_total = 0
+    for run_index, run in enumerate(runs):
         if not isinstance(run, dict):
             continue
         # LFX returns RunOutputs, whose outputs list contains one ResultData
@@ -4017,7 +4333,11 @@ def _compact_run_result(result, *, flow=None):
         # focused tests and other compatible runtimes.
         entries = run.get("outputs")
         entries = entries if isinstance(entries, list) else [run]
-        for output in entries[:60]:
+        valid_entries = [entry for entry in entries if isinstance(entry, dict)]
+        nodes_total += len(valid_entries)
+        if run_index >= 30:
+            continue
+        for output in valid_entries[:60]:
             if not isinstance(output, dict):
                 continue
             port_rows = {}
@@ -4059,15 +4379,117 @@ def _compact_run_result(result, *, flow=None):
                                 )
                             )
                     elif key in {"report", "summary", "analysis"}:
-                        port_rows[key] = _message_or_report_summary(payload)
+                        port_rows[key] = _message_or_report_summary(payload) or _generic_port_summary(payload)
                     elif key in {"artifacts", "artifact_files"}:
                         paths = _artifact_candidates({"outputs": [{"results": {key: payload}}]})
                         port_rows[key] = {
                             "count": len(paths),
                             "files": [Path(path).name for path in paths[:30]],
                         }
-            compact.append({"node_id": output.get("component_id"), "outputs": port_rows})
-    return {"session_id": result.get("session_id"), "outputs": compact}
+                    else:
+                        summary = _generic_port_summary(payload)
+                        if summary is not None:
+                            port_rows[str(name)[:80]] = summary
+            row = {"node_id": output.get("component_id"), "outputs": port_rows}
+            display_name = output.get("component_display_name")
+            if isinstance(display_name, str) and display_name.strip():
+                row["node_name"] = display_name.strip()[:120]
+            node_status = _node_execution_status(output, run, port_rows)
+            if node_status["status"] and node_status["status"] != "completed":
+                row["execution_status"] = node_status["status"]
+            if node_status["error"]:
+                row["error"] = node_status["error"][:600]
+                failed.append(
+                    {
+                        "node_id": row["node_id"],
+                        "status": node_status["status"] or "failed",
+                        "error": node_status["error"][:600],
+                    }
+                )
+            compact.append(row)
+    summary = {
+        "session_id": result.get("session_id"),
+        "outputs": compact,
+        "execution_status": _run_execution_status(result, failed),
+        "nodes_total": nodes_total,
+    }
+    nodes_omitted = nodes_total - len(compact)
+    if nodes_omitted > 0:
+        summary["nodes_omitted"] = nodes_omitted
+    if failed:
+        summary["failed_nodes"] = failed[:20]
+    return summary
+
+
+def _generic_port_summary(value):
+    """Bound an unrecognized output port without exposing raw measurement rows."""
+    if value is None or isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value if not isinstance(value, float) or math.isfinite(value) else None
+    if isinstance(value, str):
+        return {
+            "text": value[:600],
+            "text_characters": len(value),
+            "text_is_excerpt": len(value) > 600,
+        }
+    if isinstance(value, list):
+        return _table_output_summary(value)
+    if isinstance(value, dict):
+        text = _nested_message_text(value)
+        if isinstance(text, str) and text.strip():
+            return {
+                "text": text[:600],
+                "text_characters": len(text),
+                "text_is_excerpt": len(text) > 600,
+            }
+        summary = _summary_fields(value)
+        if summary:
+            return summary
+        scalars = {}
+        for name, item in list(value.items())[:32]:
+            if isinstance(item, (str, int, float, bool)) or item is None:
+                scalars[str(name)[:80]] = item[:240] if isinstance(item, str) else item
+        if scalars:
+            return scalars
+        return {"keys": [str(name)[:80] for name in list(value)[:20]]}
+    return str(value)[:300]
+
+
+def _node_execution_status(output, run, port_rows):
+    """Read per-node failure state from runtime records or a failed report payload."""
+    status, error = None, None
+    for source in (output, run):
+        if not isinstance(source, dict):
+            continue
+        for key in ("execution_status", "status"):
+            value = source.get(key)
+            if isinstance(value, str) and value.strip():
+                status = value.strip().casefold()[:40]
+                break
+        if source.get("error"):
+            error = str(source["error"])
+        if status or error:
+            break
+    for port_name in ("report", "analysis", "summary"):
+        payload = port_rows.get(port_name) if isinstance(port_rows, dict) else None
+        if not isinstance(payload, dict):
+            continue
+        inner = payload.get("execution_status")
+        if isinstance(inner, str) and inner.strip():
+            if inner.strip().casefold() not in {"completed", "success", "ok"}:
+                status = inner.strip().casefold()[:40]
+                error = error or str(payload.get("error") or payload.get("message") or "")[:600]
+    return {"status": status, "error": error}
+
+
+def _run_execution_status(result, failed):
+    if isinstance(result, dict):
+        for key in ("execution_status", "status"):
+            value = result.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()[:40]
+    return "failed" if failed else "completed"
 
 
 def _instrument_structure_summary(value):
@@ -4298,6 +4720,42 @@ def _feature_output_rows(value, depth=0):
     return rows
 
 
+def _report_data_summary(data):
+    """Expose bounded report metrics (e.g. modulus/yield) from an LFX debug payload."""
+    if not isinstance(data, dict):
+        return {}
+    summary = {}
+    metrics = {}
+    for key, item in list(data.items())[:64]:
+        name = str(key)[:80]
+        if name.casefold() in {
+            "warnings",
+            "provenance",
+            "transform",
+            "table_contract",
+            "features_contract",
+            "table_preview",
+            "features_preview",
+        }:
+            continue
+        if isinstance(item, str):
+            metrics[name] = item[:500]
+        elif isinstance(item, (int, float, bool)) or item is None:
+            metrics[name] = item
+        elif (
+            isinstance(item, list)
+            and len(item) <= 40
+            and all(isinstance(entry, (str, int, float, bool)) or entry is None for entry in item)
+        ):
+            metrics[name] = [entry[:200] if isinstance(entry, str) else entry for entry in item]
+    warnings = data.get("warnings")
+    if isinstance(warnings, list):
+        summary["warnings"] = [str(item)[:240] for item in warnings[:30] if isinstance(item, str)]
+    if metrics:
+        summary["data"] = metrics
+    return summary
+
+
 def _message_or_report_summary(value):
     text = _nested_message_text(value)
     if text is not None:
@@ -4306,6 +4764,22 @@ def _message_or_report_summary(value):
         nested = value.get("data")
         if isinstance(nested, dict):
             result = _summary_fields(nested)
+            if result:
+                return result
+        # LFX debug runs wrap each component result as
+        # {"type": "object", "message": {...report/data/...}}: the report
+        # metadata sits under message and the useful metrics under
+        # message.data, so summarize both without exposing raw rows.
+        message = value.get("message")
+        if isinstance(message, dict):
+            result = _summary_fields(message)
+            metrics = _report_data_summary(message.get("data"))
+            if metrics.get("data"):
+                merged = dict(result.get("data") or {})
+                merged.update(metrics["data"])
+                result["data"] = merged
+            if metrics.get("warnings") and not result.get("warnings"):
+                result["warnings"] = metrics["warnings"]
             if result:
                 return result
     return _summary_fields(value)

@@ -10,6 +10,8 @@ from urllib.parse import quote as urlquote
 
 import pandas as pd
 
+from materials_quality.common import json_value
+
 from .contracts import NodeResult, artifact_path, require_table
 from .lit_evidence import LOCATION_FIELDS, citation, documents, evidence, llm_claims, request_json
 
@@ -88,6 +90,11 @@ class _Boolean:
 
 
 def _crossref_record(item):
+    # Third-party JSON must not crash dispatch with AttributeError: report a
+    # structural ValueError like the other Crossref response checks do.
+    if not isinstance(item, dict):
+        raise ValueError("Crossref record must be a JSON object")
+
     def first(field):
         value = item.get(field)
         return value[0] if isinstance(value, list) and value else value or None
@@ -96,13 +103,19 @@ def _crossref_record(item):
         (item.get(k) for k in ("published", "published-print", "published-online", "issued") if item.get(k)),
         {},
     )
-    parts = date.get("date-parts", [[]])
+    if not isinstance(date, dict):
+        raise ValueError("Crossref record date must be a JSON object")
+    parts = date.get("date-parts") or [[]]
+    if not isinstance(parts, list) or not parts or not isinstance(parts[0], list):
+        raise ValueError("Crossref record date-parts must be a list of lists")
+    authors = item.get("author", [])
+    if not isinstance(authors, list) or any(not isinstance(author, dict) for author in authors):
+        raise ValueError("Crossref record authors must be JSON objects")
     return {
         "doi": item.get("DOI"),
         "title": first("title"),
         "authors": [
-            " ".join(filter(None, [a.get("given"), a.get("family")])) or a.get("name")
-            for a in item.get("author", [])
+            " ".join(filter(None, [a.get("given"), a.get("family")])) or a.get("name") for a in authors
         ]
         or None,
         "journal": first("container-title"),
@@ -168,6 +181,8 @@ def search(table=None, *, config=None, data=None, tables=None):
         raise ValueError("provider must be local or crossref")
     selected = []
     for record in records:
+        if not isinstance(record, dict):
+            raise ValueError("local search records must be objects")
         text = " ".join(str(record.get(k) or "") for k in ("title", "authors", "journal", "abstract", "text"))
         if method == "doi":
             match = bool(record.get("doi")) and _doi(record["doi"]) == _doi(query)
@@ -202,6 +217,8 @@ def search(table=None, *, config=None, data=None, tables=None):
 def metadata(table=None, *, config=None, data=None, tables=None):
     cfg = config or {}
     provider = cfg.get("provider", "local")
+    if cfg.get("doi") is not None and not isinstance(cfg["doi"], str):
+        raise ValueError("provide a valid DOI (10.<registrant>/<suffix>)")
     docs = documents(table, data) if table is not None or data else []
     if not docs and cfg.get("doi"):
         docs = [{"source_id": "doi-1", "text": cfg["doi"], "doi": cfg["doi"]}]
@@ -382,7 +399,10 @@ def compare(table=None, *, config=None, data=None, tables=None):
         ids.append(groups[key])
     frame["group_id"] = ids
     conflicts = []
-    tolerance = float(cfg.get("relative_tolerance", 0))
+    try:
+        tolerance = float(cfg.get("relative_tolerance", 0))
+    except (TypeError, ValueError):
+        raise ValueError("relative_tolerance must be finite and nonnegative") from None
     if not math.isfinite(tolerance) or tolerance < 0:
         raise ValueError("relative_tolerance must be finite and nonnegative")
     for group_id, group in frame.groupby("group_id", sort=False):
@@ -461,7 +481,12 @@ def sources(table=None, *, config=None, data=None, tables=None):
     )
     if cfg.get("save", False):
         path = artifact_path(cfg, "literature-sources.json")
-        path.write_text(json.dumps(result.data, ensure_ascii=False, indent=2), encoding="utf-8")
+        # Artifacts are consumed by strict JSON readers: sanitize NaN/NaT and
+        # non-JSON scalars instead of emitting invalid JSON constants.
+        path.write_text(
+            json.dumps(json_value(result.data), ensure_ascii=False, indent=2, allow_nan=False),
+            encoding="utf-8",
+        )
         result.artifacts.append(str(path))
     return result
 

@@ -131,7 +131,18 @@ def styled_series(label, config):
 
 def figure(config):
     if "figsize" in config:
-        width, height = config["figsize"]
+        figsize = config["figsize"]
+        if (
+            not isinstance(figsize, (list, tuple))
+            or len(figsize) != 2
+            or any(
+                isinstance(value, (bool, np.bool_))
+                or not isinstance(value, (int, float, np.integer, np.floating))
+                for value in figsize
+            )
+        ):
+            raise ValueError("figsize must be a [width, height] pair of numbers in inches")
+        width, height = float(figsize[0]), float(figsize[1])
     elif config.get("profile") == "paper" or "width_mm" in config:
         width = float(config.get("width_mm", PAPER_WIDTH_MM)) / 25.4
         height = float(config.get("height_mm", float(config.get("width_mm", PAPER_WIDTH_MM)) * 0.66)) / 25.4

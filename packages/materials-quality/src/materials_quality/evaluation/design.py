@@ -66,9 +66,11 @@ def generate_trial(*, seed, n_per_group, technical_replicates, effect, variance,
         raise ValueError("n_per_group must be a positive integer")
     if type(technical_replicates) is not int or technical_replicates < 1:
         raise ValueError("technical_replicates must be a positive integer")
-    if variance not in {"balanced", "heterogeneous"} or design not in {"independent", "paired"}:
+    if not isinstance(variance, str) or variance not in {"balanced", "heterogeneous"}:
         raise ValueError("unsupported variance scenario or design")
-    if not math.isfinite(effect):
+    if not isinstance(design, str) or design not in {"independent", "paired"}:
+        raise ValueError("unsupported variance scenario or design")
+    if type(effect) not in (int, float) or isinstance(effect, bool) or not math.isfinite(effect):
         raise ValueError("effect must be finite")
     rng = np.random.default_rng(seed)
     unit_sd = [1.0, 1.0] if variance == "balanced" else [1.0, 2.0]
@@ -152,20 +154,37 @@ def closed_form_interval(a, b, *, paired=False, alpha=0.05):
     a, b = list(map(float, a)), list(map(float, b))
     if min(len(a), len(b)) < 2 or (paired and len(a) != len(b)):
         raise ValueError("oracle requires at least two units and matched paired lengths")
-    difference = statistics.mean(a) - statistics.mean(b)
-    if paired:
-        differences = [x - y for x, y in zip(a, b, strict=True)]
-        variance_mean = statistics.variance(differences) / len(differences)
-        degrees = len(differences) - 1
-    else:
-        va, vb = statistics.variance(a) / len(a), statistics.variance(b) / len(b)
-        variance_mean = va + vb
-        degrees = variance_mean**2 / (va**2 / (len(a) - 1) + vb**2 / (len(b) - 1))
-    if variance_mean <= 0:
-        raise ValueError("oracle reference distribution unavailable for degenerate variance")
-    se = math.sqrt(variance_mean)
-    statistic = difference / se
-    critical = float(t.ppf(1 - alpha / 2, degrees))
+    if not all(map(math.isfinite, a)) or not all(map(math.isfinite, b)):
+        raise ValueError("oracle requires finite unit values")
+    if (
+        type(alpha) not in (int, float)
+        or isinstance(alpha, bool)
+        or not math.isfinite(alpha)
+        or not 0 < alpha < 1
+    ):
+        raise ValueError("alpha must be a finite number strictly between 0 and 1")
+    try:
+        difference = statistics.mean(a) - statistics.mean(b)
+        if paired:
+            differences = [x - y for x, y in zip(a, b, strict=True)]
+            variance_mean = statistics.variance(differences) / len(differences)
+            degrees = len(differences) - 1
+        else:
+            va, vb = statistics.variance(a) / len(a), statistics.variance(b) / len(b)
+            variance_mean = va + vb
+            # Guard the Satterthwaite denominator before dividing: both groups
+            # being constant makes it exactly zero (ZeroDivisionError otherwise).
+            denominator = va**2 / (len(a) - 1) + vb**2 / (len(b) - 1)
+            if not denominator:
+                raise ValueError("oracle reference distribution unavailable for degenerate variance")
+            degrees = variance_mean**2 / denominator
+        if not math.isfinite(variance_mean) or variance_mean <= 0:
+            raise ValueError("oracle reference distribution unavailable for degenerate variance")
+        se = math.sqrt(variance_mean)
+        statistic = difference / se
+        critical = float(t.ppf(1 - alpha / 2, degrees))
+    except (OverflowError, ArithmeticError):
+        raise ValueError("oracle reference distribution unavailable for extreme values") from None
     return {
         "mean_difference": difference,
         "ci_low": difference - critical * se,
@@ -266,6 +285,10 @@ def evaluate_trials(trials):
 
 def binomial_mc(successes, denominator):
     """Plug-in MCSE plus Wilson 95% interval for *independent simulated trials*."""
+    if type(denominator) is not int or denominator < 0:
+        raise ValueError("denominator must be a nonnegative integer")
+    if type(successes) is not int or isinstance(successes, bool) or not 0 <= successes <= denominator:
+        raise ValueError("successes must be an integer from 0 to denominator")
     if not denominator:
         return {
             "successes": successes,

@@ -477,7 +477,7 @@ def spectra(table=None, *, config=None, data=None, tables=None):
 
 
 @plot_operation
-def mechanics(table=None, *, config=None, data=None, tables=None):
+def _mechanics_plot(table=None, *, config=None, data=None, tables=None):
     c = config or {}
     method = _method(c, {"overlay", "mean_error"}, "overlay")
     x, y, sample = c.get("x"), c.get("y"), c.get("sample")
@@ -592,6 +592,66 @@ def mechanics(table=None, *, config=None, data=None, tables=None):
     )
 
 
+def _mechanics_column_error(requested, columns):
+    available = ", ".join(columns) if columns else "<empty>"
+    details = ", ".join(f"{key}={value!r}" for key, value in requested.items() if value not in columns)
+    hints = []
+    if "strain_fraction" in columns and "stress_MPa" in columns:
+        hints.append(
+            "input looks like a mechanics result table: set x='strain_fraction', y='stress_MPa' (cfg_x/cfg_y)"
+        )
+    hints.append(
+        "set x/y/sample (cfg_x/cfg_y/cfg_sample) to actual column names or connect the raw import table"
+    )
+    return ValueError(
+        f"viz.mechanics column mismatch: {details} not found. Available columns: [{available}]. "
+        + "; ".join(hints)
+        + "。请填写实际列名；力学结果表请使用 strain_fraction/stress_MPa，"
+        "或改为连接含 strain/stress/sample_id 的原始导入表。"
+    )
+
+
+def _mechanics_unit_error(unknown, columns):
+    available = ", ".join(columns) if columns else "<empty>"
+    if "strain_fraction" in columns and "stress_MPa" in columns:
+        format_hint = '{"strain_fraction": "1", "stress_MPa": "MPa"}'
+    else:
+        format_hint = '{"<column>": "<unit>"}'
+    return ValueError(
+        "viz.mechanics unit declarations (cfg_units) must name existing columns; "
+        f"unknown keys: {unknown}. Available columns: [{available}]. "
+        'Expected mapping format {"<column>": "<unit>"}, e.g. ' + format_hint + ". "
+        '列单位声明必须使用实际列名；请按 {"<列名>": "<单位>"} 填写，'
+        "例如对力学结果表使用 strain_fraction/stress_MPa 的单位。"
+    )
+
+
+def _validate_mechanics_inputs(table, config):
+    if not isinstance(table, pd.DataFrame):
+        return
+    columns = [str(column) for column in table.columns]
+    c = dict(config or {})
+    requested = {"x": c.get("x"), "y": c.get("y"), "sample": c.get("sample")}
+    if c.get("group"):
+        requested["group"] = c.get("group")
+    if any(value not in columns for value in requested.values()):
+        raise _mechanics_column_error(requested, columns)
+    units = c.get("units")
+    if units is None:
+        return
+    if not isinstance(units, dict):
+        raise _mechanics_unit_error([], columns)
+    unknown = [str(key) for key in units if key not in columns]
+    if unknown:
+        raise _mechanics_unit_error(unknown, columns)
+
+
+def mechanics(table=None, *, config=None, data=None, tables=None):
+    """Plot specimen curves after validating column/unit declarations with actionable failures."""
+    _validate_mechanics_inputs(table, config)
+    return _mechanics_plot(table, config=config, data=data, tables=tables)
+
+
 @plot_operation
 def statistics_plot(table=None, *, config=None, data=None, tables=None):
     c = config or {}
@@ -691,6 +751,15 @@ def export_table(table=None, *, config=None, data=None, tables=None):
     frame.attrs["units"] = units
     if format != "csv":
         for col in frame:
+            if pd.api.types.is_numeric_dtype(frame[col].dtype) and not pd.api.types.is_bool_dtype(
+                frame[col].dtype
+            ):
+                numbers = pd.to_numeric(frame[col], errors="coerce").to_numpy(dtype=float)
+                if np.isinf(numbers).any():
+                    raise ValueError(
+                        f"{col}: Excel cannot represent non-finite floats (inf/-inf) exactly; "
+                        "use CSV or replace them before export"
+                    )
             if any(isinstance(v, Integral) and abs(int(v)) >= 10**15 for v in frame[col]):
                 raise ValueError(
                     f"{col}: Excel's 15-digit precision cannot guarantee exact integers; "
@@ -706,7 +775,10 @@ def export_table(table=None, *, config=None, data=None, tables=None):
     text_columns = [
         col
         for col in frame.columns
-        if col in ids or pd.api.types.is_string_dtype(frame[col]) or frame[col].dtype == object
+        if col in ids
+        or pd.api.types.is_string_dtype(frame[col])
+        or pd.api.types.is_bool_dtype(frame[col])
+        or frame[col].dtype == object
     ]
     csv_readback = {"dtype": {col: "str" for col in text_columns}, "keep_default_na": False}
     if format == "csv":

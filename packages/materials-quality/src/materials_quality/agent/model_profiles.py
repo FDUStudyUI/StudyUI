@@ -104,10 +104,14 @@ class ModelProfiles:
         context_window=None,
         max_output_tokens=None,
     ):
+        if not isinstance(name, str) or not isinstance(base_url, str) or not isinstance(model, str):
+            # A null (JSON null) or wrong-typed value must be a clean form error, not a
+            # profile literally named "None" or a crash later in ChatModel/urlsplit.
+            raise ValueError("请填写模型名称、API 地址和模型名。")
         name, base_url, model = (
-            str(name).strip()[:80],
-            str(base_url).strip().rstrip("/"),
-            str(model).strip()[:160],
+            name.strip()[:80],
+            base_url.strip().rstrip("/"),
+            model.strip()[:160],
         )
         parsed = urlsplit(base_url)
         local = parsed.hostname in {"localhost", "127.0.0.1", "::1"}
@@ -129,23 +133,35 @@ class ModelProfiles:
         reasoning_effort = (
             old.get("reasoning_effort", "default") if reasoning_effort is None else reasoning_effort
         )
-        if reasoning_effort not in {"default", "none", "low", "high", "max"}:
+        if not isinstance(reasoning_effort, str) or reasoning_effort not in {
+            "default",
+            "none",
+            "low",
+            "high",
+            "max",
+        }:
             raise ValueError("思考等级无效。")
         if context_window in (None, ""):
-            context_window = _known_context_window(base_url, model)
+            # Re-saving a profile without the field must keep the user's explicit window
+            # when the model is not one whose window can be auto-detected.
+            context_window = _known_context_window(base_url, model) or old.get("context_window")
         else:
+            if isinstance(context_window, float) and not context_window.is_integer():
+                raise ValueError("上下文窗口必须为正整数；留空时只自动识别已知模型。")
             try:
                 context_window = int(context_window)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
                 raise ValueError("上下文窗口必须为正整数；留空时只自动识别已知模型。") from None
             if not 2_048 <= context_window <= 100_000_000:
                 raise ValueError("上下文窗口必须在 2,048 至 100,000,000 token 之间。")
         if max_output_tokens in (None, ""):
             max_output_tokens = old.get("max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
         else:
+            if isinstance(max_output_tokens, float) and not max_output_tokens.is_integer():
+                raise ValueError("最大输出 token 必须为正整数。")
             try:
                 max_output_tokens = int(max_output_tokens)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
                 raise ValueError("最大输出 token 必须为正整数。") from None
             if not 256 <= max_output_tokens <= MAX_OUTPUT_TOKENS_LIMIT:
                 raise ValueError("最大输出 token 必须在 256 至 100,000,000 之间。")

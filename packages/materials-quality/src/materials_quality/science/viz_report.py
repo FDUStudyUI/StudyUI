@@ -5,6 +5,7 @@ import hashlib
 import html
 import io
 import json
+import math
 from pathlib import Path
 
 from PIL import Image
@@ -12,9 +13,20 @@ from PIL import Image
 from .contracts import NodeResult, artifact_path, require_table
 
 
+def _json_safe(value):
+    """Strict-JSON payload with non-finite numbers rendered as null, never a crash."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
+
+
 def _text(value):
     if isinstance(value, (dict, list)):
-        return json.dumps(value, ensure_ascii=False, indent=2, default=str, allow_nan=False)
+        return json.dumps(_json_safe(value), ensure_ascii=False, indent=2, default=str, allow_nan=False)
     return str(value)
 
 
@@ -98,7 +110,10 @@ def build_report(table, c, data):
         raise ValueError("figures and warnings must be lists")
     verified = []
     for item in figures:
-        path = Path(item.get("path") if isinstance(item, dict) else item).expanduser().resolve()
+        raw_path = item.get("path") if isinstance(item, dict) else item
+        if not isinstance(raw_path, (str, Path)) or not str(raw_path).strip():
+            raise ValueError("each report figure must be a path string or an object with a nonempty path")
+        path = Path(raw_path).expanduser().resolve()
         if not path.is_file():
             raise ValueError(f"report figure missing: {path}")
         raw = path.read_bytes()

@@ -86,8 +86,9 @@ def test_split_think_tags_and_tools(monkeypatch):
 
 
 def test_unsuccessful_finish_reason_includes_provider_value(monkeypatch):
-    model, requests = connect(monkeypatch, frame({"content": "partial"}, "length") + DONE)
-    with pytest.raises(ValueError, match="length"):
+    # "length" is a truncation, not a failure; only genuinely unsupported reasons raise.
+    model, requests = connect(monkeypatch, frame({"content": "partial"}, "made_up_reason") + DONE)
+    with pytest.raises(ValueError, match="made_up_reason"):
         model.complete([], [], on_chunk=lambda *_: None)
     assert len(requests) == 1
 

@@ -593,6 +593,7 @@ def make_handler(harness, canvas_path, task_manager):
                     decision = {"approve": "approved", "reject": "rejected", "cancel": "cancelled"}[parts[3]]
                     approval_id = unquote(parts[2])
                     approval = harness.store.get_approval(approval_id)
+                    approval_error = None
                     if approval and approval["status"] == "pending":
                         if decision == "approved":
                             try:
@@ -601,6 +602,16 @@ def make_handler(harness, canvas_path, task_manager):
                                 )
                             except SessionBusy as exc:
                                 return self._error(exc, 409)
+                            except Exception as exc:
+                                # The approval was already consumed when the
+                                # approved operation failed, so durable tasks
+                                # paused on it must still be resolved below.
+                                approval_error = exc
+                                result = {
+                                    "status": "failed",
+                                    "approval_id": approval_id,
+                                    "error": str(exc)[:1000],
+                                }
                         else:
                             result = harness.decide_approval(approval_id, decision)
                     else:
@@ -644,7 +655,7 @@ def make_handler(harness, canvas_path, task_manager):
                             else "invalidated"
                             if result.get("status") == "invalidated"
                             else "failed"
-                            if result.get("status") == "agent_diagnosis_failed"
+                            if result.get("status") in {"agent_diagnosis_failed", "failed"}
                             else decision
                         )
                         result["approval_tasks"] = task_manager.resolve_approval(
@@ -653,6 +664,8 @@ def make_handler(harness, canvas_path, task_manager):
                             outcome,
                             resume_started=bool(result.get("continuation_task")),
                         )
+                    if approval_error is not None:
+                        return self._error(approval_error)
                     return self._send(200, result)
                 return self._error("Not found", 404)
             except Exception as exc:
@@ -919,6 +932,14 @@ def create_app(database, workflows, components, frontend):
         except Exception:
             return Response(
                 content=json.dumps({"error": "Malformed JSON"}, ensure_ascii=False).encode(),
+                status_code=400,
+                media_type="application/json",
+            )
+
+        if not isinstance(data, dict):
+            error_body = json.dumps({"error": "Request body must be a JSON object"}, ensure_ascii=False)
+            return Response(
+                content=error_body.encode(),
                 status_code=400,
                 media_type="application/json",
             )

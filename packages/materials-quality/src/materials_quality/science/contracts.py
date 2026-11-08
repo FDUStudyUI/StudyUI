@@ -68,6 +68,8 @@ def artifact_path(config, filename):
     if not isinstance(filename, str) or Path(filename).name != filename or filename in {"", ".", ".."}:
         raise ValueError("artifact filename must be a simple file name")
     directory = config.get("output_dir")
+    if directory is not None and not isinstance(directory, (str, Path)):
+        raise ValueError("output_dir must be a path string")
     directory = Path(directory).expanduser() if directory else Path(tempfile.mkdtemp(prefix="studyui-"))
     directory = directory.resolve()
     directory.mkdir(parents=True, exist_ok=True)

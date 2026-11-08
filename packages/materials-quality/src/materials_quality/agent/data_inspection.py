@@ -70,7 +70,12 @@ def authorized_file(path, user_text):
         raise PermissionError("只能检查用户在会话中明确提供或提及的数据文件路径。")
     if original.is_symlink():
         raise ValueError("不支持符号链接文件；请提供真实文件路径。")
-    if not resolved.is_file() or resolved.suffix.casefold() not in SUPPORTED:
+    if not resolved.is_file():
+        raise ValueError(
+            f"文件不存在：{path.strip()}。请使用上传记录或项目目录返回的完整绝对路径；"
+            "仅提供文件名不会定位到会话上传目录。"
+        )
+    if resolved.suffix.casefold() not in SUPPORTED:
         raise ValueError("仅支持本地 CSV、TSV、TXT、RAS、LIS 和 Excel 数据文件。")
     if resolved.stat().st_size > MAX_FILE_BYTES:
         raise ValueError("文件超过结构检查的 25 MB 上限。")
@@ -246,6 +251,32 @@ def _inspect_lis(path, raw, result):
     return result
 
 
+def _open_workbook(raw):
+    """Parse workbook metadata, translating corrupted-container errors into ValueError."""
+    import openpyxl
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            if sum(entry.file_size for entry in archive.infolist()) > MAX_EXPANDED_BYTES:
+                raise ValueError("工作簿解压后超过结构检查限制。")
+        return openpyxl.load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(
+            f"Excel 工作簿结构无效或已损坏（{type(exc).__name__}）；请提供有效的 .xlsx/.xlsm 文件。"
+        ) from None
+
+
+def _workbook_sheets(book):
+    try:
+        return list(book.worksheets)[:20]
+    except Exception as exc:
+        raise ValueError(
+            f"Excel 工作簿缺少有效的工作表结构（{type(exc).__name__}）；请提供有效的 .xlsx/.xlsm 文件。"
+        ) from None
+
+
 def inspect_file(path):
     """Return format, file hash and structural metadata; omit numeric rows."""
     path = Path(path)
@@ -258,15 +289,10 @@ def inspect_file(path):
         "note": "只报告结构和开头的文本候选标签；候选标签可能并非表头，应核实。未返回数值数据行。",
     }
     if path.suffix.lower() in {".xlsx", ".xlsm"}:
-        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
-            if sum(entry.file_size for entry in archive.infolist()) > MAX_EXPANDED_BYTES:
-                raise ValueError("工作簿解压后超过结构检查限制。")
-        import openpyxl
-
-        book = openpyxl.load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+        book = _open_workbook(raw)
         try:
             result["sheets"] = []
-            for sheet in book.worksheets[:20]:
+            for sheet in _workbook_sheets(book):
                 labels = []
                 used_columns = set()
                 text_positions = {}
@@ -376,14 +402,23 @@ def inspect_file(path):
     if path.suffix.lower() == ".lis":
         return _inspect_lis(path, raw, result)
 
-    for encoding in ("utf-8-sig", "utf-8", "gb18030", "gbk", "cp936", "shift_jis", "latin1"):
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        # Excel "Unicode text" exports are UTF-16 with a BOM; decoding them as
+        # latin1 would silently produce NUL-filled, structurally wrong tables.
+        encoding = "utf-16"
         try:
-            text = raw.decode(encoding)
-            break
+            text = raw.decode("utf-16")
         except UnicodeDecodeError:
-            continue
+            text = raw.decode("utf-16", errors="replace")
     else:
-        raise ValueError("无法识别文本编码，仅支持常见 UTF-8、GBK/GB18030 及 Shift-JIS 编码文本文件。")
+        for encoding in ("utf-8-sig", "utf-8", "gb18030", "gbk", "cp936", "shift_jis", "latin1"):
+            try:
+                text = raw.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            raise ValueError("无法识别文本编码，仅支持常见 UTF-8、GBK/GB18030 及 Shift-JIS 编码文本文件。")
     try:
         delimiter = (
             " "
@@ -392,7 +427,10 @@ def inspect_file(path):
         )
     except csv.Error:
         delimiter = ","
-    rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
+    try:
+        rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
+    except csv.Error:
+        raise ValueError("无法解析文本表格结构；文件可能包含二进制内容或使用了不支持的编码。") from None
     result.update(encoding=encoding, delimiter=delimiter, rows=len(rows))
     result["first_row_text_labels"] = _labels(rows[0], 1)[:100] if rows else []
     blocks, start, width = [], None, None

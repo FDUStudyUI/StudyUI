@@ -26,6 +26,13 @@ class FileWorkflowHost(WorkflowHostBase):
         if self.permission_store is None:
             return
         flow_data, _ = self.store.read(flow.flow_id)
+        caller = caller or {}
+        # The router executes the caller's live-canvas override, so every check
+        # below must inspect that effective graph, not only the saved snapshot
+        # it replaces.
+        effective_data = flow_data
+        if caller.get("data") is not None:
+            effective_data = {**flow_data, "data": caller["data"]}
         decision = self.permission_store.authorize(
             project_id=flow_data.get("folder_id"), action="workflow.run", task_authorized=True
         )
@@ -34,10 +41,13 @@ class FileWorkflowHost(WorkflowHostBase):
                 status_code=403,
                 detail=decision.get("reason") or "此权限档位要求通过 StudyUI 审批卡片批准本次操作。",
             )
+        data = effective_data.get("data")
+        nodes = data.get("nodes") if isinstance(data, dict) else None
         if any(
-            node.get("data", {}).get("type") == "StudyUIAIAnalysis"
-            for node in flow_data.get("data", {}).get("nodes", [])
-            if isinstance(node, dict)
+            isinstance(node, dict)
+            and isinstance(node.get("data"), dict)
+            and node["data"].get("type") == "StudyUIAIAnalysis"
+            for node in (nodes if isinstance(nodes, list) else [])
         ):
             raise HTTPException(
                 status_code=403,
@@ -70,6 +80,12 @@ class FileWorkflowHost(WorkflowHostBase):
             flow, _ = self.store.read(canonical)
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail="Workflow not found") from None
+        caller = caller or {}
+        if caller.get("data") is not None:
+            flow = {**flow, "data": caller["data"]}
+        # Sanitize the effective graph: a request-level override must be rebound
+        # to installed component code, exactly like a saved workflow, so live
+        # canvas data can never introduce arbitrary component code.
         if self.component_catalog is not None:
             from .workflow import sanitize_installed_components
 
@@ -77,9 +93,6 @@ class FileWorkflowHost(WorkflowHostBase):
                 flow = sanitize_installed_components(flow, self.component_catalog())
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from None
-        caller = caller or {}
-        if caller.get("data") is not None:
-            flow = {**flow, "data": caller["data"]}
         graph = await aload_flow_from_json(flow, tweaks=caller.get("tweaks") or None)
         start, stop = caller.get("start"), caller.get("stop")
         if start or stop:

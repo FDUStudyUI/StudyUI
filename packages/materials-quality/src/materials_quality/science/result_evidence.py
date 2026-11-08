@@ -37,6 +37,8 @@ def result_evidence(table=None, *, config=None, data=None, tables=None):
     if identity and identity not in frame:
         raise ValueError("identity_column must exist in the result table")
     units = frame.attrs.get("units", {})
+    if not isinstance(units, dict):
+        raise ValueError("table units attribute must map column names to unit strings")
     snapshot = {
         "columns": list(frame.columns),
         "rows": [[_cell(v) for v in row] for row in frame.itertuples(index=False, name=None)],

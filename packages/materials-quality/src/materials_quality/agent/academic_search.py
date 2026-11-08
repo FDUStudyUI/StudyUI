@@ -21,6 +21,38 @@ def _clean_abstract(raw):
     return cleaned[:2000] if cleaned else None
 
 
+def _first_text(value):
+    """Read the first non-empty text entry from a provider list field."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        for item in value:
+            if isinstance(item, str) and item.strip():
+                return item
+    return None
+
+
+def _dict_items(value, limit=None):
+    """Iterate well-formed provider records; one broken row must not drop the page."""
+    if not isinstance(value, list):
+        return []
+    items = [item for item in value if isinstance(item, dict)]
+    return items[:limit] if limit is not None else items
+
+
+def _mapping(value, provider):
+    """Reject wrong-shaped provider payloads instead of silently returning no results."""
+    if not isinstance(value, dict):
+        raise ValueError(f"Unexpected {provider} response shape")
+    return value
+
+
+def _record_list(value, provider):
+    if not isinstance(value, list):
+        raise ValueError(f"Unexpected {provider} response shape")
+    return value
+
+
 def _invert_openalex_abstract(inverted_index):
     if not isinstance(inverted_index, dict) or not inverted_index:
         return None
@@ -28,7 +60,8 @@ def _invert_openalex_abstract(inverted_index):
     for word, positions in inverted_index.items():
         if isinstance(positions, list):
             for pos in positions:
-                word_positions.append((pos, word))
+                if isinstance(pos, int) and not isinstance(pos, bool):
+                    word_positions.append((pos, word))
     word_positions.sort(key=lambda x: x[0])
     text = " ".join(w for _, w in word_positions).strip()
     return text[:2000] if text else None
@@ -51,20 +84,27 @@ def _get(url, params):
 def _crossref(query, limit):
     import json
 
-    body = json.loads(_get("https://api.crossref.org/works", {"query.bibliographic": query, "rows": limit}))
-    records = body.get("message", {}).get("items", [])
+    body = _mapping(
+        json.loads(_get("https://api.crossref.org/works", {"query.bibliographic": query, "rows": limit})),
+        "Crossref",
+    )
+    message = _mapping(body.get("message"), "Crossref")
+    records = _record_list(message.get("items"), "Crossref")
     out = []
-    for row in records:
-        date = row.get("published", {}).get("date-parts", [[None]])
+    for row in _dict_items(records):
+        published = row.get("published")
+        date_parts = published.get("date-parts") if isinstance(published, dict) else None
+        first_date = date_parts[0] if isinstance(date_parts, list) and date_parts else None
         out.append(
             {
-                "title": (row.get("title") or [None])[0],
+                "title": _first_text(row.get("title")),
                 "doi": row.get("DOI"),
-                "year": (date[0] or [None])[0],
+                "year": first_date[0] if isinstance(first_date, list) and first_date else None,
                 "authors": [
-                    " ".join(filter(None, [a.get("given"), a.get("family")])) for a in row.get("author", [])
+                    " ".join(filter(None, [a.get("given"), a.get("family")]))
+                    for a in _dict_items(row.get("author"))
                 ],
-                "venue": (row.get("container-title") or [None])[0],
+                "venue": _first_text(row.get("container-title")),
                 "url": row.get("URL"),
                 "abstract": _clean_abstract(row.get("abstract")),
                 "provider": "Crossref",
@@ -76,20 +116,31 @@ def _crossref(query, limit):
 def _openalex(query, limit):
     import json
 
-    body = json.loads(_get("https://api.openalex.org/works", {"search": query, "per-page": limit}))
-    return [
-        {
-            "title": row.get("title"),
-            "doi": row.get("doi"),
-            "year": row.get("publication_year"),
-            "authors": [a.get("author", {}).get("display_name") for a in row.get("authorships", [])],
-            "venue": (row.get("primary_location") or {}).get("source", {}).get("display_name"),
-            "url": row.get("doi") or row.get("id"),
-            "abstract": _invert_openalex_abstract(row.get("abstract_inverted_index")),
-            "provider": "OpenAlex",
-        }
-        for row in body.get("results", [])
-    ]
+    body = _mapping(
+        json.loads(_get("https://api.openalex.org/works", {"search": query, "per-page": limit})),
+        "OpenAlex",
+    )
+    records = _record_list(body.get("results"), "OpenAlex")
+    out = []
+    for row in _dict_items(records):
+        location = row.get("primary_location")
+        source = location.get("source") if isinstance(location, dict) else None
+        out.append(
+            {
+                "title": row.get("title"),
+                "doi": row.get("doi"),
+                "year": row.get("publication_year"),
+                "authors": [
+                    (membership.get("author") or {}).get("display_name")
+                    for membership in _dict_items(row.get("authorships"))
+                ],
+                "venue": source.get("display_name") if isinstance(source, dict) else None,
+                "url": row.get("doi") or row.get("id"),
+                "abstract": _invert_openalex_abstract(row.get("abstract_inverted_index")),
+                "provider": "OpenAlex",
+            }
+        )
+    return out
 
 
 def _semantic_scholar(query, limit):
@@ -100,44 +151,60 @@ def _semantic_scholar(query, limit):
         "limit": limit,
         "fields": "title,authors,year,venue,externalIds,url,openAccessPdf,abstract",
     }
-    body = json.loads(_get("https://api.semanticscholar.org/graph/v1/paper/search", params))
-    return [
-        {
-            "title": row.get("title"),
-            "doi": (row.get("externalIds") or {}).get("DOI"),
-            "year": row.get("year"),
-            "authors": [a.get("name") for a in row.get("authors", [])],
-            "venue": row.get("venue"),
-            "url": row.get("url"),
-            "abstract": _clean_abstract(row.get("abstract")),
-            "provider": "Semantic Scholar",
-        }
-        for row in body.get("data", [])
-    ]
+    body = _mapping(
+        json.loads(_get("https://api.semanticscholar.org/graph/v1/paper/search", params)),
+        "Semantic Scholar",
+    )
+    records = _record_list(body.get("data"), "Semantic Scholar")
+    out = []
+    for row in _dict_items(records):
+        external = row.get("externalIds")
+        out.append(
+            {
+                "title": row.get("title"),
+                "doi": external.get("DOI") if isinstance(external, dict) else None,
+                "year": row.get("year"),
+                "authors": [a.get("name") for a in _dict_items(row.get("authors"))],
+                "venue": row.get("venue"),
+                "url": row.get("url"),
+                "abstract": _clean_abstract(row.get("abstract")),
+                "provider": "Semantic Scholar",
+            }
+        )
+    return out
 
 
 def _europe_pmc(query, limit):
     import json
 
     params = {"query": query, "format": "json", "pageSize": limit, "resultType": "core"}
-    body = json.loads(_get("https://www.ebi.ac.uk/europepmc/webservices/rest/search", params))
-    return [
-        {
-            "title": row.get("title"),
-            "doi": row.get("doi"),
-            "year": row.get("firstPublicationDate", "")[:4],
-            "authors": [a.get("fullName") for a in (row.get("authorList") or {}).get("author", [])],
-            "venue": row.get("journalTitle"),
-            "url": (
-                "https://europepmc.org/article/MED/" + str(row["pmid"])
-                if row.get("pmid")
-                else row.get("pmcid")
-            ),
-            "abstract": _clean_abstract(row.get("abstractText")),
-            "provider": "Europe PMC",
-        }
-        for row in body.get("resultList", {}).get("result", [])
-    ]
+    body = _mapping(
+        json.loads(_get("https://www.ebi.ac.uk/europepmc/webservices/rest/search", params)),
+        "Europe PMC",
+    )
+    result_list = _mapping(body.get("resultList"), "Europe PMC")
+    records = _record_list(result_list.get("result"), "Europe PMC")
+    out = []
+    for row in _dict_items(records):
+        author_list = row.get("authorList")
+        authors = author_list.get("author") if isinstance(author_list, dict) else None
+        out.append(
+            {
+                "title": row.get("title"),
+                "doi": row.get("doi"),
+                "year": (row.get("firstPublicationDate") or "")[:4],
+                "authors": [a.get("fullName") for a in _dict_items(authors)],
+                "venue": row.get("journalTitle"),
+                "url": (
+                    "https://europepmc.org/article/MED/" + str(row["pmid"])
+                    if row.get("pmid")
+                    else row.get("pmcid")
+                ),
+                "abstract": _clean_abstract(row.get("abstractText")),
+                "provider": "Europe PMC",
+            }
+        )
+    return out
 
 
 def _datacite(query, limit):
@@ -153,18 +220,36 @@ def _datacite(query, limit):
     )
     if match:
         doi = "10.5281/zenodo." + match.group(1)
-        body = json.loads(_get("https://api.datacite.org/dois/" + quote(doi, safe=""), {}))
+        body = _mapping(
+            json.loads(_get("https://api.datacite.org/dois/" + quote(doi, safe=""), {})),
+            "DataCite",
+        )
         data = body.get("data")
-        records = [data] if isinstance(data, dict) else []
+        if not isinstance(data, dict):
+            raise ValueError("Unexpected DataCite response shape")
+        records = [data]
     else:
-        body = json.loads(_get("https://api.datacite.org/dois", {"query": query, "page[size]": limit}))
-        records = body.get("data", [])
+        body = _mapping(
+            json.loads(_get("https://api.datacite.org/dois", {"query": query, "page[size]": limit})),
+            "DataCite",
+        )
+        records = _record_list(body.get("data"), "DataCite")
     out = []
-    for item in records:
-        attrs = item.get("attributes", {})
-        title = next((x.get("title") for x in attrs.get("titles", []) if x.get("title")), None)
+    for item in _dict_items(records):
+        attrs = item.get("attributes")
+        if not isinstance(attrs, dict):
+            continue
+        title = next(
+            (row.get("title") for row in _dict_items(attrs.get("titles")) if row.get("title")),
+            None,
+        )
         raw_desc = next(
-            (x.get("description", "") for x in attrs.get("descriptions", []) if x.get("description")), ""
+            (
+                row.get("description")
+                for row in _dict_items(attrs.get("descriptions"))
+                if row.get("description")
+            ),
+            "",
         )
         cleaned_desc = _clean_abstract(raw_desc)
         out.append(
@@ -172,7 +257,9 @@ def _datacite(query, limit):
                 "title": title,
                 "doi": attrs.get("doi"),
                 "year": attrs.get("publicationYear"),
-                "authors": [x.get("name") or x.get("givenName") for x in attrs.get("creators", [])],
+                "authors": [
+                    row.get("name") or row.get("givenName") for row in _dict_items(attrs.get("creators"))
+                ],
                 "venue": attrs.get("publisher"),
                 "url": attrs.get("url"),
                 "provider": "DataCite",
@@ -184,8 +271,7 @@ def _datacite(query, limit):
                         "type": row.get("relatedIdentifierType"),
                         "relation": row.get("relationType"),
                     }
-                    for row in attrs.get("relatedIdentifiers", [])[:10]
-                    if isinstance(row, dict)
+                    for row in _dict_items(attrs.get("relatedIdentifiers"), limit=10)
                 ],
             }
         )

@@ -273,6 +273,8 @@ def _convert(value, spec):
             raise ValueError("请选择直方图分箱规则或填写正整数")
         return value
     if converter == "list_mapping":
+        if not isinstance(value, dict):
+            raise ValueError("映射参数必须是对象。")
         return {
             key: item if isinstance(item, list) else [x.strip() for x in str(item).split(",") if x.strip()]
             for key, item in value.items()

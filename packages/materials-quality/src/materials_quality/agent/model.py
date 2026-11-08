@@ -19,10 +19,70 @@ _MAX_STREAM_TOOLS = 128
 _MODEL_REQUEST_ATTEMPTS = 6  # Initial request plus at least five retries.
 _RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0, 4.0, 8.0)
 
+# finish_reason values that mean the provider delivered the answer it was asked for.
+_FINISH_REASONS_COMPLETE = frozenset({"stop", "tool_calls"})
+# The provider hit its output/context limit. The reply is partial but still useful:
+# a long agent run must continue from it instead of failing the whole task.
+_FINISH_REASONS_TRUNCATED = frozenset({"length", "max_tokens"})
+# A transient provider-side failure that can succeed when retried (DeepSeek returns
+# this while its system resources are exhausted).
+_FINISH_REASONS_RETRYABLE = frozenset({"insufficient_system_resource"})
+# The provider refused or aborted the response; retrying the identical request cannot help.
+_FINISH_REASONS_PERMANENT = frozenset({"content_filter", "safety", "sensitive", "blocked"})
+
 
 def _retryable_http_status(status):
     """Retry only HTTP responses that are likely to recover without a config change."""
+    if status == 501:
+        # "Not Implemented" is permanent: the same request cannot start working on retry.
+        return False
     return status in {408, 425, 429} or 500 <= status < 600
+
+
+def _format_byte_limit(limit):
+    """Describe a byte limit together with its exact value, never a stale hard-coded one."""
+    if limit % 1_000_000 == 0:
+        human = f"{limit // 1_000_000} MB"
+    elif limit % 1_000 == 0:
+        human = f"{limit // 1_000} KB"
+    else:
+        return f"{limit:,} bytes"
+    return f"{human} ({limit:,} bytes)"
+
+
+def _finish_reason_error(reason):
+    """Actionable explanation for a provider finish_reason that is not a normal completion."""
+    if reason in _FINISH_REASONS_RETRYABLE:
+        return (
+            f"Model provider reported finish reason {reason!r}; the provider was temporarily unable "
+            "to complete the request. Retry the request or continue the session later."
+        )
+    if reason in _FINISH_REASONS_PERMANENT:
+        return (
+            f"Model provider stopped the response with finish reason {reason!r}; retrying the same "
+            "request will not help. Rephrase the request or check the provider moderation settings."
+        )
+    return (
+        f"Model response ended with unsupported finish reason {reason!r}; the task was stopped "
+        "instead of being reported as successful. Retry the request or use a provider that returns "
+        "finish_reason 'stop' or 'tool_calls'."
+    )
+
+
+def _apply_finish_reason(message, finish_reason):
+    """Keep a max-token truncated reply; refuse replies the provider did not complete."""
+    if not isinstance(message, dict):
+        raise ValueError("Model response did not contain a message")
+    if finish_reason is None or finish_reason in _FINISH_REASONS_COMPLETE:
+        return message
+    if finish_reason in _FINISH_REASONS_TRUNCATED:
+        message = dict(message)
+        message["truncated"] = True
+        message["finish_reason"] = finish_reason
+        return message
+    if finish_reason in _FINISH_REASONS_RETRYABLE:
+        raise _RetryableModelResponse(_finish_reason_error(finish_reason))
+    raise _PermanentModelResponse(_finish_reason_error(finish_reason))
 
 
 class _StreamUnsupported(ValueError):
@@ -31,6 +91,14 @@ class _StreamUnsupported(ValueError):
 
 class _InvalidStreamResponse(ValueError):
     pass
+
+
+class _RetryableModelResponse(ValueError):
+    """Provider-side transient failure raised before any output reached the caller."""
+
+
+class _PermanentModelResponse(ValueError):
+    """Provider-side stop that retrying the identical request cannot fix."""
 
 
 def strict_json(text):
@@ -75,13 +143,30 @@ class ChatModel:
         self.base_url = base_url or os.environ.get("STUDYUI_MODEL_BASE_URL", "")
         self.model = model or os.environ.get("STUDYUI_MODEL", "")
         self.api_key = api_key if api_key is not None else os.environ.get("STUDYUI_MODEL_API_KEY", "")
-        self.timeout = timeout
-        if reasoning_effort not in {"default", "none", "low", "high", "max"}:
+        if not isinstance(self.base_url, str):
+            raise ValueError("Invalid model base URL")
+        if not isinstance(self.model, str):
+            raise ValueError("Invalid model name")
+        if not isinstance(self.api_key, str):
+            raise ValueError("Invalid model API key")
+        try:
+            self.timeout = float(timeout)
+        except (TypeError, ValueError):
+            raise ValueError("Model timeout must be in (0, 120]") from None
+        if not 0 < self.timeout <= 120:
+            raise ValueError("Model timeout must be in (0, 120]")
+        if not isinstance(reasoning_effort, str) or reasoning_effort not in {
+            "default",
+            "none",
+            "low",
+            "high",
+            "max",
+        }:
             raise ValueError("Invalid reasoning effort")
         self.reasoning_effort = reasoning_effort
         try:
             self.max_output_tokens = int(max_output_tokens)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             raise ValueError("Invalid max output tokens") from None
         if not 256 <= self.max_output_tokens <= MAX_OUTPUT_TOKENS_LIMIT:
             raise ValueError("Invalid max output tokens")
@@ -146,6 +231,8 @@ class ChatModel:
                             return _read_stream(response, emit)
                         except TaskCancelled:
                             raise
+                        except (_RetryableModelResponse, _PermanentModelResponse):
+                            raise
                         except (UnicodeError, ValueError, KeyError, IndexError, TypeError) as exc:
                             raise _InvalidStreamResponse(str(exc)) from exc
                         except (URLError, OSError, HTTPException) as exc:
@@ -157,9 +244,15 @@ class ChatModel:
                     raw = response.read(_MAX_RESPONSE_BYTES + 1)
                     checkpoint()
                     if len(raw) > _MAX_RESPONSE_BYTES:
-                        raise ValueError("Model response exceeded 2 MB")
+                        # Retrying an oversized response cannot shrink it.
+                        raise _PermanentModelResponse(
+                            f"Model response exceeded the {_format_byte_limit(_MAX_RESPONSE_BYTES)} limit"
+                        )
                     body = strict_json(raw.decode("utf-8"))
-                    message = body["choices"][0]["message"]
+                    choice = body["choices"][0]
+                    if not isinstance(choice, dict):
+                        raise ValueError("Model response did not contain a message")
+                    message = _apply_finish_reason(choice.get("message"), choice.get("finish_reason"))
                     if isinstance(body.get("usage"), dict):
                         message = dict(message)
                         message["usage"] = body["usage"]
@@ -198,6 +291,17 @@ class ChatModel:
                 raise ValueError(
                     f"Model service returned HTTP {exc.code} after {attempt + 1} attempts{detail}"
                 ) from None
+            except _RetryableModelResponse as exc:
+                checkpoint()
+                if attempt + 1 < _MODEL_REQUEST_ATTEMPTS:
+                    self._prepare_retry(on_chunk, attempt)
+                    self._wait_before_retry(attempt)
+                    continue
+                raise ValueError(
+                    f"Model request failed: {exc} after {_MODEL_REQUEST_ATTEMPTS} attempts"
+                ) from exc
+            except _PermanentModelResponse as exc:
+                raise ValueError(str(exc)) from exc
             except _InvalidStreamResponse as exc:
                 raise ValueError(str(exc)) from exc
             except (URLError, OSError, HTTPException) as exc:
@@ -298,7 +402,21 @@ class ChatModel:
 
         if not isinstance(message, dict):
             raise ValueError("Model response did not contain a message")
-        return normalize_reasoning_fields(message)
+        message = normalize_reasoning_fields(message)
+        _validate_chat_message(message)
+        return message
+
+
+def _validate_chat_message(message):
+    """Reject provider messages whose field types would corrupt the agent conversation."""
+    content = message.get("content")
+    if content is not None and not isinstance(content, str):
+        raise ValueError("Model response content is not text")
+    tool_calls = message.get("tool_calls")
+    if tool_calls is not None and (
+        not isinstance(tool_calls, list) or not all(isinstance(call, dict) for call in tool_calls)
+    ):
+        raise ValueError("Model response tool calls are invalid")
 
 
 def normalize_reasoning_fields(message):
@@ -482,6 +600,53 @@ def _complete_tools(tools):
     return calls
 
 
+def _iter_stream_lines(response):
+    """Yield SSE lines as the transport delivers bytes.
+
+    http.client normally returns complete lines, but gateways and alternative
+    transports can hand back arbitrary fragments, and the SSE grammar accepts CR,
+    LF and CRLF line endings.  Each yielded line keeps exactly one terminator byte
+    so the documented byte limits stay meaningful.
+    """
+    buffer = bytearray()
+    while True:
+        checkpoint()
+        remaining = _MAX_STREAM_LINE + 1 - len(buffer)
+        chunk = response.readline(remaining if remaining > 0 else 1)
+        if not chunk:
+            if buffer:
+                yield bytes(buffer)
+            return
+        buffer += chunk
+        while True:
+            positions = [index for index in (buffer.find(b"\n"), buffer.find(b"\r")) if index >= 0]
+            if not positions:
+                break
+            index = min(positions)
+            yield bytes(buffer[: index + 1])
+            del buffer[: index + 1]
+        if len(buffer) > _MAX_STREAM_LINE:
+            # One line already exceeds the documented limit; the caller raises.
+            yield bytes(buffer)
+            return
+
+
+def _decode_stream_json(payload):
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("Model stream event is not valid UTF-8") from exc
+    return strict_json(text)
+
+
+def _stream_error_detail(error):
+    if isinstance(error, dict):
+        parts = [str(error[field]) for field in ("code", "type", "message") if error.get(field)]
+        if parts:
+            return ": ".join(parts)[:300]
+    return str(error)[:300]
+
+
 def _read_stream(response, on_chunk):
     text = _StreamText(on_chunk)
     tools = {}
@@ -489,41 +654,39 @@ def _read_stream(response, on_chunk):
     finish_reason = None
     usage = None
     done = False
-    while True:
-        checkpoint()
-        line = response.readline(_MAX_STREAM_LINE + 1)
-        checkpoint()
-        if not line:
-            break
-        if len(line) > _MAX_STREAM_LINE:
-            raise ValueError("Model stream line exceeded 256 KB")
-        total_bytes += len(line)
-        if total_bytes > _MAX_RESPONSE_BYTES:
-            raise ValueError("Model response exceeded 2 MB")
-        line = line.strip()
-        if not line.startswith(b"data:"):
-            continue
-        data = line[5:].strip()
-        if data == b"[DONE]":
-            done = True
-            break
-        chunk = strict_json(data.decode("utf-8"))
-        if not isinstance(chunk, dict) or "error" in chunk:
+    truncated = False
+    data_lines = []
+
+    def process_event(chunk):
+        nonlocal finish_reason, usage, truncated
+        if not isinstance(chunk, dict):
             raise ValueError("Model stream returned an invalid event")
+        if "error" in chunk:
+            raise _PermanentModelResponse(
+                "Model stream returned an error event "
+                f"({_stream_error_detail(chunk['error'])}); the request was stopped instead of "
+                "being reported as successful. Retry later or check the provider status."
+            )
         if isinstance(chunk.get("usage"), dict):
             usage = chunk["usage"]
         choices = chunk.get("choices")
         if not isinstance(choices, list) or len(choices) > 1:
             raise ValueError("Invalid model stream choices")
         if not choices:  # Usage-only chunk.
-            continue
+            return
         choice = choices[0]
         delta = choice.get("delta", {}) if isinstance(choice, dict) else None
-        if not isinstance(delta, dict) or finish_reason is not None:
+        if not isinstance(delta, dict):
             raise ValueError("Invalid model stream delta")
-        finish_reason = choice.get("finish_reason")
-        if finish_reason not in (None, "stop", "tool_calls"):
-            raise ValueError(f"Model stream returned an unsuccessful finish reason: {finish_reason!r}")
+        next_finish = choice.get("finish_reason")
+        if finish_reason is not None:
+            if next_finish is not None and next_finish != finish_reason:
+                raise ValueError("Model stream returned conflicting finish reasons")
+            if delta:
+                raise ValueError("Invalid model stream delta")
+            # Providers sometimes repeat the terminal chunk; ignore the duplicate.
+            return
+        finish_reason = next_finish
         for field in ("reasoning_content", "reasoning", "analysis", "content"):
             value = delta.get(field)
             if value is None:
@@ -536,14 +699,85 @@ def _read_stream(response, on_chunk):
                 text.content(value)
         if delta.get("tool_calls") is not None:
             _accumulate_tools(tools, delta["tool_calls"])
+        if finish_reason is not None and finish_reason not in _FINISH_REASONS_COMPLETE:
+            if finish_reason in _FINISH_REASONS_TRUNCATED:
+                truncated = True
+            elif not (text.parts["content"] or text.parts["reasoning"] or tools):
+                # Nothing reached the caller yet, so the request can be retried safely.
+                if finish_reason in _FINISH_REASONS_RETRYABLE:
+                    raise _RetryableModelResponse(_finish_reason_error(finish_reason))
+                raise _PermanentModelResponse(_finish_reason_error(finish_reason))
+            elif finish_reason in _FINISH_REASONS_RETRYABLE:
+                # Partial output was already streamed; retrying would duplicate it, so the
+                # caller continues from the partial reply instead of failing the task.
+                truncated = True
+            else:
+                raise _PermanentModelResponse(_finish_reason_error(finish_reason))
+
+    def dispatch_buffered():
+        nonlocal data_lines
+        if not data_lines:
+            return
+        payload = b"\n".join(data_lines)
+        data_lines = []
+        if payload.strip():
+            process_event(_decode_stream_json(payload))
+
+    for raw_line in _iter_stream_lines(response):
+        checkpoint()
+        if len(raw_line) > _MAX_STREAM_LINE:
+            raise ValueError(f"Model stream line exceeded the {_format_byte_limit(_MAX_STREAM_LINE)} limit")
+        total_bytes += len(raw_line)
+        if total_bytes > _MAX_RESPONSE_BYTES:
+            raise ValueError(f"Model response exceeded the {_format_byte_limit(_MAX_RESPONSE_BYTES)} limit")
+        line = raw_line.strip()
+        if line.startswith(b"\xef\xbb\xbf"):
+            # A gateway may prepend a UTF-8 BOM to the first event.
+            line = line[3:].strip()
+        if not line:
+            dispatch_buffered()
+            continue
+        if not line.startswith(b"data:"):
+            # SSE comments (": heartbeat") and unknown fields are ignored.
+            continue
+        data = line[5:].strip()
+        if not data_lines and data == b"[DONE]":
+            done = True
+            break
+        if not data_lines:
+            try:
+                chunk = _decode_stream_json(data)
+            except ValueError:
+                # Possibly a spec-compliant multi-line data field; buffer until dispatch.
+                data_lines.append(data)
+            else:
+                process_event(chunk)
+        else:
+            data_lines.append(data)
+    dispatch_buffered()
 
     if not done and finish_reason is None:
         raise ValueError("Model stream ended without a finish marker")
     if finish_reason == "tool_calls" and not tools:
         raise ValueError("Model stream ended without the indicated tool calls")
+    if truncated and text.thinking:
+        # A max-token cutoff can land inside a reasoning block; keep the partial reply.
+        text.thinking = False
+        text.thinking_tag = None
+        text.pending = ""
     message = text.message()
     if usage is not None:
         message["usage"] = usage
     if tools:
-        message["tool_calls"] = _complete_tools(tools)
+        try:
+            message["tool_calls"] = _complete_tools(tools)
+        except ValueError:
+            if not truncated:
+                raise
+            # finish_reason=length can cut the tool-call JSON itself; keep the
+            # partial text so the turn can continue instead of failing the task.
+            message["truncated_tool_calls"] = True
+    if truncated:
+        message["truncated"] = True
+        message["finish_reason"] = finish_reason
     return message

@@ -9,6 +9,7 @@ import pandas as pd
 
 from materials_quality.science.contracts import NodeResult, read_path, require_table
 from materials_quality.science.io_nodes import (
+    _open_pdf,
     _pages,
     _safe_artifact,
     instrument_import,
@@ -46,6 +47,34 @@ def _bbox(polygon):
         float(points[:, 0].max()),
         float(points[:, 1].max()),
     ]
+
+
+def _rgb_array(path):
+    """Decode a raster to RGB, reporting unreadable/corrupt files as ValueError."""
+    from PIL import Image
+
+    try:
+        with Image.open(path) as image:
+            return np.asarray(image.convert("RGB"))
+    except (OSError, ValueError) as exc:
+        raise ValueError(
+            "cannot decode raster image: the file is corrupt or not a supported image format"
+        ) from exc
+
+
+def _grid_lines(values, name):
+    """Validate explicit grid coordinates; fractional pixels cannot be sliced."""
+    if not isinstance(values, (list, tuple)):
+        raise ValueError(f"{name} must be a list of integer pixel coordinates")
+    coordinates = []
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, (int, float, np.integer, np.floating)):
+            raise ValueError(f"{name} must contain finite integer pixel coordinates")
+        number = float(value)
+        if not np.isfinite(number) or number != int(number):
+            raise ValueError(f"{name} must contain finite integer pixel coordinates")
+        coordinates.append(int(number))
+    return coordinates
 
 
 def _region(value, width, height):
@@ -109,12 +138,9 @@ def _ocr_array(rgb, config, offset=(0, 0), region_id=0):
 
 def image_ocr(table=None, *, config=None, data=None, tables=None):
     """Local ONNX OCR with automatic text regions or explicit raster rectangles."""
-    from PIL import Image
-
     config = dict(config or {})
     path = read_path(config, data)
-    with Image.open(path) as image:
-        rgb = np.asarray(image.convert("RGB"))
+    rgb = _rgb_array(path)
     height, width = rgb.shape[:2]
     explicit = config.get("regions")
     if explicit is not None and (not isinstance(explicit, list) or not explicit):
@@ -303,19 +329,17 @@ def image_tables(table=None, *, config=None, data=None, tables=None):
     Explicit x_lines/y_lines may be provided when printed grid detection needs
     correction. Coordinates are always returned in the original image frame.
     """
-    from PIL import Image
-
     config = dict(config or {})
     path = read_path(config, data)
-    with Image.open(path) as image:
-        rgb = np.asarray(image.convert("RGB"))
+    rgb = _rgb_array(path)
     height, width = rgb.shape[:2]
     left, top, right, bottom = _region(config.get("region", [0, 0, width, height]), width, height)
     crop = rgb[top:bottom, left:right]
     if "x_lines" in config or "y_lines" in config:
         if "x_lines" not in config or "y_lines" not in config:
             raise ValueError("explicit grid requires both x_lines and y_lines")
-        xs, ys = config["x_lines"], config["y_lines"]
+        xs = _grid_lines(config["x_lines"], "x_lines")
+        ys = _grid_lines(config["y_lines"], "y_lines")
         if len(xs) < 2 or len(ys) < 2 or sorted(set(xs)) != xs or sorted(set(ys)) != ys:
             raise ValueError("grid lines must be strictly increasing coordinate lists")
         if not left <= xs[0] < xs[-1] < right or not top <= ys[0] < ys[-1] < bottom:
@@ -387,15 +411,13 @@ def image_tables(table=None, *, config=None, data=None, tables=None):
 
 def pdf_tables(table=None, *, config=None, data=None, tables=None):
     """Native line/aligned-text table extraction with real raster OCR fallback."""
-    import fitz
-
     config = dict(config or {})
     path = read_path(config, data)
     method = config.get("method", "auto")
     if method not in {"lines", "text", "ocr", "auto"}:
         raise ValueError("PDF table method must be lines, text, ocr or auto")
     frames, extracted, artifacts, warnings = [], [], [], []
-    with fitz.open(path) as document:
+    with _open_pdf(path) as document:
         for number in _pages(document, config):
             page = document[number - 1]
             native = []
@@ -509,8 +531,6 @@ def _axis_calibration(calibration, axis):
 
 def chart_digitize(table=None, *, config=None, data=None, tables=None):
     """Digitize a selected curve color using explicit linear/log axis calibration."""
-    from PIL import Image
-
     config = dict(config or {})
     path = read_path(config, data)
     calibration = config.get("calibration")
@@ -523,8 +543,7 @@ def chart_digitize(table=None, *, config=None, data=None, tables=None):
     tolerance = float(config.get("color_tolerance", 40))
     if not np.isfinite(tolerance) or tolerance < 0:
         raise ValueError("color_tolerance must be finite and nonnegative")
-    with Image.open(path) as image:
-        rgb = np.asarray(image.convert("RGB"), dtype=float)
+    rgb = _rgb_array(path).astype(float)
     height, width = rgb.shape[:2]
     left, top, right, bottom = _region(config.get("region", [0, 0, width, height]), width, height)
     selected = np.linalg.norm(rgb[top:bottom, left:right] - color, axis=2) <= tolerance
@@ -639,8 +658,13 @@ def convert_file(table=None, *, config=None, data=None, tables=None):
             parser = "PDF table extraction" if target == "csv" else "PDF text extraction"
         elif suffix in {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}:
             if target == "png":
-                with Image.open(source) as image:
-                    image.convert("RGB").save(output, format="PNG")
+                try:
+                    with Image.open(source) as image:
+                        image.convert("RGB").save(output, format="PNG")
+                except (OSError, ValueError) as exc:
+                    raise ValueError(
+                        "cannot decode raster image: unavailable or unreadable source image"
+                    ) from exc
                 return NodeResult(
                     data={"file_path": str(source), "target": target, "parser": "Pillow raster decode"},
                     artifacts=[str(output)],

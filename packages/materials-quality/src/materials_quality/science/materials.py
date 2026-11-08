@@ -334,6 +334,46 @@ def thermal(table=None, *, config=None, data=None, tables=None):
     )
 
 
+def _available_columns(table):
+    return [str(column) for column in table.columns] if isinstance(table, pd.DataFrame) else []
+
+
+def _column_mismatch_error(operation, requested, table):
+    columns = _available_columns(table)
+    available = ", ".join(columns) if columns else "<empty>"
+    details = ", ".join(f"{key}={value!r}" for key, value in requested.items() if value not in columns)
+    hints = []
+    if "strain_fraction" in columns and "stress_MPa" in columns:
+        hints.append(
+            "this looks like a mechanics result table: use x='strain_fraction', y='stress_MPa' (cfg_x/cfg_y)"
+        )
+    hints.append("set x/y (cfg_x/cfg_y) to actual column names or connect the raw import table")
+    return ValueError(
+        f"{operation} column mismatch: {details} not found. Available columns: [{available}]. "
+        + "; ".join(hints)
+        + "。请填写实际列名；若输入是力学结果表，请使用 strain_fraction/stress_MPa 或连接原始导入表。"
+    )
+
+
+def _elastic_region_candidate(strain, stress):
+    """Deterministic descriptive hint: the span before secant stiffness collapses, never a selection."""
+    if len(strain) < 3:
+        return None
+
+    def secant(index):
+        delta = float(strain[index] - strain[index - 1])
+        return float((stress[index] - stress[index - 1]) / delta) if delta > 0 else None
+
+    reference = secant(1)
+    if reference is None or not np.isfinite(reference) or reference <= 0:
+        return None
+    for index in range(2, len(strain)):
+        value = secant(index)
+        if value is None or not np.isfinite(value) or value < 0.5 * reference or value > 2.0 * reference:
+            return [float(strain[0]), float(strain[index - 1])]
+    return [float(strain[0]), float(strain[-1])]
+
+
 def mechanics(table=None, *, config=None, data=None, tables=None):
     """Engineering tensile curve; explicit elastic fit and offset proof stress."""
     config = dict(config or {})
@@ -347,6 +387,13 @@ def mechanics(table=None, *, config=None, data=None, tables=None):
     stress_scale = {"Pa": 1e-6, "kPa": 1e-3, "MPa": 1, "GPa": 1000}
     if config.get("stress_unit") not in stress_scale:
         raise ValueError("stress_unit must be Pa, kPa, MPa, or GPa")
+    if isinstance(table, pd.DataFrame):
+        requested = {
+            "x": config.get("x", "strain"),
+            "y": config.get("y", "stress"),
+        }
+        if any(value not in table.columns for value in requested.values()):
+            raise _column_mismatch_error("materials.mechanics", requested, table)
     original_x, original_y, frame, transform = curve(table, config, "strain", "stress")
     strain_scale = 0.01 if config["strain_unit"] == "%" else 1
     strain, stress = original_x * strain_scale, original_y * stress_scale[config["stress_unit"]]
@@ -373,6 +420,7 @@ def mechanics(table=None, *, config=None, data=None, tables=None):
     )
     yield_strain, yield_stress = None, None
     warnings = []
+    crossing_diagnostics = None
     for i in crossings:
         fraction = difference[i] / (difference[i] - difference[i + 1])
         root = float(strain[i] + fraction * (strain[i + 1] - strain[i]))
@@ -381,8 +429,32 @@ def mechanics(table=None, *, config=None, data=None, tables=None):
             yield_stress = float(stress[i] + fraction * (stress[i + 1] - stress[i]))
             break
     else:
+        candidate = _elastic_region_candidate(strain, stress)
+        candidate_text = (
+            f"{candidate[0]:.6g}–{candidate[1]:.6g} fraction"
+            if candidate is not None
+            else "not reliably detected"
+        )
+        crossing_diagnostics = {
+            "fitted_modulus_MPa": float(modulus),
+            "fit_r_squared": r_squared,
+            "fit_range_input": [float(value) for value in config["fit_range"]],
+            "fit_range_fraction": bounds.tolist(),
+            "input_strain_range_fraction": [float(strain.min()), float(strain.max())],
+            "input_stress_range_MPa": [float(stress.min()), float(stress.max())],
+            "elastic_region_candidate_fraction": candidate,
+            "hint": "fit_range must lie inside the initial linear elastic region and stop before yielding",
+        }
         warnings.append(
-            "No offset-line crossing was measured after the elastic fit range; yield stress is unavailable."
+            "No offset-line crossing was measured after the elastic fit range; yield stress is unavailable. "
+            f"Fitted elastic modulus {modulus:.6g} MPa (R2={r_squared:.4f}) from fit_range "
+            f"[{', '.join(f'{value:.6g}' for value in config['fit_range'])}] input strain units = "
+            f"{bounds[0]:.6g}–{bounds[1]:.6g} fraction. Input strain range "
+            f"{strain.min():.6g}–{strain.max():.6g} fraction; stress range "
+            f"{stress.min():.6g}–{stress.max():.6g} MPa. Hint: fit_range must lie inside the initial "
+            "linear elastic region and stop before yielding; deterministic initial-slope candidate "
+            f"range {candidate_text}. Re-run with fit_range inside that initial region; no automatic "
+            "fit window is selected."
         )
     fracture = float(strain[-1]) if fracture_confirmed else None
     if fracture is None:
@@ -399,9 +471,13 @@ def mechanics(table=None, *, config=None, data=None, tables=None):
     frame["stress_MPa"] = stress
     frame["elastic_fit_MPa"] = modulus * strain + intercept
     frame["offset_line_MPa"] = offset_line
+    diagnostics = (
+        {"offset_line_diagnostics": crossing_diagnostics} if crossing_diagnostics is not None else {}
+    )
     return NodeResult(
         table=frame,
         data={
+            **diagnostics,
             "elastic_modulus_MPa": float(modulus),
             "fit_intercept_MPa": float(intercept),
             "fit_r_squared": r_squared,

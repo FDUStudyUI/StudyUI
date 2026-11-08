@@ -175,6 +175,7 @@ class FileWorkflowExecutor:
         input_value: str = "",
         tweaks: dict | None = None,
         output_type: str = "any",
+        include_all_nodes: bool = False,
         external_data_approved: bool = False,
         expected_digest: str | None = None,
         expected_project_id: str | None = None,
@@ -206,12 +207,18 @@ class FileWorkflowExecutor:
         image_scope = begin_upstream_image_scope()
         try:
             runtime_flow = _prepare_runtime_outputs(flow)
+            resolved_output_type = (
+                "debug" if include_all_nodes else ("any" if output_type == "debug" else output_type)
+            )
             with _WORKFLOW_RUN_GATE:
                 outputs = run_flow_from_json(
                     runtime_flow,
                     input_value=input_value,
                     input_type="text",
-                    output_type="any" if output_type == "debug" else output_type,
+                    # LFX "debug" mode returns every built vertex. Agent runs opt
+                    # in explicitly so intermediate node metrics stay visible;
+                    # canvas/UI runs keep their previous bounded output set.
+                    output_type=resolved_output_type,
                     tweaks=copy.deepcopy(tweaks or {}),
                 )
         finally:
