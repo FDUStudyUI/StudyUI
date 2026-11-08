@@ -5,7 +5,7 @@ verification run are counted. Test-fixture corrections and feature work are not
 counted. The requested 100-fix target is a goal, not a claim that has already
 been met.
 
-**Verified fixes: 107 / 100 target** (round 2 boundary-exhaustion campaign; see the section at the end)
+**Verified fixes: 112 / 100 target** (rounds 2–3; see the sections at the end)
 
 ## 001 — Permanent model HTTP errors were retried
 
@@ -781,3 +781,77 @@ Residual findings handed to the next round (reproduced, not fixed here):
   ArithmeticError rather than an actionable ValueError; stats.predict accepts an
   unbounded n_estimators=1e308 (configuration JSON only) and appears to hang;
   direct callable use with a non-dict config still raises raw AttributeError.
+
+
+## CI repair round — 2026-11-09 (round 3)
+
+Both GitHub Actions jobs had been failing since the UI port. Every failure was
+reproduced locally, root-caused, fixed and re-verified; the CI steps that had
+always been skipped behind the failing steps were also run locally for the
+first time against the ported UI.
+
+Fixture corrections (not counted as defects):
+- test job: the corrupt-database fixture wrote a 28-byte text file. SQLite
+  builds on Linux accept files shorter than the 100-byte header as empty
+  databases, so no error was raised. The fixture now writes a valid 16-byte
+  magic header with an invalid page size (528 bytes total), which every SQLite
+  build rejects.
+- ui job: the two rich-rendering chat fixtures did not mock `/api/workspaces`,
+  so `allWorkspaces` became `{}` and the whole chat view crashed with
+  `allWorkspaces.find is not a function`. After that, two assertions still
+  described the pre-port DOM: the streaming partial is now a committed block
+  plus a live tail (assert the `aria-busy` tail), and `watchTask` now streams
+  through `fetch` before falling back to `api()` polling, so the late-response
+  injection must release the poll after switching sessions.
+- ui job: the task card cancel button is now labelled `取消`.
+- `scripts/ui_demo_reference_acceptance.py` still asserted the pre-port demo
+  cards carried the dataset row count; the simplified cards show the title and
+  format badge by design, and `tests/test_demo_reference_ui.py` pins that
+  contract.
+
+Confirmed defects fixed in this round (each covered by a regression check):
+
+1. **The demo run-guidance panel disappeared from the canvas view.** The
+   `#demo-run-guidance` status element and the code that fills it in
+   `openDemoReference` were lost in the port; opening a reference workflow no
+   longer explained how to run it. Regression:
+   `tests/test_demo_reference_ui.py::test_open_reference_navigates_canvas_with_run_guidance`
+   (five cases) and
+   `::test_fresh_start_reference_creates_project_and_preserves_ungrouped_chat`.
+2. **The workflow sidebar action menu was clipped and unclickable for the top
+   rows.** The flip-up rule `:nth-last-child(-n + 3)` opened the menu above the
+   list's scroll origin, where `overflow: auto` clips it, so clicks landed on
+   `.dsh-flow-browser-head` instead. The rule now excludes the first three
+   rows. Regression: the rename half of
+   `tests/test_demo_reference_ui.py::test_workflow_sidebar_menu_renames_and_deletes`.
+3. **The canvas delete route rejected its only caller.**
+   `DELETE /api/v1/flows/{id}` consulted the model-grade permission set, where
+   `workflow.delete` is ALWAYS_APPROVE, so the human's confirmed sidebar delete
+   always failed with 403. Model-initiated deletes never use this route (they
+   go through the harness `delete_workflow` tool with the one-shot approval
+   card); the route now gates the human action like other canvas writes.
+   Regression: the delete half of
+   `test_workflow_sidebar_menu_renames_and_deletes`.
+4. **A view switch during boot was reverted by a stale snapshot.**
+   `refresh()` computed the requested view before its `await`s and applied it
+   afterwards, clobbering a view switch made while sessions were still loading
+   (flaky: reproduced on roughly half of immediate clicks; the event log showed
+   `showView('chat', false)` overriding the user's click). The view is now
+   recomputed after the awaits. Regression: repeated runs of the demo
+   reference UI suite (12/12 instrumented rounds stable, 3 x 11 passed).
+5. **Reference workflow runs dropped their generated plots.**
+   `run_reference_canvas` called `run_flow` without `include_all_nodes`, so
+   only the terminal report node reached the artifact collector and the viz
+   nodes' declared figure files never entered the session artifact store; the
+   task completed with a report but without any downloadable plot. The call now
+   mirrors the run_workflow tool (all executed nodes, with the same
+   compatibility fallback). Regression:
+   `scripts/ui_demo_reference_acceptance.py` — all five cases now store and
+   download reports **and** plots.
+
+Verification: full local suite **1710 passed, 0 failed** (includes the five
+previously skipped browser suites, run with Playwright against system Chrome);
+`ruff check` and `ruff format --check` clean (0.17.3, CI configuration);
+`prettier@3.3.3 --check` clean for the touched UI assets; the complete test-job
+build/evaluate/wheel/verify_install chain and the full demo-reference
+acceptance script pass locally.

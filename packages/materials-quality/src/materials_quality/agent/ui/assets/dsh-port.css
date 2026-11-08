@@ -1948,7 +1948,7 @@ main,
 .dsh-flow-menu[hidden] {
   display: none !important;
 }
-.dsh-flow-row:nth-last-child(-n + 3) .dsh-flow-menu {
+.dsh-flow-row:nth-last-child(-n + 3):not(:nth-child(-n + 3)) .dsh-flow-menu {
   top: auto;
   bottom: calc(100% - 2px);
 }

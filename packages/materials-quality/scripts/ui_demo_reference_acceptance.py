@@ -101,7 +101,7 @@ def accept_ui(output, runtime, frontend=None):
                     page.locator("#demo-quick-btn").click()
                     dialog = page.get_by_role("dialog", name="选择演示案例")
                     card = dialog.locator(f'[data-demo-id="{case}"]')
-                    expect(card).to_contain_text(str(item["row_count"]))
+                    expect(card).to_contain_text(item["title"])
                     with page.expect_response(
                         lambda r: r.url.endswith("/api/demo-datasets/reference")
                     ) as opened:

@@ -195,6 +195,7 @@ def test_chat_partial_math_and_failed_answer_survive_refresh(page, assets_url):
         responses = {
             "/api/health": {"model_configured": True, "model_name": "Offline test"},
             "/api/projects": [],
+            "/api/workspaces": [],
             "/api/sessions": [{"id": "s1", "title": "Render test", "project_id": None}],
             "/api/sessions/s1": {"messages": [{"role": "user", "content": "分析数据"}]},
             "/api/sessions/s1/tasks": {"items": [task]},
@@ -212,7 +213,7 @@ def test_chat_partial_math_and_failed_answer_survive_refresh(page, assets_url):
     page.goto(assets_url + "/chat")
     live = page.locator('[data-partial-task="t1"]')
     playwright.expect(live.locator(".katex")).to_have_count(1)
-    playwright.expect(live.locator(".rich-content")).to_have_attribute("aria-busy", "true")
+    playwright.expect(live.locator(".rich-content.dsh-stream-tail")).to_have_attribute("aria-busy", "true")
     task.update(status="failed", terminal=True, error="模拟断线")
     playwright.expect(live).to_contain_text("未完成的回答 · 失败")
     page.reload()
@@ -221,9 +222,18 @@ def test_chat_partial_math_and_failed_answer_survive_refresh(page, assets_url):
     assert live.evaluate("element => element.markdownSource") == task["partial_content"]
     # A late response from the previous session must not appear in a new chat.
     page.evaluate("""() => {
-        api = () => new Promise(resolve => {window.releaseOldTask = resolve;});
+        const realApi = api;
+        api = (path, options) => {
+            if (path === '/api/sessions/s1/tasks/delayed') {
+                return new Promise((resolve) => {window.releaseOldTask = resolve;});
+            }
+            return realApi(path, options);
+        };
         active = 's1';
         window.oldTaskPoll = watchTask('s1', 'delayed');
+    }""")
+    page.wait_for_function("() => window.releaseOldTask !== undefined")
+    page.evaluate("""() => {
         active = 's2';
         feed.textContent = 'Different session';
         releaseOldTask({status:'completed',terminal:true,result:{message:'old private answer'}});
@@ -266,6 +276,7 @@ def test_completed_stream_keeps_thinking_separate_before_and_after_refresh(page,
         responses = {
             "/api/health": {"model_configured": True, "model_name": "Offline test"},
             "/api/projects": [],
+            "/api/workspaces": [],
             "/api/sessions": [{"id": "s1", "title": "Reasoning test", "project_id": None}],
             "/api/sessions/s1": {"messages": history},
             "/api/sessions/s1/tasks": {"items": [task]},

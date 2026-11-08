@@ -1905,6 +1905,7 @@
               </button>
             </div>
           </header>
+          <div id="demo-run-guidance" class="demo-guidance" role="status" hidden></div>
           <div class="dsh-flow-area">
             <aside class="dsh-flow-browser">
               <div class="dsh-flow-browser-head">
@@ -3428,7 +3429,7 @@
         demoActionRunning = true;
         demoButtonsDisabled(true);
         try {
-          const { sessionId } = await ensureDemoProjectSession();
+          const { sessionId, notice } = await ensureDemoProjectSession();
           demoStatus('正在准备参考工作流…');
           const res = await api('/api/demo-datasets/reference', {
             method: 'POST',
@@ -3454,6 +3455,17 @@
             document.querySelector('.dsh-flow-canvas').classList.add('has-flow');
             updateStudyUrl({ workflowId: res.flow_id });
           }
+          const guidance = document.querySelector('#demo-run-guidance');
+          const expected = Array.isArray(res.expected_summary)
+            ? res.expected_summary.join('；')
+            : res.expected_summary;
+          guidance.replaceChildren(
+            el('strong', '', res.title + '：'),
+            el('span', '', notice + res.instructions),
+            el('div', '', `原始参数预期：${expected}。修改参数后结果可能变化。`),
+          );
+          guidance.hidden = false;
+          demoStatus(notice + res.instructions);
         } catch (e) {
           demoStatus('打开失败：' + e.message);
         } finally {
@@ -5389,11 +5401,14 @@
                     selectedProject === 'all' ||
                     (selectedProject === '__ungrouped__' ? !s.project_id : s.project_id === selectedProject),
                 );
-          const requestedView =
-            location.hash === '#flow' ? 'flow' : location.hash === '#split' ? 'split' : 'chat';
           if (first) await openSession(first.id);
           else if (!allSessions.length) await newSession();
           else selectProject(selectedProject);
+          // Recompute the view after the awaits: the user may have switched views
+          // while this boot chain was still loading, and a stale value would
+          // clobber that choice and flip the interface back to the chat view.
+          const requestedView =
+            location.hash === '#flow' ? 'flow' : location.hash === '#split' ? 'split' : 'chat';
           showView(requestedView, false);
         } catch (e) {
           addMessage('assistant', e.message);

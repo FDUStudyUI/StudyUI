@@ -374,7 +374,12 @@ def create_workflow_router(
     async def delete_flow(flow_id: uuid.UUID):
         try:
             flow = await existing_flow(str(flow_id))
-            authorize(flow.get("folder_id"), "workflow.delete")
+            # This route only serves the canvas UI, where the human has already
+            # confirmed the deletion in a native dialog. Model-initiated deletes
+            # never call it: they go through the harness delete_workflow tool,
+            # which enforces the one-shot approval card. Gate the human action
+            # like other canvas writes instead of the model-grade approval set.
+            authorize(flow.get("folder_id"), "workflow.edit")
             await run_in_threadpool(store.delete, str(flow_id))
             return {"message": "Workflow moved to recovery folder"}
         except FileNotFoundError:

@@ -39,8 +39,11 @@ def test_missing_binding_parameter_is_a_value_error(database):
 
 
 def test_corrupt_database_file_is_a_value_error(tmp_path):
+    # A valid SQLite magic header with an invalid page size is rejected by every
+    # SQLite build; arbitrary short text can be treated as an empty database by
+    # some platforms (notably Linux), so it would not raise.
     path = tmp_path / "corrupt.db"
-    path.write_bytes(b"this is not a sqlite database")
+    path.write_bytes(b"SQLite format 3" + bytes(1) + bytes(512))
 
     with pytest.raises(ValueError, match="query failed|database"):
         database_import(config={"path": str(path), "query": "select 1"})

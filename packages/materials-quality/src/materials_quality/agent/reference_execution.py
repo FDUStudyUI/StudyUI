@@ -93,12 +93,28 @@ def run_reference_canvas(harness, flow, session_id, *, on_progress=None):
                     "step": {"name": "run_workflow", "title": "运行参考工作流"},
                 }
             )
-        result = harness.langflow.run_flow(
-            flow["id"],
-            external_data_approved=False,
-            expected_digest=digest,
-            expected_project_id=project,
-        )
+        try:
+            # Ask for every executed node, like the run_workflow tool: the
+            # intermediate viz nodes declare their generated figures on the
+            # artifacts port, and without them the plots never reach the
+            # session artifact store.
+            result = harness.langflow.run_flow(
+                flow["id"],
+                include_all_nodes=True,
+                external_data_approved=False,
+                expected_digest=digest,
+                expected_project_id=project,
+            )
+        except TypeError as exc:
+            if "include_all_nodes" not in str(exc):
+                raise
+            # Compatible workflow clients may not expose the visibility flag.
+            result = harness.langflow.run_flow(
+                flow["id"],
+                external_data_approved=False,
+                expected_digest=digest,
+                expected_project_id=project,
+            )
         checkpoint()
         artifacts = harness._store_generated_artifacts(result, session_id, flow=flow)
     except TaskCancelled:
