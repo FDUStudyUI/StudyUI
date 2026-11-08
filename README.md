@@ -4,56 +4,38 @@ StudyUI 是面向材料科学研究的本地 Agent Harness。研究者通过自�
 
 当前首个便携演示版为 **`beta-demo`**：
 
-- [下载便携包](https://github.com/FDUStudyUI/StudyUI/releases/download/beta-demo/StudyUI-beta-demo-portable.zip)
+- [下载 Windows x64 免安装便携包](https://github.com/FDUStudyUI/StudyUI/releases/download/beta-demo/StudyUI-beta-demo-windows-x64-portable.zip)
 - [Release 说明](https://github.com/FDUStudyUI/StudyUI/releases/tag/beta-demo)
-- [SHA-256 校验文件](https://github.com/FDUStudyUI/StudyUI/releases/download/beta-demo/StudyUI-beta-demo-portable.zip.sha256)
+- [SHA-256 校验文件](https://github.com/FDUStudyUI/StudyUI/releases/download/beta-demo/StudyUI-beta-demo-windows-x64-portable.zip.sha256)
 
-## 便携版快速开始
+## 免安装便携版
 
-便携包是可直接解压运行的源码包，不内置 Python 解释器或预装依赖。需要 Python 3.10，首次安装依赖时需要网络；不需要模型密钥也可以运行首页五个演示案例。
+便携包内置 Python 3.10.22、全部运行依赖、科研组件、演示数据和启动器。解压后直接启动，不需要安装 Python、pip 包、Node.js 或其他运行时，也不需要执行 `--setup`。
 
-1. 下载并解压 `StudyUI-beta-demo-portable.zip` 到可写目录。
-2. 在解压后的 `StudyUI-beta-demo/` 中执行首次安装：
-
-   Windows：
-
-   ```powershell
-   .\start_demo.bat --setup
-   ```
-
-   macOS/Linux：
-
-   ```sh
-   sh ./start_demo.sh --setup
-   ```
-
-3. 后续启动：
+1. 下载并解压 `StudyUI-beta-demo-windows-x64-portable.zip` 到可写目录。
+2. 进入解压后的 `StudyUI-beta-demo/`，双击 `start_demo.bat`，或在终端执行：
 
    ```powershell
    .\start_demo.bat
    ```
 
-   ```sh
-   sh ./start_demo.sh
-   ```
+3. 浏览器打开 <http://127.0.0.1:7880>。工作流画布位于 <http://127.0.0.1:7880/canvas/>，也可从 StudyUI 左侧进入。
 
-4. 浏览器打开 <http://127.0.0.1:7880>。工作流画布位于 <http://127.0.0.1:7880/canvas/>，也可从 StudyUI 左侧进入。
-
-启动器只会在便携目录内创建 `.demo-venv/`、`.demo-runtime/` 和 `workflows/`，不会写入系统 Python 或其他项目目录。保持启动终端运行；在该终端按 `Ctrl+C` 停止本次启动的服务。默认端口为 `7880`，如被占用可使用 `--port 7886`。
+启动器会自动使用包内的 `runtime/python/python.exe`，只在便携目录内创建 `.demo-runtime/` 和 `workflows/`。保持启动终端运行；在该终端按 `Ctrl+C` 停止本次启动的服务。默认端口为 `7880`，如被占用可使用 `--port 7886`。
 
 ### 环境要求
 
-- Windows、Linux 或 macOS
-- Python 3.10（验收版本 3.10.22）
-- 首次安装需要联网下载依赖
-- 连接远端模型时需要网络；本地模型可以使用回环地址
+- Windows x64
+- 首次启动不需要联网；配置远端模型、使用在线学术检索或让 AI 分析节点调用模型时需要网络
+- 默认端口 `7880` 可用
 - 使用带脚本的 Skill 还需要 Docker；首次使用时需要联网获取镜像
-- 确保默认端口 `7880` 可用
+- macOS/Linux 请从源码运行；当前免安装包仅提供 Windows x64 版本
 
 ## 便携包包含什么
 
-便携包含运行所需的源码、启动器、科研组件、演示数据、示例流程和文档：
+便携包含完整运行环境和应用资源：
 
+- `runtime/python/`：Python 3.10.22 与全部运行依赖
 - `start_demo.bat`、`start_demo.sh`、`scripts/start_demo.py`
 - `packages/materials-quality/src/` 与 `packages/materials-quality/components/`
 - `packages/materials-quality/examples/` 中的示例流程
@@ -66,7 +48,7 @@ StudyUI 是面向材料科学研究的本地 Agent Harness。研究者通过自�
 
 在 StudyUI 右上角打开“设置 → 模型管理”，填写配置名称、API 地址、模型名和 API 密钥，然后点击“保存模型”或“测试连接”。DeepSeek 默认地址为 `https://api.deepseek.com`，模型名可填写 `deepseek-flash`。设置支持保存和切换多个模型配置。
 
-模型密钥保存在 Windows Credential Manager 或系统凭据库中，不进入工作流 JSON、会话数据库或 Git。远端 API 必须使用 HTTPS；HTTP 仅允许本机回环服务。主 Agent 需要模型兼容 OpenAI Chat Completions 工具调用接口。
+没有模型密钥也可以运行首页五个演示案例。模型密钥保存在 Windows Credential Manager 或系统凭据库中，不进入工作流 JSON、会话数据库或 Git。远端 API 必须使用 HTTPS；HTTP 仅允许本机回环服务。主 Agent 需要模型兼容 OpenAI Chat Completions 工具调用接口。
 
 每个模型配置可选择思考等级：跟随服务默认、关闭、低、高、最高。DeepSeek 官方 API 的默认等级为高；更高等级可能增加耗时和费用。其他兼容服务应先确认支持相应参数。
 
@@ -93,6 +75,8 @@ StudyUI 是面向材料科学研究的本地 Agent Harness。研究者通过自�
 - 上传文件、生成报告和导出结果分别位于 `uploads/`、项目目录或 `StudyUI_outputs/`。分享便携目录前应删除这些本机数据。
 
 ## 从源码运行
+
+源码运行需要自行安装 Python 3.10，首次安装依赖需要联网：
 
 ```powershell
 git clone https://github.com/FDUStudyUI/StudyUI.git
@@ -123,13 +107,13 @@ python -m venv .venv
 
 Linux/macOS 将最后两行替换为 `.venv/bin/python -m pip ...` 和 `.venv/bin/python -m pytest -q`。
 
-重新构建便携包：
+重新构建免安装便携包（Windows，需要本机已验收的 `.demo-venv`）：
 
 ```powershell
 python scripts/build_portable.py
 ```
 
-输出位于 `dist/StudyUI-beta-demo-portable.zip`，同时生成 `.sha256` 校验文件。
+输出位于 `dist/StudyUI-beta-demo-windows-x64-portable.zip`，同时生成 `.sha256` 校验文件。构建较小的源码包可使用 `python scripts/build_portable.py --source-only`。
 
 ## 文档
 

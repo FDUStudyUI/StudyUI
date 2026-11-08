@@ -12,6 +12,9 @@ Thumbs.db
 **/.venv/
 **/.verify-venv/
 /.demo-venv/
+/runtime/
+/StudyUI-beta-demo*/
+
 **/__pycache__/
 **/*.py[cod]
 **/.pytest_cache/
