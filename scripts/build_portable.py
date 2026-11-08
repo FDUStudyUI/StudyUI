@@ -12,6 +12,11 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+try:
+    from scripts.branding import strip_langflow_branding
+except ImportError:  # Running as a script from scripts/.
+    from branding import strip_langflow_branding
+
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "beta-demo"
 ARCHIVE_ROOT = f"StudyUI-{VERSION}"
@@ -37,6 +42,7 @@ INCLUDE_DIRS = (
     "docs",
     "demo_datasets",
     "scripts/assets",
+    "scripts/branding.py",
     "packages/materials-quality/components",
     "packages/materials-quality/docs",
     "packages/materials-quality/src",
@@ -229,6 +235,9 @@ def stage_runtime(stage: Path) -> Path:
         exclude_files=("*.pyc", "*.pyo", "*.whl", "PyWin32.chm"),
     )
     (site_packages / "_editable_impl_langflow_materials_quality.pth").unlink(missing_ok=True)
+    langflow_frontend = site_packages / "langflow" / "frontend"
+    if langflow_frontend.is_dir():
+        strip_langflow_branding(langflow_frontend)
     if not (python_dir / "python.exe").is_file():
         raise FileNotFoundError("Portable runtime does not contain python.exe")
     return python_dir

@@ -20,6 +20,11 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import ProxyHandler, build_opener
 
+try:
+    from scripts.branding import strip_langflow_branding
+except ImportError:  # Running as a script from scripts/.
+    from branding import strip_langflow_branding
+
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "packages" / "materials-quality"
 FLOW_FILES = ("spectra.json", "mechanics.json", "contrast.json")
@@ -259,7 +264,13 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
     )
     vendor_frontend = Path(result.stdout.strip())
     frontend = (runtime or ROOT / ".demo-runtime") / "workbench-ui"
-    shutil.copytree(vendor_frontend, frontend, dirs_exist_ok=True, ignore=shutil.ignore_patterns("studyui-*"))
+    shutil.copytree(
+        vendor_frontend,
+        frontend,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("studyui-*"),
+    )
+    strip_langflow_branding(frontend)
     index_path = frontend / "index.html"
     if not index_path.is_file():
         raise RuntimeError(f"Langflow frontend entry was not found: {index_path}")
@@ -294,7 +305,9 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         if "</head>" not in index:
             raise RuntimeError(f"Unexpected Langflow frontend entry format: {index_path}")
         index = index.replace(
-            "</head>", '    <link rel="stylesheet" href="./studyui-theme.css" />\n  </head>', 1
+            "</head>",
+            '    <link rel="stylesheet" href="./studyui-theme.css" />\n  </head>',
+            1,
         )
 
     bundle_match = re.search(r'<script[^>]+src="([^"]+\.js(?:\?[^"]*)?)"', index)
@@ -694,7 +707,10 @@ def start_system(python: Path, runtime: Path, port: int, ready_timeout: float) -
         while process.poll() is None:
             time.sleep(0.5)
         if process.returncode:
-            print("StudyUI stopped unexpectedly; check logs/studyui-server.log", flush=True)
+            print(
+                "StudyUI stopped unexpectedly; check logs/studyui-server.log",
+                flush=True,
+            )
         return process.returncode or 0
     except KeyboardInterrupt:
         print("Stopping this demo...", flush=True)
