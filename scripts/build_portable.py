@@ -147,9 +147,7 @@ def collect_files() -> list[Path]:
 def base_prefix() -> Path:
     python = VENV / "Scripts" / "python.exe"
     if not python.is_file():
-        raise FileNotFoundError(
-            "Build the .demo-venv environment before building the full portable"
-        )
+        raise FileNotFoundError("Build the .demo-venv environment before building the full portable")
     result = subprocess.run(
         [str(python), "-c", "import sys; print(sys.base_prefix)"],
         check=True,
@@ -163,9 +161,7 @@ def base_prefix() -> Path:
     return prefix
 
 
-def _copy_tree(
-    source: Path, target: Path, *, exclude_dirs=(), exclude_files=()
-) -> None:
+def _copy_tree(source: Path, target: Path, *, exclude_dirs=(), exclude_files=()) -> None:
     target.mkdir(parents=True, exist_ok=True)
     if os.name != "nt":
         shutil.copytree(
@@ -190,9 +186,7 @@ def _copy_tree(
         "/NP",
     ]
     for directory in exclude_dirs:
-        command.extend(
-            ["/XD", str(source / directory) if "/" in directory else directory]
-        )
+        command.extend(["/XD", str(source / directory) if "/" in directory else directory])
     if exclude_files:
         command.extend(["/XF", *exclude_files])
     result = subprocess.run(
@@ -204,9 +198,7 @@ def _copy_tree(
         check=False,
     )
     if result.returncode > 7:
-        raise RuntimeError(
-            f"robocopy failed ({result.returncode}): {result.stderr or result.stdout}"
-        )
+        raise RuntimeError(f"robocopy failed ({result.returncode}): {result.stderr or result.stdout}")
 
 
 def stage_runtime(stage: Path) -> Path:
@@ -236,9 +228,7 @@ def stage_runtime(stage: Path) -> Path:
         exclude_dirs=("__pycache__",),
         exclude_files=("*.pyc", "*.pyo", "*.whl", "PyWin32.chm"),
     )
-    (site_packages / "_editable_impl_langflow_materials_quality.pth").unlink(
-        missing_ok=True
-    )
+    (site_packages / "_editable_impl_langflow_materials_quality.pth").unlink(missing_ok=True)
     if not (python_dir / "python.exe").is_file():
         raise FileNotFoundError("Portable runtime does not contain python.exe")
     return python_dir
@@ -257,16 +247,10 @@ def build(output: Path, *, full: bool) -> tuple[int, str]:
     output.parent.mkdir(parents=True, exist_ok=True)
     stage_root = Path(tempfile.mkdtemp(prefix="studyui-portable-", dir=output.parent))
     runtime_dir = stage_runtime(stage_root) if full else None
-    runtime_files = (
-        [path for path in sorted(runtime_dir.rglob("*")) if path.is_file()]
-        if runtime_dir
-        else []
-    )
+    runtime_files = [path for path in sorted(runtime_dir.rglob("*")) if path.is_file()] if runtime_dir else []
     temporary = output.with_name(output.name + ".tmp")
     try:
-        with zipfile.ZipFile(
-            temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=1
-        ) as zf:
+        with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=1) as zf:
             text = FULL_TEXT if full else SOURCE_TEXT
             _add(zf, f"{ARCHIVE_ROOT}/PORTABLE.txt", text.encode("utf-8"), 0o644)
             for path in files:
@@ -299,9 +283,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     full = not args.source_only
-    output = (
-        args.output or (DEFAULT_FULL_OUTPUT if full else DEFAULT_SOURCE_OUTPUT)
-    ).resolve()
+    output = (args.output or (DEFAULT_FULL_OUTPUT if full else DEFAULT_SOURCE_OUTPUT)).resolve()
     count, digest = build(output, full=full)
     size_mb = output.stat().st_size / (1024 * 1024)
     print(f"Built {output} ({count} files, {size_mb:.1f} MB)")
