@@ -18,7 +18,7 @@ from .academic_search import PROVIDERS as RESEARCH_PROVIDERS
 from .academic_search import search as search_literature
 from .data_inspection import READ_DENIAL, authorized_file, inspect_file
 from .file_workflow_client import FileWorkflowClient
-from .model import ChatModel, normalize_reasoning_fields, strict_json
+from .model import DEFAULT_MAX_OUTPUT_TOKENS, ChatModel, normalize_reasoning_fields, strict_json
 from .model_profiles import ModelProfiles
 from .permissions import PermissionStore, new_approval_id
 from .skill_registry import SkillRegistry
@@ -1203,14 +1203,13 @@ class StudyUIAgent:
                     parameter.kind == inspect.Parameter.VAR_KEYWORD
                     for parameter in signature.parameters.values()
                 )
+                output_limit = getattr(self.model, "max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
                 if supports_stream:
                     response = self.model.complete(
-                        messages, TOOLS, max_tokens=3000 if empty_replies else 3000, on_chunk=chunk_cb
+                        messages, TOOLS, max_tokens=output_limit, on_chunk=chunk_cb
                     )
                 else:
-                    response = self.model.complete(
-                        messages, TOOLS, max_tokens=3000 if empty_replies else 3000
-                    )
+                    response = self.model.complete(messages, TOOLS, max_tokens=output_limit)
             except ValueError as exc:
                 if not str(exc).startswith(("Model request failed:", "Model service returned HTTP")):
                     raise
@@ -1586,7 +1585,7 @@ class StudyUIAgent:
                     }
                 ],
                 [],
-                max_tokens=1200,
+                max_tokens=getattr(self.model, "max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS),
             )
             content = summary.get("content") if isinstance(summary, dict) else None
             if isinstance(content, str) and content.strip():
@@ -2112,6 +2111,7 @@ class StudyUIAgent:
             model=profile.get("model", ""),
             api_key=self.model_profiles.api_key(),
             reasoning_effort=profile.get("reasoning_effort", "default"),
+            max_output_tokens=profile.get("max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS),
         )
 
     def _store_generated_artifacts(self, result, session_id, *, flow=None):

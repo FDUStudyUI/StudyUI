@@ -2325,6 +2325,12 @@
             DeepSeek 官方 deepseek-flash 自动识别为
             1,048,576；其他模型请按服务商资料填写，未知时会显示为未知。
           </p>
+          <label for="model-max-output">最大输出 token</label
+          ><input id="model-max-output" type="number" min="256" max="100000000" step="1" value="32768" />
+          <p class="settings-note">
+            单次回答的生成上限，不是上下文窗口。默认
+            32,768；受模型服务商实际输出能力限制，设置过高可能被拒绝。
+          </p>
           <label for="model-reasoning">思考等级</label
           ><select id="model-reasoning">
             <option value="default">跟随服务默认（DeepSeek 默认为高）</option>
@@ -2651,6 +2657,7 @@
           document.querySelector('#model-url').value = model.base_url || 'https://api.deepseek.com';
           document.querySelector('#model-name-id').value = model.model || 'deepseek-flash';
           document.querySelector('#model-context-window').value = model.context_window || '';
+          document.querySelector('#model-max-output').value = model.max_output_tokens || 32768;
           document.querySelector('#model-reasoning').value = model.reasoning_effort || 'default';
           document.querySelector('#model-key').value = '';
           document.querySelector('#model-key').placeholder = model.credential_saved
@@ -2778,6 +2785,7 @@
           base_url: document.querySelector('#model-url').value.trim(),
           model: document.querySelector('#model-name-id').value.trim(),
           context_window: document.querySelector('#model-context-window').value || null,
+          max_output_tokens: document.querySelector('#model-max-output').value || null,
           reasoning_effort: document.querySelector('#model-reasoning').value,
         };
         const key = document.querySelector('#model-key').value;
@@ -5467,6 +5475,7 @@
         document.querySelector('#model-url').value = 'https://api.deepseek.com';
         document.querySelector('#model-name-id').value = 'deepseek-chat';
         document.querySelector('#model-context-window').value = '';
+        document.querySelector('#model-max-output').value = '32768';
         document.querySelector('#model-reasoning').value = 'default';
         document.querySelector('#model-key').value = '';
         document.querySelector('#model-key').placeholder = '请输入新配置的 API 密钥';
@@ -5480,6 +5489,7 @@
           base_url: document.querySelector('#model-url').value.trim(),
           model: document.querySelector('#model-name-id').value.trim(),
           context_window: document.querySelector('#model-context-window').value || null,
+          max_output_tokens: document.querySelector('#model-max-output').value || null,
           reasoning_effort: document.querySelector('#model-reasoning').value,
         };
         if (form.dataset.createNew === '1') body.create_new = true;
@@ -5904,6 +5914,7 @@
             document.querySelector('#model-url').value = model.base_url || 'https://api.deepseek.com';
             document.querySelector('#model-name-id').value = model.model || 'deepseek-flash';
             document.querySelector('#model-context-window').value = model.context_window || '';
+            document.querySelector('#model-max-output').value = model.max_output_tokens || 32768;
             document.querySelector('#model-key').value = '';
             document.querySelector('#model-key').placeholder = model.credential_saved
               ? '密钥已保存在系统凭据库；留空保持不变'

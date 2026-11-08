@@ -65,6 +65,25 @@ def test_empty_model_reply_continues_current_turn_without_user_reprompt(tmp_path
     assert model.calls == 2
 
 
+def test_model_output_limit_defaults_to_32k_and_is_configurable(monkeypatch):
+    requests = []
+
+    class Opener:
+        def open(self, request, timeout):
+            requests.append(json.loads(request.data))
+            return Reply(json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode())
+
+    monkeypatch.setattr(model_module, "build_opener", lambda *_: Opener())
+    ChatModel(base_url="https://example.com", model="test").complete([], [])
+    assert requests[0]["max_tokens"] == 32768
+    assert (
+        ChatModel(base_url="https://example.com", model="test", max_output_tokens=65536).max_output_tokens
+        == 65536
+    )
+    with pytest.raises(ValueError, match="max output"):
+        ChatModel(base_url="https://example.com", model="test", max_output_tokens=100_000_001)
+
+
 @pytest.mark.parametrize("level", ["default", "none", "low", "high", "max"])
 def test_deepseek_level_is_sent_and_old_history_is_compatible(monkeypatch, level):
     requests = []

@@ -6,6 +6,7 @@ import os
 import uuid
 from urllib.parse import urlsplit
 
+from .model import DEFAULT_MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS_LIMIT
 from .permissions import PermissionStore
 
 KEYRING_SERVICE = "StudyUI"
@@ -43,6 +44,7 @@ class ModelProfiles:
                 "base_url": os.environ.get("STUDYUI_MODEL_BASE_URL", ""),
                 "model": os.environ.get("STUDYUI_MODEL", ""),
                 "reasoning_effort": "default",
+                "max_output_tokens": DEFAULT_MAX_OUTPUT_TOKENS,
                 "credential_ref": "environment",
                 "context_window": _known_context_window(
                     os.environ.get("STUDYUI_MODEL_BASE_URL", ""), os.environ.get("STUDYUI_MODEL", "")
@@ -67,6 +69,7 @@ class ModelProfiles:
         return {
             **profile,
             "reasoning_effort": profile.get("reasoning_effort", "default"),
+            "max_output_tokens": profile.get("max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS),
             "context_window": profile.get("context_window")
             or _known_context_window(profile.get("base_url", ""), profile.get("model", "")),
             "configured": bool(profile.get("base_url") and profile.get("model") and (has_key or local)),
@@ -99,6 +102,7 @@ class ModelProfiles:
         create_new=False,
         reasoning_effort=None,
         context_window=None,
+        max_output_tokens=None,
     ):
         name, base_url, model = (
             str(name).strip()[:80],
@@ -136,6 +140,15 @@ class ModelProfiles:
                 raise ValueError("上下文窗口必须为正整数；留空时只自动识别已知模型。") from None
             if not 2_048 <= context_window <= 100_000_000:
                 raise ValueError("上下文窗口必须在 2,048 至 100,000,000 token 之间。")
+        if max_output_tokens in (None, ""):
+            max_output_tokens = old.get("max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
+        else:
+            try:
+                max_output_tokens = int(max_output_tokens)
+            except (TypeError, ValueError):
+                raise ValueError("最大输出 token 必须为正整数。") from None
+            if not 256 <= max_output_tokens <= MAX_OUTPUT_TOKENS_LIMIT:
+                raise ValueError("最大输出 token 必须在 256 至 100,000,000 之间。")
         credential_ref = old.get("credential_ref") or "studyui-model-" + profile_id
         if api_key:
             self._keyring().set_password(KEYRING_SERVICE, credential_ref, str(api_key))
@@ -146,6 +159,7 @@ class ModelProfiles:
             "base_url": base_url,
             "model": model,
             "reasoning_effort": reasoning_effort,
+            "max_output_tokens": max_output_tokens,
             "context_window": context_window,
             "credential_ref": credential_ref,
         }
@@ -179,6 +193,7 @@ class ModelProfiles:
                     "base_url": base_url,
                     "model": profile.get("model", ""),
                     "reasoning_effort": profile.get("reasoning_effort", "default"),
+                    "max_output_tokens": profile.get("max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS),
                     "context_window": profile.get("context_window")
                     or _known_context_window(base_url, profile.get("model", "")),
                     "active": profile_id == active_id,
@@ -194,6 +209,7 @@ class ModelProfiles:
                     "name": active["name"],
                     "base_url": active["base_url"],
                     "model": active["model"],
+                    "max_output_tokens": active.get("max_output_tokens"),
                     "context_window": active.get("context_window"),
                     "active": True,
                     "configured": active["configured"],

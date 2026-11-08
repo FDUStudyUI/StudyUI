@@ -85,6 +85,13 @@ def test_split_think_tags_and_tools(monkeypatch):
     assert len(requests) == 1
 
 
+def test_unsuccessful_finish_reason_includes_provider_value(monkeypatch):
+    model, requests = connect(monkeypatch, frame({"content": "partial"}, "length") + DONE)
+    with pytest.raises(ValueError, match="length"):
+        model.complete([], [], on_chunk=lambda *_: None)
+    assert len(requests) == 1
+
+
 def test_provider_reasoning_repeated_in_content_is_not_user_visible(monkeypatch):
     stream = b"".join(
         [

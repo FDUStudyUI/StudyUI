@@ -475,6 +475,7 @@ def make_handler(harness, canvas_path, task_manager):
                         create_new=bool(data.get("create_new")),
                         reasoning_effort=data.get("reasoning_effort"),
                         context_window=data.get("context_window"),
+                        max_output_tokens=data.get("max_output_tokens"),
                     )
                     harness._refresh_model()
                     return self._send(

@@ -798,6 +798,7 @@ def test_model_profiles_keep_credentials_out_of_json_and_public_api(tmp_path, mo
         model="deepseek-flash",
         api_key="test-secret",
         reasoning_effort="max",
+        max_output_tokens=65536,
     )
     profiles.save(name="Local", base_url="http://127.0.0.1:1234/v1", model="local-model", create_new=True)
     assert len(profiles.list_profiles()) == 2
@@ -807,14 +808,23 @@ def test_model_profiles_keep_credentials_out_of_json_and_public_api(tmp_path, mo
     assert "test-secret" not in path.read_text(encoding="utf-8")
     assert profiles.public()["model"] == "deepseek-flash"
     assert profiles.public()["reasoning_effort"] == "max"
+    assert profiles.public()["max_output_tokens"] == 65536
     profiles.save(name="DeepSeek", base_url="https://api.deepseek.com", model="deepseek-flash")
     assert profiles.public()["reasoning_effort"] == "max"
+    assert profiles.public()["max_output_tokens"] == 65536
     with pytest.raises(ValueError, match="思考等级"):
         profiles.save(
             name="DeepSeek",
             base_url="https://api.deepseek.com",
             model="deepseek-flash",
             reasoning_effort="extreme",
+        )
+    with pytest.raises(ValueError, match="最大输出"):
+        profiles.save(
+            name="DeepSeek",
+            base_url="https://api.deepseek.com",
+            model="deepseek-flash",
+            max_output_tokens=100_000_001,
         )
     profiles.remove(profiles.list_profiles()[1]["id"])
     assert len(profiles.list_profiles()) == 1
