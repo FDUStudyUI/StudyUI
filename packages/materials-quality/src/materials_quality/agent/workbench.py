@@ -23,6 +23,7 @@ from filelock import FileLock
 
 if __package__ is None or __package__ == "":
     import sys
+
     _pkg_dir = Path(__file__).resolve().parent
     _src_dir = _pkg_dir.parents[1]
     if str(_src_dir) not in sys.path:
@@ -280,8 +281,9 @@ def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_han
         if not isinstance(name, str):
             raise HTTPException(403, "仅允许更新已安装的 StudyUI 科研组件。")
         catalog = client.component_catalog()
-        component = next((group[name] for group in catalog.values()
-                          if isinstance(group, dict) and name in group), None)
+        component = next(
+            (group[name] for group in catalog.values() if isinstance(group, dict) and name in group), None
+        )
         trusted_template = component.get("template", {}) if isinstance(component, dict) else {}
         trusted_code = trusted_template.get("code", {}).get("value")
         if not isinstance(trusted_code, str) or payload.get("code") != trusted_code:
@@ -318,14 +320,23 @@ def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_han
                         continue
                     selected = config.get("value")
                     options = config.get("options")
-                    if (config.get("_input_type") == "DropdownInput" and config.get("combobox") is True
-                            and isinstance(selected, str) and isinstance(options, list)
-                            and selected not in options):
+                    if (
+                        config.get("_input_type") == "DropdownInput"
+                        and config.get("combobox") is True
+                        and isinstance(selected, str)
+                        and isinstance(options, list)
+                        and selected not in options
+                    ):
                         # Preserve a configured column until upstream data supplies its schema.
                         options.append(selected)
             else:
-                refresh_config(SimpleNamespace(input_table=None), operation.group(1), template,
-                               payload.get("field_value"), field)
+                refresh_config(
+                    SimpleNamespace(input_table=None),
+                    operation.group(1),
+                    template,
+                    payload.get("field_value"),
+                    field,
+                )
         except (TypeError, ValueError, KeyError) as exc:
             raise HTTPException(422, str(exc)) from exc
         return {"template": template, "outputs": component.get("outputs", [])}

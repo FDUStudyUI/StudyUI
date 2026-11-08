@@ -36,13 +36,9 @@ def requirements(package: Path, *, optional: bool = False) -> list[str]:
     result = [] if optional else ["langflow-base==1.13.0", "lfx==1.13.0"]
     keys = ("instruments",) if optional else ("dependencies", "langflow", "science")
     for key in keys:
-        match = re.search(
-            r"^" + key + r"\s*=\s*(\[.*?\])", text, re.MULTILINE | re.DOTALL
-        )
+        match = re.search(r"^" + key + r"\s*=\s*(\[.*?\])", text, re.MULTILINE | re.DOTALL)
         if match is None:
-            raise ValueError(
-                f"Missing dependency array {key} in {package / 'pyproject.toml'}"
-            )
+            raise ValueError(f"Missing dependency array {key} in {package / 'pyproject.toml'}")
         result.extend(ast.literal_eval(match.group(1)))
     return list(dict.fromkeys(result))
 
@@ -86,9 +82,7 @@ print(json.dumps(report))
     )
     report = json.loads(result.stdout)
     if not report["python"].startswith("3.10."):
-        report["required_missing"].insert(
-            0, "Python 3.10 required (found " + report["python"] + ")"
-        )
+        report["required_missing"].insert(0, "Python 3.10 required (found " + report["python"] + ")")
     return report
 
 
@@ -141,24 +135,16 @@ def runtime_environment(runtime: Path) -> dict[str, str]:
 def setup_environment(venv: Path, package: Path, env: dict[str, str]) -> None:
     """Only this dedicated venv is ever an installation target."""
     if venv.is_symlink() or venv.resolve() != venv.absolute():
-        raise ValueError(
-            "Refusing a redirected .demo-venv; use a real project-local directory"
-        )
+        raise ValueError("Refusing a redirected .demo-venv; use a real project-local directory")
     python = venv_python(venv)
     if not python.is_file():
         if sys.version_info[:2] != (3, 10):
             raise ValueError("Run setup using Python 3.10 (Windows: py -3.10)")
-        subprocess.run(
-            [sys.executable, "-B", "-m", "venv", str(venv)], env=env, check=True
-        )
+        subprocess.run([sys.executable, "-B", "-m", "venv", str(venv)], env=env, check=True)
     config = venv / "pyvenv.cfg"
     if not config.is_file():
-        raise ValueError(
-            "Refusing an existing interpreter without .demo-venv/pyvenv.cfg"
-        )
-    if re.search(
-        r"include-system-site-packages\s*=\s*true", config.read_text(), re.IGNORECASE
-    ):
+        raise ValueError("Refusing an existing interpreter without .demo-venv/pyvenv.cfg")
+    if re.search(r"include-system-site-packages\s*=\s*true", config.read_text(), re.IGNORECASE):
         raise ValueError("Refusing a .demo-venv that includes shared system packages")
     identity = subprocess.run(
         [
@@ -177,13 +163,8 @@ def setup_environment(venv: Path, package: Path, env: dict[str, str]) -> None:
         encoding="utf-8",
     )
     prefixes = json.loads(identity.stdout)
-    if (
-        Path(prefixes["prefix"]).resolve() != venv.resolve()
-        or prefixes["prefix"] == prefixes["base_prefix"]
-    ):
-        raise ValueError(
-            "Refusing installation: interpreter prefix is not the dedicated .demo-venv"
-        )
+    if Path(prefixes["prefix"]).resolve() != venv.resolve() or prefixes["prefix"] == prefixes["base_prefix"]:
+        raise ValueError("Refusing installation: interpreter prefix is not the dedicated .demo-venv")
     subprocess.run(
         [
             str(python),
@@ -278,8 +259,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
     )
     vendor_frontend = Path(result.stdout.strip())
     frontend = (runtime or ROOT / ".demo-runtime") / "workbench-ui"
-    shutil.copytree(vendor_frontend, frontend, dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns("studyui-*"))
+    shutil.copytree(vendor_frontend, frontend, dirs_exist_ok=True, ignore=shutil.ignore_patterns("studyui-*"))
     index_path = frontend / "index.html"
     if not index_path.is_file():
         raise RuntimeError(f"Langflow frontend entry was not found: {index_path}")
@@ -287,9 +267,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         "<title>Langflow</title>", "<title>StudyUI Workbench</title>"
     )
     if '<base href="/canvas/"' not in index:
-        index, base_count = re.subn(
-            r'<base href="/"\s*/?>', '<base href="/canvas/" />', index, count=1
-        )
+        index, base_count = re.subn(r'<base href="/"\s*/?>', '<base href="/canvas/" />', index, count=1)
         if base_count != 1:
             raise RuntimeError(f"Unexpected workbench base URL in {index_path}")
     index = re.sub(
@@ -392,9 +370,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         # A query-only cache tag makes the browser load a second React app at the
         # untagged URL, so give the whole asset graph one versioned directory.
         versioned_url = f"./assets/{versioned_assets.name}/{bundle_name}"
-        script_pattern = re.compile(
-            rf'(<script[^>]+src=")[^"]*{re.escape(bundle_name)}(?:\?[^"]*)?"'
-        )
+        script_pattern = re.compile(rf'(<script[^>]+src=")[^"]*{re.escape(bundle_name)}(?:\?[^"]*)?"')
         updated_index, replacements = script_pattern.subn(
             lambda match: match.group(1) + versioned_url + '"',
             index,
@@ -435,8 +411,8 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
     )
     bundle = replace_component(
         bundle,
-        'b.jsx(Xki,{children:b.jsx(n$,{})})',
-        'b.jsx(n$,{})',
+        "b.jsx(Xki,{children:b.jsx(n$,{})})",
+        "b.jsx(n$,{})",
         "interactive authentication route guard",
     )
     bundle = replace_component(
@@ -471,7 +447,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         bundle,
         "function hqi(){",
         "function fqi(){",
-        'function hqi(){const n=Vv(),{isFetched:t}=MKn();Lwe();h3t({get_all:!0,header_flows:!0},{enabled:'
+        "function hqi(){const n=Vv(),{isFetched:t}=MKn();Lwe();h3t({get_all:!0,header_flows:!0},{enabled:"
         't});return b.jsx("header",{className:"z-10 flex h-[48px] w-full items-center border-b pl-2.5 '
         'dark:bg-background","data-testid":"app-header",children:b.jsx(gt,{unstyled:!0,onClick:()=>n("/"),'
         'className:"mr-1 flex h-8 w-8 items-center justify-center rounded-md bg-primary font-semibold '
@@ -480,22 +456,24 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
     )
     bundle = replace_component(
         bundle,
-        ',b.jsx(wqi,{})',
-        '',
+        ",b.jsx(wqi,{})",
+        "",
         "knowledge storage upgrade panel",
     )
 
     bundle = replace_region(
         bundle,
-        'b.jsxs(UHn,{open:V,modal:!1,children:[',
-        'b.jsx(kSo,{selectedNode:t})',
-        '',
+        "b.jsxs(UHn,{open:V,modal:!1,children:[",
+        "b.jsx(kSo,{selectedNode:t})",
+        "",
         "Langflow Assistant canvas control",
     )
     bundle = replace_region(
-        bundle, "function kgo(){", "function Lnr(",
-        'function kgo(){const e=SC(z=>z.isOpen),t=SC(z=>z.close);N.useEffect(()=>{e&&t()},[e,t]);return '
-        'null}',
+        bundle,
+        "function kgo(){",
+        "function Lnr(",
+        "function kgo(){const e=SC(z=>z.isOpen),t=SC(z=>z.close);N.useEffect(()=>{e&&t()},[e,t]);return "
+        "null}",
         "legacy assistant welcome overlay",
     )
 
@@ -504,35 +482,35 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         bundle,
         "function Kei({children:e}){",
         "const Xei=",
-        'function Kei({children:e}){return b.jsx(OI.Provider,{value:Gei,children:e})}',
+        "function Kei({children:e}){return b.jsx(OI.Provider,{value:Gei,children:e})}",
         "account provider",
     )
     bundle = replace_region(
         bundle,
         "function g4i({children:e}){",
         "function Jxn(",
-        'function g4i({children:e}){return e}',
+        "function g4i({children:e}){return e}",
         "session guard",
     )
     bundle = replace_region(
         bundle,
         "function qqi(){",
         "const Wqi=",
-        'function qqi(){const{isFetched:e}=Nqi(),{isFetched:t}=Dqi();MKn();T4({mirrorToStore:!0});return '
-        'e&&t?b.jsx(n$,{}):b.jsx(kxt,{})}',
+        "function qqi(){const{isFetched:e}=Nqi(),{isFetched:t}=Dqi();MKn();T4({mirrorToStore:!0});return "
+        "e&&t?b.jsx(n$,{}):b.jsx(kxt,{})}",
         "account initialization",
     )
     bundle = replace_region(
         bundle,
         "function $ae({resourceType:",
         "class XFe ",
-        'function $ae({children:e}){return e}',
+        "function $ae({children:e}){return e}",
         "account permissions provider",
     )
     bundle = replace_component(
         bundle,
-        'RNn(Bwt).then(()=>{',
-        'Aa.setState({isAuthenticated:!0,isAdmin:!0,autoLogin:!0});RNn(Bwt).then(()=>{',
+        "RNn(Bwt).then(()=>{",
+        "Aa.setState({isAuthenticated:!0,isAdmin:!0,autoLogin:!0});RNn(Bwt).then(()=>{",
         "workspace initialization",
     )
 
@@ -541,7 +519,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
     bundle = replace_region(
         bundle,
         'const ATt=[{id:"components"',
-        '],PTn=new Set(',
+        "],PTn=new Set(",
         'const ATt=[{id:"components",icon:"component",label:"sidebar.nav.components",tooltip:'
         '"sidebar.nav.components"}',
         "legacy canvas navigation",
@@ -568,13 +546,13 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         bundle,
         "D_o=({handleUploadFlowsToFolder:",
         ",L_o=({handleEditFolderName:",
-        'D_o=({handleUploadFlowsToFolder:e,isUpdatingFolder:t,isPending:n,addNewFolder:i,'
+        "D_o=({handleUploadFlowsToFolder:e,isUpdatingFolder:t,isPending:n,addNewFolder:i,"
         'containerClassName:s,titleClassName:a})=>{const{t:l}=ot();return b.jsxs("div",{className:He('
         '"flex shrink-0 items-center justify-between gap-2 pt-2",s),children:[b.jsx(MZ,{className:"lg:'
         'hidden",children:b.jsx(Pe,{name:"PanelLeftClose",className:"h-4 w-4"})}),b.jsx("div",{id:'
         '"project-sidebar-title",className:He("flex-1 text-sm font-medium",a),children:l('
         '"sidebar.projects")}),b.jsxs("div",{className:"flex items-center gap-1",children:[b.jsx(N_o,{'
-        'onClick:e,disabled:t}),b.jsx(k_o,{onClick:i,disabled:t,loading:n})]})]})}',
+        "onClick:e,disabled:t}),b.jsx(k_o,{onClick:i,disabled:t,loading:n})]})]})}",
         "project sidebar",
     )
     knowledge_link = (
@@ -587,7 +565,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
     )
     bundle = replace_component(
         bundle,
-        ',b.jsxs(b.Fragment,{children:[' + knowledge_link + "," + my_files_link + "]})",
+        ",b.jsxs(b.Fragment,{children:[" + knowledge_link + "," + my_files_link + "]})",
         "",
         "Knowledge and My Files navigation",
     )
@@ -604,7 +582,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         ";function V_o(",
         '$_o=()=>b.jsx("div",{className:"flex h-full w-full items-center justify-center text-sm '
         'text-muted-foreground",children:"此项目还没有工作流。"}),H_o=({setOpenModal:e})=>b.jsx($_o,{setOpenModal:e}'
-        ')',
+        ")",
         "empty-project onboarding",
     )
 
@@ -787,11 +765,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     runtime = args.runtime.expanduser().resolve()
-    python = (
-        args.python.expanduser().resolve()
-        if args.python
-        else venv_python(ROOT / ".demo-venv")
-    )
+    python = args.python.expanduser().resolve() if args.python else venv_python(ROOT / ".demo-venv")
     print(
         f"Python: {python}\nRuntime: {runtime}\nStudyUI URL: http://127.0.0.1:{args.port}",
         flush=True,
@@ -807,14 +781,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.setup and not args.check:
             existing = probe_environment(python) if python.is_file() else None
-            if (
-                existing
-                and not existing["required_missing"]
-                and not existing["optional_missing"]
-            ):
-                print(
-                    "Existing dedicated environment is complete; reusing it without network installation."
-                )
+            if existing and not existing["required_missing"] and not existing["optional_missing"]:
+                print("Existing dedicated environment is complete; reusing it without network installation.")
             else:
                 print(
                     "SETUP: installing the current package [langflow,science,instruments] "
@@ -822,9 +790,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 print("Installation target: " + str(ROOT / ".demo-venv"), flush=True)
                 prepare_runtime(runtime)
-                setup_environment(
-                    ROOT / ".demo-venv", PACKAGE, runtime_environment(runtime)
-                )
+                setup_environment(ROOT / ".demo-venv", PACKAGE, runtime_environment(runtime))
         if not python.is_file():
             print(
                 "Python environment missing. First run: start_demo.bat --setup (or ./start_demo.sh --setup)."

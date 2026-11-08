@@ -38,7 +38,13 @@ _LEGACY_DEFAULTS = {
         "ignore_index": True,
         "direction": "nearest",
     },
-    "io.table_import": {"encoding": "auto", "delimiter": "auto", "header": 0, "sheet": 0},
+    "io.table_import": {
+        "encoding": "auto",
+        "delimiter": "auto",
+        "decimal_separator": ".",
+        "header": 0,
+        "sheet": 0,
+    },
     "io.text_import": {
         "method": "lines",
         "encoding": "auto",

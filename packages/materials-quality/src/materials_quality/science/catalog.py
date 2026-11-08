@@ -7,9 +7,14 @@ from importlib import import_module
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
-PAPER_OPERATIONS = frozenset({
-    "lit.method_recommend", "lit.result_evidence", "materials.chemometrics", "materials.analysis_plan",
-})
+PAPER_OPERATIONS = frozenset(
+    {
+        "lit.method_recommend",
+        "lit.result_evidence",
+        "materials.chemometrics",
+        "materials.analysis_plan",
+    }
+)
 
 
 def entries():

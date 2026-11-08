@@ -344,10 +344,20 @@ def form_config(component, key, *, validate=True):
             value = supplied(name, deepcopy(spec.get("default")))
             if isinstance(value, pd.DataFrame):
                 value = value.to_dict("records")
+            explicit_nullable_null = (
+                value is None
+                and spec.get("converter") == "nullable_int"
+                and isinstance(parameters, dict)
+                and name in parameters
+            )
             empty = value is None or isinstance(value, str) and value == ""
             empty = empty or isinstance(value, (list, dict)) and not value and spec.get("default") is None
-            if empty:
-                if validate and spec.get("required"):
+            if empty and not explicit_nullable_null:
+                required = spec.get("required", False)
+                if key == "stats.grouped" and spec["path"] == "group":
+                    # A non-empty group_by list satisfies the grouping requirement.
+                    required = False
+                if validate and required:
                     raise ValueError(f"请填写{spec['label']}")
                 continue
             try:
@@ -374,6 +384,8 @@ def form_config(component, key, *, validate=True):
             config.pop(spec["path"], None)
         if _get(config, spec["path"]) in spec.get("omit_values", []):
             config.pop(spec["path"], None)
+    if key == "stats.grouped" and validate and not config.get("group_by") and not config.get("group"):
+        raise ValueError("请填写分组列或多级分组列")
     return config
 
 

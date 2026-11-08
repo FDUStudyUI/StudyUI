@@ -147,6 +147,28 @@ def test_reasoning_model_can_batch_five_read_only_tools(tmp_path):
     assert agent.run_turn(session, "列出技能")["message"] == "done"
 
 
+def test_harness_keeps_repeated_reasoning_out_of_stored_assistant_content(tmp_path):
+    class Model:
+        def complete(self, messages, tools, *, max_tokens=3000, on_chunk=None):
+            if on_chunk:
+                on_chunk("reasoning", "private reasoning")
+            return {
+                "content": "private reasoning\n\npublic answer",
+                "reasoning_content": "private reasoning",
+            }
+
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", langflow=object(), model=Model())
+    session = agent.new_session(project_id=agent.store.create_project("reasoning isolation"))
+
+    result = agent.run_turn(session, "请完成此任务")
+    stored = [message for message in agent.store.messages(session) if message.get("role") == "assistant"][-1]
+
+    assert result["message"] == "public answer"
+    assert result["reasoning_content"] == "private reasoning"
+    assert stored["content"] == "public answer"
+    assert stored["reasoning_content"] == "private reasoning"
+
+
 def test_high_effort_turn_has_a_total_tool_budget(tmp_path):
     class Model:
         def complete(self, messages, tools, *, max_tokens=3000):
@@ -181,7 +203,7 @@ def test_turn_limits_workflow_retries(tmp_path):
                 "content": "",
                 "tool_calls": [
                     {"id": str(i), "function": {"name": "run_workflow", "arguments": '{"flow_id":"known"}'}}
-                    for i in range(5)
+                    for i in range(9)
                 ],
             }
 
@@ -191,7 +213,53 @@ def test_turn_limits_workflow_retries(tmp_path):
     agent._authorize_tool = lambda *_: {"allowed": True, "action": "workflow.run"}
     agent._dispatch = lambda *_: dispatched.append(True) or {"status": "completed"}
     agent.run_turn(session, "运行工作流")
-    assert len(dispatched) == 4
+    assert len(dispatched) == 8
+
+
+def test_pending_approval_stops_later_tool_calls_in_the_same_model_round(tmp_path):
+    class Model:
+        calls = 0
+
+        def complete(self, messages, tools, *, max_tokens=3000):
+            self.calls += 1
+            return {
+                "content": "",
+                "tool_calls": [
+                    {"id": "run", "function": {"name": "run_workflow", "arguments": '{"flow_id":"flow-a"}'}},
+                    {"id": "later", "function": {"name": "list_research_skills", "arguments": "{}"}},
+                ],
+            }
+
+    class Workflows:
+        def get_flow(self, flow_id):
+            return {"id": flow_id, "folder_id": project, "data": {"nodes": [], "edges": []}}
+
+    model = Model()
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", langflow=Workflows(), model=model)
+    project = agent.store.create_project("approval gate")
+    session = agent.new_session(project_id=project)
+    dispatched = []
+
+    def authorize(_session, name, _args, _text):
+        if name == "run_workflow":
+            return {"allowed": False, "action": "workflow.run", "reason": "需要逐项审批"}
+        return {"allowed": True, "action": agent._tool_action(name)}
+
+    agent._authorize_tool = authorize
+    agent._dispatch = lambda *_: dispatched.append(True) or {"status": "completed"}
+    result = agent.run_turn(session, "请运行工作流 flow-a")
+
+    assert model.calls == 1
+    assert dispatched == []
+    assert result["task_status"] == "waiting_approval"
+    assert len(result["task_pending_approvals"]) == 1
+    deferred = [
+        message
+        for message in agent.store.messages(session)
+        if message.get("role") == "tool" and message.get("tool_call_id") == "later"
+    ]
+    assert len(deferred) == 1
+    assert json.loads(deferred[0]["content"])["status"] == "not_run"
 
 
 def test_long_session_keeps_original_research_goal(tmp_path):
@@ -254,6 +322,12 @@ def test_natural_workflow_completion_request_authorizes_build():
 def test_agent_prompt_uses_repository_metadata_and_stops_duplicate_runs(tmp_path):
     agent = StudyUIAgent(tmp_path / "state.sqlite3", langflow=object(), model=object())
     prompt = agent._system_prompt()
+    assert "不要求用户另说‘建流/运行’" in prompt
+    assert "本地路径和目录名只是数据定位信息" in prompt
+    assert "直接将该目录作为 path" in prompt
+    assert "只暂停该分支，继续完成其他数据类型中独立可行的分析" in prompt
+    assert "不要为查看原始文本或重复探测同类文件而搭建、运行诊断工作流" in prompt
+    assert "每轮最多运行工作流八次" in prompt
     assert "以 DOI/记录号向 DataCite 定点核对一次" in prompt
     assert "不能说记录没有元数据" in prompt
     assert "不得为重新生成相同附件而重跑" in prompt
@@ -274,7 +348,9 @@ def test_pinned_dataset_schema_injected_into_messages(tmp_path):
             return {"content": "已分析。"}
 
     agent = StudyUIAgent(tmp_path / "state.sqlite3", langflow=object(), model=CapturingModel())
-    session = agent.new_session(project_id=agent.store.create_project("test"))
+    project = agent.store.create_project("test")
+    agent.store.add_project_directory(project, tmp_path)
+    session = agent.new_session(project_id=project)
 
     # 模拟首轮 inspect 文件
     res = agent._dispatch(session, "inspect_research_file", {"path": str(csv_file)}, f"分析 {csv_file}")

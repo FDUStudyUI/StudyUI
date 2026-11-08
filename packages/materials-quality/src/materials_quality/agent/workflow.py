@@ -7,7 +7,6 @@ import difflib
 import hashlib
 import json
 import re
-import uuid
 
 MAX_ACTIONS = 24
 MAX_CONFIG_BYTES = 32_000
@@ -23,11 +22,19 @@ SECRET_TOKEN_NAMES = {
     "id_token",
     "credential_token",
 }
-ALLOWED_OPS = {"add_node", "remove_node", "set_node_config", "connect", "disconnect"}
+ALLOWED_OPS = {
+    "add_node",
+    "remove_node",
+    "set_node_config",
+    "set_nodes_config",
+    "connect",
+    "disconnect",
+}
+MAX_BATCH_CONFIG_NODES = 32
 
 
 def flow_digest(flow):
-    payload = {key: flow.get(key) for key in ("name", "description", "data", "is_component")}
+    payload = {key: flow.get(key) for key in ("folder_id", "name", "description", "data", "is_component")}
     raw = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
@@ -147,9 +154,7 @@ def flow_summary(flow):
                 "name": _safe_value("display_name", {}, component.get("display_name", node_id)),
                 "description": _safe_value("description", {}, str(component.get("description", ""))[:240]),
                 "config": config,
-                "inputs": [
-                    name for name in template if name not in {"code", "config_json", "input_data"}
-                ]
+                "inputs": [name for name in template if name not in {"code", "config_json", "input_data"}]
                 if isinstance(template, dict)
                 else [],
                 "outputs": [
@@ -169,9 +174,12 @@ def flow_summary(flow):
         "nodes": summaries,
         "edges": [
             {
-                key: _safe_value(key, {}, edge[key])
-                for key in ("id", "source", "target", "sourceHandle", "targetHandle")
-                if key in edge
+                **{key: _safe_value(key, {}, edge[key]) for key in ("id", "source", "target") if key in edge},
+                **{
+                    f"{side}Handle": _safe_value(f"{side}Handle", {}, handle)
+                    for side in ("source", "target")
+                    if (handle := edge_handle(edge, side)) is not None
+                },
             }
             for edge in edges
             if isinstance(edge, dict)
@@ -191,7 +199,7 @@ def component_catalog_summary(catalog, query="", limit=40):
         if len(token) > 1:
             query_tokens.append(token)
         if len(token) > 2 and all("\u4e00" <= char <= "\u9fff" for char in token):
-            query_tokens.extend(token[index:index + 2] for index in range(min(len(token) - 1, 20)))
+            query_tokens.extend(token[index : index + 2] for index in range(min(len(token) - 1, 20)))
     query_tokens = list(dict.fromkeys(query_tokens))[:40]
     groups = {
         "materials_quality",
@@ -298,14 +306,14 @@ def component_catalog_summary(catalog, query="", limit=40):
             ranked.append(
                 (
                     score,
-                {
-                    "category": category,
-                    "type": type_name,
-                    "name": name,
-                    "description": description[:240],
-                    "inputs": field_rows[:48],
-                    "outputs": outputs[:16],
-                },
+                    {
+                        "category": category,
+                        "type": type_name,
+                        "name": name,
+                        "description": description[:240],
+                        "inputs": field_rows[:48],
+                        "outputs": outputs[:16],
+                    },
                 )
             )
     ranked.sort(key=lambda row: row[0], reverse=True)
@@ -381,6 +389,21 @@ def _edge_handles(edge, side):
             raise ValueError("Workflow connection has an invalid canvas port handle")
         handles.append(value)
     return handles
+
+
+def edge_handle(edge, side):
+    """Return a canvas handle as an object, preferring Langflow's canonical data field."""
+    key = side + "Handle"
+    data = edge.get("data") if isinstance(edge.get("data"), dict) else {}
+    value = data.get(key)
+    if value is None:
+        value = edge.get(key)
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return None
+    return value if isinstance(value, dict) else None
 
 
 def validate_flow_connections(flow):
@@ -540,17 +563,27 @@ def _port(component, name, output, *, canonical_only=False):
     direction = "output" if output else "input"
     if output:
         entries = component.get("outputs")
-        ports = [
-            (entry["name"], entry) for entry in entries if isinstance(entry, dict)
-            and isinstance(entry.get("name"), str) and entry["name"]
-        ] if isinstance(entries, list) else []
+        ports = (
+            [
+                (entry["name"], entry)
+                for entry in entries
+                if isinstance(entry, dict) and isinstance(entry.get("name"), str) and entry["name"]
+            ]
+            if isinstance(entries, list)
+            else []
+        )
         aliases = OUTPUT_PORT_ALIASES
     else:
         template = component.get("template")
-        ports = [
-            (key, field) for key, field in template.items() if isinstance(field, dict)
-            and (field.get("input_types") or field.get("inputTypes"))
-        ] if isinstance(template, dict) else []
+        ports = (
+            [
+                (key, field)
+                for key, field in template.items()
+                if isinstance(field, dict) and (field.get("input_types") or field.get("inputTypes"))
+            ]
+            if isinstance(template, dict)
+            else []
+        )
         aliases = INPUT_PORT_ALIASES
 
     matches = [(key, field) for key, field in ports if key == raw_name]
@@ -558,9 +591,9 @@ def _port(component, name, output, *, canonical_only=False):
         folded = raw_name.casefold()
         alias = aliases.get(folded)
         matches = [
-            (key, field) for key, field in ports
-            if folded in {key.casefold(), str(field.get("display_name", "")).casefold()}
-            or key == alias
+            (key, field)
+            for key, field in ports
+            if folded in {key.casefold(), str(field.get("display_name", "")).casefold()} or key == alias
         ]
     if len(matches) > 1:
         candidates = sorted(key for key, _ in matches)
@@ -576,8 +609,11 @@ def _port(component, name, output, *, canonical_only=False):
         )
 
     canonical_name, field = matches[0]
-    types = (field.get("types", field.get("selected_output_types")) if output
-             else field.get("input_types") or field.get("inputTypes"))
+    types = (
+        field.get("types", field.get("selected_output_types"))
+        if output
+        else field.get("input_types") or field.get("inputTypes")
+    )
     if isinstance(types, str):
         types = [types]
     return canonical_name, [str(value) for value in (types or []) if value]
@@ -625,28 +661,40 @@ def _connect(data, action):
             f"'{source_id}.{source_name}' ({output_types}) -> '{target_id}.{target_name}' ({input_types})"
         )
     source_handle = {
-        "dataType": output_types[0] if output_types else "Data",
+        "dataType": nodes[source_id].get("data", {}).get("type")
+        or (output_types[0] if output_types else "Data"),
         "id": source_id,
         "name": source_name,
         "output_types": output_types,
     }
+    output = next(
+        (
+            item
+            for item in source_node.get("outputs", [])
+            if isinstance(item, dict) and item.get("name") == source_name
+        ),
+        None,
+    )
+    if output is not None and isinstance(output.get("types"), list):
+        # Match the output handle selected by the WebUI for grouped outputs.
+        source_handle["output_types"] = (
+            output["types"] if len(output["types"]) == 1 else [output.get("selected")]
+        )
+    target_field = target_node.get("template", {}).get(target_name, {})
     target_handle = {
         "fieldName": target_name,
         "id": target_id,
         "inputTypes": input_types,
-        "type": "other",
     }
-    edge_id = "reactflow__edge-" + str(uuid.uuid4())
+    if target_field.get("type") is not None:
+        target_handle["type"] = target_field["type"]
+    if target_field.get("proxy"):
+        target_handle["proxy"] = copy.deepcopy(target_field["proxy"])
     data["edges"].append(
         {
-            "animated": False,
             "source": source_id,
             "target": target_id,
-            "id": edge_id,
-            "sourceHandle": json.dumps(source_handle, ensure_ascii=False),
-            "targetHandle": json.dumps(target_handle, ensure_ascii=False),
             "data": {"sourceHandle": source_handle, "targetHandle": target_handle},
-            "selected": False,
         }
     )
     return source_name, target_name
@@ -677,6 +725,24 @@ def apply_actions(flow, actions, catalog):
                 raise ValueError("Node configuration patch references an unknown node")
             _set_config(nodes[node_id], action.get("config"))
             descriptions.append(f"配置 {node_id}")
+        elif op == "set_nodes_config":
+            configs = action.get("configs")
+            if (
+                not isinstance(configs, dict)
+                or not configs
+                or len(configs) > MAX_BATCH_CONFIG_NODES
+                or len(json.dumps(configs, ensure_ascii=False).encode("utf-8")) > MAX_CONFIG_BYTES
+            ):
+                raise ValueError(
+                    f"set_nodes_config requires 1 to {MAX_BATCH_CONFIG_NODES} node configs "
+                    f"within {MAX_CONFIG_BYTES} bytes"
+                )
+            unknown = set(configs) - set(nodes)
+            if unknown:
+                raise ValueError("Batch configuration references an unknown node")
+            for node_id, config in configs.items():
+                _set_config(nodes[node_id], config)
+            descriptions.append(f"批量配置 {len(configs)} 个节点")
         elif op == "add_node":
             _add_node(data, action, components)
             descriptions.append(f"新增 {action.get('component_type')} ({action.get('node_id')})")

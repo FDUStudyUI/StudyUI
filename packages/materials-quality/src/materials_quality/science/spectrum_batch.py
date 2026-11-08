@@ -598,9 +598,9 @@ def analyze_spectra(table, config=None):
             "area": f"1/{x_unit}",
             "snv": "dimensionless",
         }[config.get("normalization", "none")]
-    complete_table.attrs["units"].update({
-        key: value for key, value in processed_units.items() if key in complete_table.columns
-    })
+    complete_table.attrs["units"].update(
+        {key: value for key, value in processed_units.items() if key in complete_table.columns}
+    )
     if source_contract is not None:
         complete_table = contract_spectral_output(
             frame,

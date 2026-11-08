@@ -752,6 +752,7 @@ def export_table(table=None, *, config=None, data=None, tables=None):
     for col in frame.columns:
         original = frame[col]
         if col in text_columns:
+
             def export_text(value):
                 if pd.api.types.is_scalar(value) and pd.isna(value):
                     return ""

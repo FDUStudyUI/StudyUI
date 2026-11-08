@@ -31,6 +31,36 @@ def test_identifiers_and_explicit_text_schema_are_applied_before_numeric_inferen
     assert result.data["schema"]["batch"]["requested_dtype"] == "string"
 
 
+def test_explicit_decimal_comma_normalizes_numeric_columns_and_preserves_source(tmp_path):
+    path = tmp_path / "measurements.lis"
+    raw = "time\tstress\n0,10\t12,34\n0,20\t24,68\n".encode("cp1252")
+    path.write_bytes(raw)
+
+    result = table_import(
+        config={
+            "path": str(path),
+            "encoding": "cp1252",
+            "delimiter": "\t",
+            "decimal_separator": ",",
+        }
+    )
+
+    assert result.table.to_dict("list") == {"time": [0.1, 0.2], "stress": [12.34, 24.68]}
+    assert result.data["header_diagnostics"]["decimal_comma_normalized_columns"] == ["time", "stress"]
+    assert result.data["decimal_separator"] == ","
+    assert path.read_bytes() == raw
+
+
+def test_decimal_comma_does_not_guess_mixed_thousands_and_decimal_notation(tmp_path):
+    path = tmp_path / "ambiguous.csv"
+    path.write_text("value\n1.234,56\n2,5\n", encoding="utf-8")
+
+    result = table_import(config={"path": str(path), "decimal_separator": ","})
+
+    assert result.table["value"].tolist() == ["1.234,56", "2,5"]
+    assert "decimal_comma_normalized_columns" not in result.data["header_diagnostics"]
+
+
 def test_table_import_reports_exact_raw_source_hash_and_byte_size(tmp_path):
     path = tmp_path / "original.xy"
     raw = b"angle,intensity\n5.0,17\n5.1,18\n"

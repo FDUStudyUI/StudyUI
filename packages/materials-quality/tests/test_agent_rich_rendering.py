@@ -204,7 +204,7 @@ def test_chat_partial_math_and_failed_answer_survive_refresh(page, assets_url):
 
     page.route(assets_url + "/api/**", api_response)
     page.route(
-        assets_url + "/chat",
+        assets_url + "/chat*",
         lambda route: route.fulfill(
             content_type="text/html", body=(ASSETS.parent / "index.html").read_text(encoding="utf-8")
         ),
@@ -230,3 +230,84 @@ def test_chat_partial_math_and_failed_answer_survive_refresh(page, assets_url):
     }""")
     page.evaluate("window.oldTaskPoll")
     assert page.locator("#feed").inner_text() == "Different session"
+
+
+def test_completed_stream_keeps_thinking_separate_before_and_after_refresh(page, assets_url):
+    thought = "先检查边界条件和单位。"
+    answer = "最终回答只包含经过整理的结论。"
+    message = f"<think>{thought}</think>\n\n{answer}"
+    history = [{"role": "user", "content": "请分析这个问题"}]
+    task = {"id": "t2", "status": "running", "terminal": False, "partial_content": ""}
+
+    def api_response(route):
+        path = route.request.url.split(assets_url)[-1].split("?", 1)[0]
+        if path == "/api/sessions/s1/tasks/t2/events":
+            task.update(
+                status="completed",
+                terminal=True,
+                result={"message": message, "reasoning_content": ""},
+            )
+            history.append({"role": "assistant", "content": message})
+            events = [
+                ("snapshot", {"id": "t2", "status": "running", "terminal": False, "partial_content": ""}),
+                ("content_chunk", {"delta": message}),
+                ("terminal", {"task": task}),
+            ]
+            body = (
+                "\n\n".join(
+                    f"event: {kind}\ndata: {json.dumps(payload, ensure_ascii=False)}"
+                    for kind, payload in events
+                )
+                + "\n\n"
+            )
+            route.fulfill(content_type="text/event-stream", body=body)
+            return
+
+        responses = {
+            "/api/health": {"model_configured": True, "model_name": "Offline test"},
+            "/api/projects": [],
+            "/api/sessions": [{"id": "s1", "title": "Reasoning test", "project_id": None}],
+            "/api/sessions/s1": {"messages": history},
+            "/api/sessions/s1/tasks": {"items": [task]},
+            "/api/sessions/s1/tasks/t2": task,
+        }
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(responses.get(path, {}), ensure_ascii=False),
+        )
+
+    page.route(assets_url + "/api/**", api_response)
+    page.route(
+        assets_url + "/chat*",
+        lambda route: route.fulfill(
+            content_type="text/html", body=(ASSETS.parent / "index.html").read_text(encoding="utf-8")
+        ),
+    )
+    page.goto(assets_url + "/chat?session_id=s1")
+
+    assistant = page.locator("#feed .msg.assistant").last
+    playwright.expect(assistant.locator(".dsh-reasoning")).to_have_count(1)
+    playwright.expect(assistant.locator(".dsh-reasoning-body .rich-content")).to_contain_text(thought)
+    playwright.expect(assistant.locator(".rich-content").last).to_have_text(answer)
+    assert assistant.locator(".dsh-reasoning-row").get_attribute("aria-expanded") == "false"
+    assert assistant.locator(".dsh-reasoning-body").evaluate("element => element.hidden") is True
+    live_state = assistant.evaluate("""message => ({
+        reasoning: message.querySelector('.dsh-reasoning-body .rich-content').innerText,
+        answer: message.querySelector(':scope > .rich-content').innerText,
+        collapsed: message.querySelector('.dsh-reasoning-body').hidden
+    })""")
+
+    page.reload()
+    assistant = page.locator("#feed .msg.assistant").last
+    playwright.expect(assistant.locator(".dsh-reasoning")).to_have_count(1)
+    playwright.expect(assistant.locator(".dsh-reasoning-body .rich-content")).to_contain_text(thought)
+    playwright.expect(assistant.locator(".rich-content").last).to_have_text(answer)
+    assert assistant.locator(".dsh-reasoning-row").get_attribute("aria-expanded") == "false"
+    assert assistant.locator(".dsh-reasoning-body").evaluate("element => element.hidden") is True
+    history_state = assistant.evaluate("""message => ({
+        reasoning: message.querySelector('.dsh-reasoning-body .rich-content').innerText,
+        answer: message.querySelector(':scope > .rich-content').innerText,
+        collapsed: message.querySelector('.dsh-reasoning-body').hidden
+    })""")
+    assert live_state == history_state

@@ -36,11 +36,16 @@ class SessionStore:
 
     def _workspace_operation(self, operation=None):
         """Use the same project catalog as the canvas and mirror IDs for session foreign keys."""
-        if not self.workspace_file or not self.workspace_file.exists():
+        if not self.workspace_file:
             return None
         with FileLock(str(self.workspace_file) + ".lock", timeout=30), self._connect() as db:
-            workspace = json.loads(self.workspace_file.read_text(encoding="utf-8"))
+            if self.workspace_file.exists():
+                workspace = json.loads(self.workspace_file.read_text(encoding="utf-8"))
+            else:
+                workspace = {"projects": [], "workspaces": [], "variables": []}
             projects = workspace.setdefault("projects", [])
+            workspace.setdefault("workspaces", [])
+            workspace.setdefault("variables", [])
             if not workspace.get("session_projects_migrated"):
                 known = {p["id"] for p in projects}
                 for row in db.execute(
@@ -89,6 +94,7 @@ class SessionStore:
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
                     project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+                    workspace_id TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -99,6 +105,12 @@ class SessionStore:
                     position INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS project_directories (
+                    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                    path TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY(project_id, path)
                 );
                 CREATE TABLE IF NOT EXISTS messages (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -159,21 +171,26 @@ class SessionStore:
                     "ALTER TABLE sessions ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET "
                     "NULL"
                 )
+            if "workspace_id" not in columns:
+                db.execute("ALTER TABLE sessions ADD COLUMN workspace_id TEXT")
 
-    def create_project(self, title, description=""):
+    def create_project(self, title, description="", workspace_id=None):
         project_id, now = str(uuid.uuid4()), _now()
         title = str(title).strip()[:120]
         if not title:
             raise ValueError("项目名称不能为空")
-        if self.workspace_file and self.workspace_file.exists():
+        if self.workspace_file:
 
             def add(workspace):
+                if workspace_id and not any(row.get("id") == workspace_id for row in workspace["workspaces"]):
+                    raise ValueError("工作区不存在。")
                 workspace["projects"].append(
                     {
                         "id": project_id,
                         "name": title,
                         "description": str(description).strip()[:1000],
                         "parent_id": None,
+                        "workspace_id": workspace_id,
                     }
                 )
 
@@ -197,13 +214,206 @@ class SessionStore:
                    FROM projects p LEFT JOIN sessions s ON s.project_id=p.id
                    GROUP BY p.id ORDER BY p.position,p.created_at"""
             ).fetchall()
-        return [dict(row) for row in rows]
+        result = [dict(row) for row in rows]
+        if self.workspace_file:
+            try:
+                catalog = json.loads(self.workspace_file.read_text(encoding="utf-8")).get("projects", [])
+                metadata = {item["id"]: item for item in catalog if isinstance(item, dict) and item.get("id")}
+                for row in result:
+                    row["workspace_id"] = metadata.get(row["id"], {}).get("workspace_id")
+                    row["local_directories"] = list(metadata.get(row["id"], {}).get("local_directories", []))
+            except (OSError, ValueError, TypeError):
+                pass
+        return result
+
+    def list_workspaces(self):
+        def list_rows(workspace):
+            return [dict(item) for item in workspace["workspaces"]]
+
+        return self._workspace_operation(list_rows) or []
+
+    def add_workspace(self, path, name=None):
+        selected = Path(path).expanduser().resolve(strict=True)
+        if not selected.is_dir():
+            raise ValueError("所选路径不是目录。")
+        result = {}
+
+        def add(workspace):
+            for item in workspace["workspaces"]:
+                try:
+                    same_path = Path(item.get("path", "")).resolve() == selected
+                except (OSError, ValueError):
+                    same_path = False
+                if same_path:
+                    result.update(item)
+                    return
+            item = {
+                "id": str(uuid.uuid4()),
+                "name": str(name or selected.name or str(selected))[:120],
+                "path": str(selected),
+                "created_at": _now(),
+            }
+            workspace["workspaces"].insert(0, item)
+            if len(workspace["workspaces"]) == 1:
+                for project in workspace["projects"]:
+                    if not project.get("workspace_id"):
+                        project["workspace_id"] = item["id"]
+            result.update(item)
+
+        self._workspace_operation(add)
+        if not result:
+            raise ValueError("无法保存工作目录。")
+        return result
+
+    def rename_workspace(self, workspace_id, name):
+        normalized = str(name).strip()[:120]
+        if not normalized:
+            raise ValueError("工作区名称不能为空。")
+        result = {}
+
+        def rename(workspace):
+            item = next((row for row in workspace["workspaces"] if row.get("id") == workspace_id), None)
+            if item is None:
+                raise ValueError("工作区不存在。")
+            item["name"] = normalized
+            result.update(item)
+
+        self._workspace_operation(rename)
+        return result
+
+    def remove_workspace(self, workspace_id):
+        def remove(workspace):
+            if not any(row.get("id") == workspace_id for row in workspace["workspaces"]):
+                raise ValueError("工作区不存在。")
+            workspace["workspaces"] = [
+                row for row in workspace["workspaces"] if row.get("id") != workspace_id
+            ]
+            for project in workspace["projects"]:
+                if project.get("workspace_id") == workspace_id:
+                    project["workspace_id"] = None
+
+        self._workspace_operation(remove)
+        # Workspace removal unregisters the directory only. Keep its files,
+        # projects, and conversations; detach conversations from the removed
+        # workspace so they remain visible after switching to another one.
+        with self._connect() as db:
+            db.execute(
+                "UPDATE sessions SET workspace_id=NULL,updated_at=? WHERE workspace_id=?",
+                (_now(), workspace_id),
+            )
+
+    def workspace_path_for_project(self, project_id):
+        if not project_id or not self.workspace_file or not self.workspace_file.exists():
+            return None
+        try:
+            data = json.loads(self.workspace_file.read_text(encoding="utf-8"))
+            project = next((row for row in data.get("projects", []) if row.get("id") == project_id), None)
+            workspace_id = project.get("workspace_id") if project else None
+            return self.workspace_path(workspace_id)
+        except (OSError, ValueError, TypeError, KeyError):
+            return None
+
+    def workspace_path(self, workspace_id):
+        if not workspace_id or not self.workspace_file or not self.workspace_file.exists():
+            return None
+        try:
+            data = json.loads(self.workspace_file.read_text(encoding="utf-8"))
+            workspace = next(
+                (row for row in data.get("workspaces", []) if row.get("id") == workspace_id), None
+            )
+            path = (
+                Path(workspace["path"]).expanduser().resolve()
+                if workspace and workspace.get("path")
+                else None
+            )
+            return path if path and path.is_dir() else None
+        except (OSError, ValueError, TypeError, KeyError):
+            return None
+
+    def project_directories(self, project_id):
+        if not project_id:
+            return []
+        if self.workspace_file:
+            self._workspace_operation()
+            try:
+                catalog = json.loads(self.workspace_file.read_text(encoding="utf-8"))
+                project = next(
+                    (item for item in catalog.get("projects", []) if item.get("id") == project_id),
+                    None,
+                )
+                directories = project.get("local_directories", []) if project else []
+                return [str(path) for path in directories if isinstance(path, str) and path.strip()]
+            except (OSError, ValueError, TypeError):
+                return []
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT path FROM project_directories WHERE project_id=? ORDER BY created_at,path",
+                (project_id,),
+            ).fetchall()
+        return [row["path"] for row in rows]
+
+    def add_project_directory(self, project_id, path):
+        directory = Path(path).expanduser().resolve(strict=True)
+        if not directory.is_dir():
+            raise ValueError("所选路径不是本地文件夹。")
+        normalized = str(directory)
+        if self.workspace_file:
+            result = []
+
+            def add(workspace):
+                project = next(
+                    (item for item in workspace["projects"] if item.get("id") == project_id),
+                    None,
+                )
+                if project is None:
+                    raise ValueError("项目不存在。")
+                paths = project.setdefault("local_directories", [])
+                if not any(os.path.normcase(str(item)) == os.path.normcase(normalized) for item in paths):
+                    paths.append(normalized)
+                result.extend(paths)
+
+            self._workspace_operation(add)
+            return result
+        with self._connect() as db:
+            if db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None:
+                raise ValueError("项目不存在。")
+            db.execute(
+                "INSERT OR IGNORE INTO project_directories(project_id,path,created_at) VALUES(?,?,?)",
+                (project_id, normalized, _now()),
+            )
+        return self.project_directories(project_id)
+
+    def remove_project_directory(self, project_id, path):
+        normalized = str(Path(path).expanduser().resolve(strict=False))
+        if self.workspace_file:
+
+            def remove(workspace):
+                project = next(
+                    (item for item in workspace["projects"] if item.get("id") == project_id),
+                    None,
+                )
+                if project is None:
+                    raise ValueError("项目不存在。")
+                project["local_directories"] = [
+                    item
+                    for item in project.get("local_directories", [])
+                    if os.path.normcase(str(Path(item).expanduser().resolve(strict=False)))
+                    != os.path.normcase(normalized)
+                ]
+
+            self._workspace_operation(remove)
+            return
+        with self._connect() as db:
+            db.execute(
+                "DELETE FROM project_directories WHERE project_id=? AND path=?",
+                (project_id, normalized),
+            )
 
     def update_project(self, project_id, title):
         title = str(title).strip()[:120]
         if not title:
             raise ValueError("项目名称不能为空")
-        if self.workspace_file and self.workspace_file.exists():
+        if self.workspace_file:
 
             def rename(workspace):
                 project = next((p for p in workspace["projects"] if p["id"] == project_id), None)
@@ -248,14 +458,17 @@ class SessionStore:
         with self._connect() as db:
             return db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is not None
 
-    def create_session(self, title="科研任务", project_id=None):
+    def create_session(self, title="科研任务", project_id=None, workspace_id=None):
         session_id, now = str(uuid.uuid4()), _now()
         if project_id and not self.has_project(project_id):
             raise ValueError("目标项目不存在")
+        if workspace_id and not any(row.get("id") == workspace_id for row in self.list_workspaces()):
+            raise ValueError("目标工作区不存在")
         with self._connect() as db:
             db.execute(
-                "INSERT INTO sessions(id,title,project_id,created_at,updated_at) VALUES(?,?,?,?,?)",
-                (session_id, str(title)[:120] or "科研任务", project_id, now, now),
+                "INSERT INTO sessions(id,title,project_id,workspace_id,created_at,updated_at) "
+                "VALUES(?,?,?,?,?,?)",
+                (session_id, str(title)[:120] or "科研任务", project_id, workspace_id, now, now),
             )
         return session_id
 
@@ -263,24 +476,24 @@ class SessionStore:
         with self._connect() as db:
             if project_id == "__ungrouped__":
                 query = (
-                    "SELECT id,title,project_id,created_at,updated_at FROM sessions WHERE project_id IS "
-                    "NULL ORDER BY updated_at DESC LIMIT 300"
+                    "SELECT id,title,project_id,workspace_id,created_at,updated_at FROM sessions "
+                    "WHERE project_id IS NULL ORDER BY updated_at DESC LIMIT 300"
                 )
                 rows = db.execute(query).fetchall()
             elif project_id:
                 rows = db.execute(
-                    "SELECT id,title,project_id,created_at,updated_at FROM sessions WHERE project_id=? "
-                    "ORDER BY updated_at DESC LIMIT 300",
+                    "SELECT id,title,project_id,workspace_id,created_at,updated_at FROM sessions "
+                    "WHERE project_id=? ORDER BY updated_at DESC LIMIT 300",
                     (project_id,),
                 ).fetchall()
             else:
                 rows = db.execute(
-                    "SELECT id,title,project_id,created_at,updated_at FROM sessions ORDER BY updated_at "
-                    "DESC LIMIT 300"
+                    "SELECT id,title,project_id,workspace_id,created_at,updated_at FROM sessions "
+                    "ORDER BY updated_at DESC LIMIT 300"
                 ).fetchall()
         return [dict(row) for row in rows]
 
-    def update_session(self, session_id, *, title=None, project_id=...):
+    def update_session(self, session_id, *, title=None, project_id=..., workspace_id=...):
         if project_id is not ... and project_id:
             self._workspace_operation()
         with self._connect() as db:
@@ -303,6 +516,11 @@ class SessionStore:
                     "UPDATE sessions SET project_id=?,updated_at=? WHERE id=?",
                     (project_id, _now(), session_id),
                 )
+            if workspace_id is not ...:
+                db.execute(
+                    "UPDATE sessions SET workspace_id=?,updated_at=? WHERE id=?",
+                    (workspace_id, _now(), session_id),
+                )
 
     def delete_session(self, session_id):
         with self._connect() as db:
@@ -321,7 +539,9 @@ class SessionStore:
 
     def session_context(self, session_id):
         with self._connect() as db:
-            row = db.execute("SELECT id,title,project_id FROM sessions WHERE id=?", (session_id,)).fetchone()
+            row = db.execute(
+                "SELECT id,title,project_id,workspace_id FROM sessions WHERE id=?", (session_id,)
+            ).fetchone()
         return dict(row) if row else None
 
     def append_message(self, session_id, message):
@@ -366,6 +586,23 @@ class SessionStore:
                 "SELECT detail_json FROM events WHERE session_id=? AND kind='workflow_created'", (session_id,)
             ).fetchall()
         return {json.loads(row[0]).get("flow_id") for row in rows} - {None}
+
+    def session_workflow_ids(self, session_id):
+        """Return workflows opened or created in this conversation, most recent first."""
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT detail_json FROM events WHERE session_id=? "
+                "AND kind IN ('workflow_created','workflow_opened') ORDER BY id DESC",
+                (session_id,),
+            ).fetchall()
+        workflow_ids = []
+        seen = set()
+        for row in rows:
+            flow_id = json.loads(row[0]).get("flow_id")
+            if isinstance(flow_id, str) and flow_id and flow_id not in seen:
+                seen.add(flow_id)
+                workflow_ids.append(flow_id)
+        return workflow_ids
 
     def append_event(self, session_id, kind, detail):
         with self._connect() as db:
@@ -598,5 +835,31 @@ class SessionStore:
                 row["session_id"],
                 "approval_decided",
                 {"approval_id": approval_id, "action": row["action"], "decision": decision},
+            )
+        return changed
+
+    def invalidate_approval(self, approval_id):
+        """Invalidate stale pending or already-approved authorization snapshots."""
+        now = _now()
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT session_id,action FROM approvals WHERE id=? AND status IN ('pending','approved')",
+                (approval_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            changed = (
+                db.execute(
+                    "UPDATE approvals SET status='invalidated',updated_at=? "
+                    "WHERE id=? AND status IN ('pending','approved')",
+                    (now, approval_id),
+                ).rowcount
+                == 1
+            )
+        if changed:
+            self.append_event(
+                row["session_id"],
+                "approval_decided",
+                {"approval_id": approval_id, "action": row["action"], "decision": "invalidated"},
             )
         return changed

@@ -112,10 +112,13 @@ def result_evidence(table=None, *, config=None, data=None, tables=None):
         "sources": sources,
         "input_provenance": json_value(deepcopy(frame.attrs)),
         "upstream_execution": json_value(deepcopy((data or {}).get("upstream_execution"))),
-        "analysis_details": json_value({
-            key: deepcopy(data[key]) for key in ("method", "transform", "peak_detection", "metrics", "config")
-            if isinstance(data, dict) and key in data
-        }),
+        "analysis_details": json_value(
+            {
+                key: deepcopy(data[key])
+                for key in ("method", "transform", "peak_detection", "metrics", "config")
+                if isinstance(data, dict) and key in data
+            }
+        ),
         "scientific_validation": "not_established_by_citation_or_cell_link",
     }
     warnings = []

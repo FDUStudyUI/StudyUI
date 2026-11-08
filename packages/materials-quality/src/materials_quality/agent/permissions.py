@@ -36,6 +36,7 @@ READ_ACTIONS = {
 WRITE_ACTIONS = {
     "workflow.create",
     "workflow.edit",
+    "workflow.propose",
     "workflow.run",
     "skill.invoke",
     "artifact.create",

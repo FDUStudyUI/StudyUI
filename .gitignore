@@ -33,9 +33,15 @@ Thumbs.db
 /.demo-runtime/
 /workflows/
 /workspace.json
+/workspace.json.lock
+/StudyUI_outputs/
 /data/
 /uploads/*
 !/uploads/.gitkeep
+
+# Local exports from data-inspection / import sessions
+/lis_A02_import_columns*.csv
+/lis_A02_import_columns*.metadata.json
 **/artifacts/
 *.db
 *.db-*

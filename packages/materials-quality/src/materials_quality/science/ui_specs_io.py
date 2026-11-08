@@ -3,7 +3,7 @@
 from .ui_types import field
 
 _RASTER_TYPES = ["png", "jpg", "jpeg", "tif", "tiff", "bmp", "webp", "gif"]
-_TABLE_TYPES = ["csv", "tsv", "txt", "dat", "xlsx", "xls", "xlsm", "ods"]
+_TABLE_TYPES = ["csv", "tsv", "txt", "dat", "lis", "xlsx", "xls", "xlsm", "ods"]
 _INSTRUMENT_TYPES = ["xy", "xye", "csv", "txt", "dat", "jdx", "dx", "jcamp", "brml", "raw"]
 
 
@@ -30,7 +30,7 @@ def _encoding(when=None):
         "choice",
         default="auto",
         when=when,
-        choices=["auto", "utf-8", "utf-8-sig", "gb18030", "gbk", "utf-16", "latin-1"],
+        choices=["auto", "utf-8", "utf-8-sig", "gb18030", "gbk", "utf-16", "cp1252", "latin-1"],
         info="auto 依次检查 BOM、UTF-8、GB18030；识别失败时选择源文件实际编码。",
     )
 
@@ -61,6 +61,15 @@ def _table_fields(when=None, *, include_encoding=True):
             info="auto 自动识别；手填一个实际字符，如逗号、分号、竖线或实际制表符；Excel 忽略。",
         ),
         field(
+            "decimal_separator",
+            "小数分隔符",
+            "choice",
+            default=".",
+            when=when,
+            choices=[".", ","],
+            info="文本表格按来源明确选择小数点或小数逗号；逗号小数仅在整列均为数值格式时转换。",
+        ),
+        field(
             "range",
             "读取矩形区域",
             when=when,
@@ -71,7 +80,10 @@ def _table_fields(when=None, *, include_encoding=True):
             "无表头时的列名",
             "list",
             when=when,
-            info="仅 header=null 时使用；列名唯一，数量等于选中区域的列数，留空自动生成。",
+            info=(
+                "仅 header=null 时使用；留空按选中区域列数自动命名。非空列表数量须与列数一致；"
+                "空名称和重复名称会生成唯一名称并保留全部数据列。"
+            ),
         ),
         field(
             "id_columns",

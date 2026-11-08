@@ -62,14 +62,35 @@ def test_all_five_cards_have_distinct_actions_and_accessible_picker(demo_browser
     for card in cards.all():
         playwright.expect(card.get_by_role("button", name="载入数据，交给 Agent")).to_be_visible()
         playwright.expect(card.get_by_role("button", name="打开参考工作流")).to_be_visible()
-        playwright.expect(card.locator(".demo-provenance")).to_contain_text("演示")
+        playwright.expect(card.locator(".demo-card-desc, .demo-provenance, .demo-facts")).to_have_count(0)
     page.locator("#demo-quick-btn").click()
     picker = page.get_by_role("dialog", name="选择演示案例")
     playwright.expect(picker).to_be_visible()
     playwright.expect(picker.locator(".demo-card")).to_have_count(5)
+    playwright.expect(picker.locator(".demo-card-desc, .demo-provenance, .demo-facts")).to_have_count(0)
+    cards = picker.locator(".demo-card")
+    fourth, fifth = cards.nth(3).bounding_box(), cards.nth(4).bounding_box()
+    grid = picker.locator(".demo-grid").bounding_box()
+    assert abs((fourth["x"] + fifth["x"] + fifth["width"] - 2 * grid["x"] - grid["width"]) / 2) < 1
     page.keyboard.press("Escape")
     playwright.expect(picker).not_to_be_visible()
     playwright.expect(page.locator("#demo-quick-btn")).to_be_focused()
+
+
+def test_narrow_picker_centers_last_card_without_horizontal_overflow(demo_browser):
+    page, _, _ = demo_browser
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.locator("#demo-quick-btn").click()
+    picker = page.get_by_role("dialog", name="选择演示案例")
+    cards = picker.locator(".demo-card")
+    playwright.expect(cards).to_have_count(5)
+    card_boxes = [cards.nth(i).bounding_box() for i in range(5)]
+    fifth = card_boxes[4]
+    grid = picker.locator(".demo-grid").bounding_box()
+    assert min(card["width"] for card in card_boxes) > 240
+    assert max(card["x"] for card in card_boxes) - min(card["x"] for card in card_boxes) < 1
+    assert abs((fifth["x"] + fifth["width"] / 2) - (grid["x"] + grid["width"] / 2)) < 1
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
 def test_picker_preserves_agent_prompt_without_submitting(demo_browser):
@@ -81,6 +102,49 @@ def test_picker_preserves_agent_prompt_without_submitting(demo_browser):
     playwright.expect(page.locator("#demo-guidance")).to_contain_text("发送")
     assert app.state.harness.langflow.list_flows() == []
     assert not any(e["kind"] == "tool_call" for e in app.state.harness.store.events(session))
+
+
+def test_workflow_sidebar_menu_renames_and_deletes(demo_browser):
+    page, app, session = demo_browser
+    base = page.url.split("?", 1)[0]
+    project_id = app.state.harness.store.session_context(session)["project_id"]
+    response = page.request.post(
+        base + "canvas/api/v1/flows/",
+        data={"name": "Workflow to manage", "folder_id": project_id, "data": {"nodes": [], "edges": []}},
+    )
+    assert response.status == 201, response.text()
+
+    page.route(
+        "**/canvas/flow/**",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="text/html",
+            body=(
+                '<html><body><button aria-label="Run flow">Run</button>'
+                '<button aria-label="Save flow">Save</button></body></html>'
+            ),
+        ),
+    )
+    page.locator("#btn-mode-flow").click()
+    row = page.locator("#workflow-list .dsh-flow-row")
+    playwright.expect(row).to_have_count(1)
+    canvas = page.frame_locator("#flow-frame")
+    playwright.expect(canvas.get_by_role("button", name="Save flow")).to_be_visible()
+    playwright.expect(canvas.get_by_role("button", name="Run flow")).to_have_count(0)
+    page.get_by_role("button", name="工作流「Workflow to manage」的更多操作").click()
+    menu = page.get_by_role("menu", name="Workflow to manage 的工作流操作")
+    playwright.expect(menu).to_be_visible()
+
+    page.once("dialog", lambda dialog: dialog.accept("Renamed workflow"))
+    menu.get_by_role("menuitem", name="重命名").click()
+    playwright.expect(page.locator("#workflow-list .dsh-flow-item-name")).to_have_text("Renamed workflow")
+
+    page.get_by_role("button", name="工作流「Renamed workflow」的更多操作").click()
+    menu = page.get_by_role("menu", name="Renamed workflow 的工作流操作")
+    page.once("dialog", lambda dialog: dialog.accept())
+    menu.get_by_role("menuitem", name="删除").click()
+    playwright.expect(page.locator("#workflow-list .dsh-flow-empty-list")).to_have_text("暂无工作流")
+    assert app.state.harness.langflow.list_flows() == []
 
 
 @pytest.mark.parametrize(

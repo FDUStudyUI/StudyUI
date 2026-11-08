@@ -285,20 +285,88 @@ def test_canvas_refreshes_only_trusted_scientific_component_forms(tmp_path, monk
     assert client.post("/api/v1/custom_component/update", json=payload).status_code == 403
 
 
-def test_canvas_shows_connected_advanced_input_without_changing_saved_graph():
+@pytest.mark.parametrize("legacy_top_level_handles", [False, True])
+def test_canvas_exposes_dsh_canonical_handles_without_changing_saved_graph(legacy_top_level_handles):
     from materials_quality.agent.workflow_api import _canvas_visible_flow
 
     field = {"advanced": True, "show": False, "value": None}
     flow = {
         "data": {
-            "nodes": [{"id": "target", "data": {"node": {"template": {"input_data": field}}}}],
-            "edges": [{"target": "target", "targetHandle": '{"fieldName":"input_data"}'}],
+            "nodes": [
+                {
+                    "id": "source",
+                    "data": {
+                        "id": "source",
+                        "type": "ScienceIoTableImport",
+                        "node": {"outputs": [{"name": "table", "types": ["Table"], "selected": "Table"}]},
+                    },
+                },
+                {
+                    "id": "target",
+                    "data": {
+                        "id": "target",
+                        "node": {
+                            "template": {
+                                "input_data": {
+                                    **field,
+                                    "type": "other",
+                                    "input_types": ["Data", "JSON"],
+                                }
+                            }
+                        },
+                    },
+                },
+            ],
+            "edges": [
+                {
+                    **{
+                        "source": "source",
+                        "target": "target",
+                        "data": {
+                            "sourceHandle": {
+                                "id": "source",
+                                "name": "table",
+                                "dataType": "Table",
+                                "output_types": ["Table"],
+                            },
+                            "targetHandle": {"id": "target", "fieldName": "input_data", "type": "other"},
+                        },
+                    },
+                    **(
+                        {
+                            "id": "legacy-edge-id",
+                            "sourceHandle": json.dumps(
+                                {
+                                    "id": "source",
+                                    "name": "table",
+                                    "dataType": "Table",
+                                    "output_types": ["Table"],
+                                }
+                            ),
+                            "targetHandle": json.dumps(
+                                {"id": "target", "fieldName": "input_data", "type": "other"}
+                            ),
+                        }
+                        if legacy_top_level_handles
+                        else {}
+                    ),
+                }
+            ],
         }
     }
     visible = _canvas_visible_flow(flow)
-    projected = visible["data"]["nodes"][0]["data"]["node"]["template"]["input_data"]
+    projected = visible["data"]["nodes"][1]["data"]["node"]["template"]["input_data"]
+    edge = visible["data"]["edges"][0]
     assert projected["advanced"] is False and projected["show"] is True
+    assert edge["sourceHandle"].startswith("{œdataTypeœ:œScienceIoTableImportœ")
+    assert edge["targetHandle"].startswith("{œfieldNameœ:œinput_dataœ")
+    assert edge["id"] == f"reactflow__edge-source{edge['sourceHandle']}-target{edge['targetHandle']}"
+    assert json.loads(edge["sourceHandle"].replace("œ", '"')) == edge["data"]["sourceHandle"]
+    assert json.loads(edge["targetHandle"].replace("œ", '"')) == edge["data"]["targetHandle"]
+    assert edge["data"]["sourceHandle"]["dataType"] == "ScienceIoTableImport"
+    assert edge["data"]["targetHandle"]["inputTypes"] == ["Data", "JSON"]
     assert field["advanced"] is True and field["show"] is False
+    assert flow["data"]["edges"][0]["data"]["sourceHandle"]["dataType"] == "Table"
 
 
 def test_agent_and_canvas_share_projects_and_preserve_existing_sessions(tmp_path):

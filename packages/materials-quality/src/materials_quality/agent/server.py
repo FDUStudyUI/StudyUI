@@ -9,6 +9,7 @@ import io
 import json
 import mimetypes
 import os
+import re
 import uuid
 from email.message import Message
 from http.server import BaseHTTPRequestHandler
@@ -16,7 +17,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse, Response
 
 if __package__ is None or __package__ == "":
     import sys
@@ -116,6 +117,7 @@ def make_handler(harness, canvas_path, task_manager):
                         "service": "StudyUI",
                         "model_configured": bool(profile.get("configured")),
                         "model_name": m_name,
+                        "context_window": profile.get("context_window"),
                         "canvas_url": canvas_path,
                         "workflow_storage": "json"
                         if isinstance(harness.langflow, FileWorkflowClient)
@@ -138,6 +140,50 @@ def make_handler(harness, canvas_path, task_manager):
                 return self._send(200, harness.store.list_sessions())
             if path == "/api/projects":
                 return self._send(200, harness.store.list_projects())
+            if path.startswith("/api/projects/") and path.endswith("/directories"):
+                project_id = unquote(path.strip("/").split("/")[2])
+                if not harness.store.has_project(project_id):
+                    return self._error("项目不存在。", 404)
+                return self._send(
+                    200,
+                    {
+                        "project_id": project_id,
+                        "directories": harness.store.project_directories(project_id),
+                    },
+                )
+            if path == "/api/workspaces":
+                return self._send(200, harness.store.list_workspaces())
+            if path == "/api/workspaces/browse":
+                requested = parse_qs(urlsplit(self.path).query).get("path", [""])[0]
+                try:
+                    current = (
+                        Path(requested).expanduser().resolve(strict=True)
+                        if requested
+                        else Path.home().resolve()
+                    )
+                    if not current.is_dir():
+                        return self._error("所选路径不是目录。", 400)
+                    entries = []
+                    with os.scandir(current) as children:
+                        for child in children:
+                            try:
+                                if child.name.startswith(".") or not child.is_dir(follow_symlinks=False):
+                                    continue
+                                entries.append({"name": child.name, "path": str(Path(child.path).resolve())})
+                            except OSError:
+                                continue
+                    entries.sort(key=lambda item: item["name"].casefold())
+                    parent = current.parent if current.parent != current else None
+                    return self._send(
+                        200,
+                        {
+                            "path": str(current),
+                            "parent": str(parent) if parent else None,
+                            "directories": entries,
+                        },
+                    )
+                except (OSError, RuntimeError, ValueError) as exc:
+                    return self._error(f"无法读取目录：{exc}", 400)
             if path.startswith("/api/sessions/"):
                 parts = path.strip("/").split("/")
                 if len(parts) == 5 and parts[3] == "artifacts":
@@ -190,6 +236,9 @@ def make_handler(harness, canvas_path, task_manager):
                                 "reasoning_content": message.get("reasoning_content"),
                                 "tool_steps": message.get("tool_steps"),
                                 "model": message.get("model"),
+                                "token_usage": message.get("token_usage"),
+                                "performance": message.get("performance"),
+                                "usage_steps": message.get("usage_steps"),
                             }
                             for message in harness.store.messages(session_id, limit=200)
                             if message.get("role") in {"user", "assistant"} and not message.get("tool_calls")
@@ -197,6 +246,7 @@ def make_handler(harness, canvas_path, task_manager):
                         "pending_proposals": harness.store.pending_proposals(session_id),
                         "pending_approvals": harness.store.pending_approvals(session_id),
                         "artifacts": harness.store.latest_artifacts(session_id),
+                        "workflow_ids": harness.store.session_workflow_ids(session_id),
                         "skill_selections": [
                             event
                             for event in harness.store.events(session_id, limit=500)
@@ -286,6 +336,40 @@ def make_handler(harness, canvas_path, task_manager):
                         },
                     )
                 data = self._body()
+                if path == "/api/workspaces/register":
+                    try:
+                        workspace = harness.store.add_workspace(data.get("path", ""), data.get("name"))
+                    except (OSError, RuntimeError, ValueError) as exc:
+                        return self._error(exc, 400)
+                    return self._send(201, workspace)
+                if path == "/api/workspaces/folders":
+                    raw_path, name = data.get("path", ""), str(data.get("name", "")).strip()
+                    if not name or name in {".", ".."} or re.search(r'[\\/:*?"<>|\x00-\x1f]', name):
+                        return self._error("文件夹名称无效。", 400)
+                    try:
+                        parent = Path(raw_path).expanduser().resolve(strict=True)
+                        if not parent.is_dir():
+                            return self._error("当前路径不是目录。", 400)
+                        created = parent / name
+                        created.mkdir()
+                        return self._send(201, {"name": name, "path": str(created.resolve())})
+                    except FileExistsError:
+                        return self._error("同名目录已存在。", 409)
+                    except (OSError, RuntimeError, ValueError) as exc:
+                        return self._error(f"无法创建目录：{exc}", 400)
+                if path == "/api/workspaces/rename":
+                    try:
+                        return self._send(
+                            200, harness.store.rename_workspace(data.get("id", ""), data.get("name", ""))
+                        )
+                    except ValueError as exc:
+                        return self._error(exc, 400)
+                if path == "/api/workspaces/remove":
+                    try:
+                        harness.store.remove_workspace(data.get("id", ""))
+                    except ValueError as exc:
+                        return self._error(exc, 400)
+                    return self._send(200, {"status": "ok"})
                 if path in {"/api/demo-datasets/load", "/api/demo-datasets/reference"}:
                     if set(data) != {"id", "session_id"}:
                         return self._error("只接受演示数据 ID 与研究会话 ID。")
@@ -349,11 +433,17 @@ def make_handler(harness, canvas_path, task_manager):
                     return self._send(202, draft)
                 if path == "/api/projects":
                     project_id = harness.store.create_project(
-                        data.get("title", ""), data.get("description", "")
+                        data.get("title", ""), data.get("description", ""), data.get("workspace_id")
                     )
                     return self._send(201, {"id": project_id})
+                if path.startswith("/api/projects/") and path.endswith("/directories"):
+                    project_id = unquote(path.strip("/").split("/")[2])
+                    directories = harness.store.add_project_directory(project_id, data.get("path", ""))
+                    return self._send(201, {"project_id": project_id, "directories": directories})
                 if path == "/api/sessions":
-                    session_id = harness.new_session(data.get("title", "科研任务"), data.get("project_id"))
+                    session_id = harness.new_session(
+                        data.get("title", "科研任务"), data.get("project_id"), data.get("workspace_id")
+                    )
                     return self._send(201, {"id": session_id})
                 if path.startswith("/api/sessions/") and path.endswith("/messages"):
                     session_id = unquote(path.split("/")[-2])
@@ -384,6 +474,7 @@ def make_handler(harness, canvas_path, task_manager):
                         profile_id=data.get("profile_id"),
                         create_new=bool(data.get("create_new")),
                         reasoning_effort=data.get("reasoning_effort"),
+                        context_window=data.get("context_window"),
                     )
                     harness._refresh_model()
                     return self._send(
@@ -500,16 +591,67 @@ def make_handler(harness, canvas_path, task_manager):
                         return self._error("Not found", 404)
                     decision = {"approve": "approved", "reject": "rejected", "cancel": "cancelled"}[parts[3]]
                     approval_id = unquote(parts[2])
-                    approval = harness.store.get_approval(approval_id) if decision == "approved" else None
+                    approval = harness.store.get_approval(approval_id)
                     if approval and approval["status"] == "pending":
-                        try:
-                            result = task_manager.run_legacy(
-                                approval["session_id"], harness.decide_approval, approval_id, decision
-                            )
-                        except SessionBusy as exc:
-                            return self._error(exc, 409)
+                        if decision == "approved":
+                            try:
+                                result = task_manager.run_legacy(
+                                    approval["session_id"], harness.decide_approval, approval_id, decision
+                                )
+                            except SessionBusy as exc:
+                                return self._error(exc, 409)
+                        else:
+                            result = harness.decide_approval(approval_id, decision)
                     else:
                         result = harness.decide_approval(approval_id, decision)
+                    continuation = (
+                        result.pop("agent_continuation", None) if isinstance(result, dict) else None
+                    )
+                    if continuation:
+                        continuation_json = json.dumps(
+                            continuation, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+                        )
+                        continuation_fingerprint = hashlib.sha256(
+                            continuation_json.encode("utf-8")
+                        ).hexdigest()
+                        continuation_session = approval["session_id"]
+
+                        def resume_approved_turn(progress):
+                            return harness.run_turn(
+                                continuation_session,
+                                "",
+                                internal_context=continuation,
+                                on_progress=progress,
+                            )
+
+                        try:
+                            task = task_manager.submit(
+                                continuation_session,
+                                f"approval-resume-{approval_id}",
+                                resume_approved_turn,
+                                fingerprint=continuation_fingerprint,
+                            )
+                            result["continuation_task"] = {"id": task["id"], "status": task["status"]}
+                        except SessionBusy as exc:
+                            result["continuation_error"] = (
+                                "获批操作已执行，但会话已有其他任务，Agent 未能自动续接：" + str(exc)
+                            )
+                    if approval and approval["status"] == "pending":
+                        outcome = (
+                            "approved"
+                            if result.get("status") == "completed"
+                            else "invalidated"
+                            if result.get("status") == "invalidated"
+                            else "failed"
+                            if result.get("status") == "agent_diagnosis_failed"
+                            else decision
+                        )
+                        result["approval_tasks"] = task_manager.resolve_approval(
+                            approval["session_id"],
+                            approval_id,
+                            outcome,
+                            resume_started=bool(result.get("continuation_task")),
+                        )
                     return self._send(200, result)
                 return self._error("Not found", 404)
             except Exception as exc:
@@ -540,11 +682,21 @@ def make_handler(harness, canvas_path, task_manager):
                     return self._send(200, {"status": "updated"})
                 if path.startswith("/api/sessions/"):
                     session_id = unquote(path.rsplit("/", 1)[-1])
+                    workspace_id = data.get("workspace_id", ...)
+                    if "project_id" in data and data.get("project_id"):
+                        target = next(
+                            (row for row in harness.store.list_projects() if row["id"] == data["project_id"]),
+                            None,
+                        )
+                        if target is None:
+                            return self._error("目标项目不存在。", 404)
+                        workspace_id = target.get("workspace_id")
                     update = {
                         "title": data.get("title"),
                         "project_id": data.get("project_id") if "project_id" in data else ...,
+                        "workspace_id": workspace_id,
                     }
-                    if "project_id" in data:
+                    if "project_id" in data or "workspace_id" in data:
                         try:
                             task_manager.run_legacy(
                                 session_id, harness.store.update_session, session_id, **update
@@ -577,6 +729,20 @@ def make_handler(harness, canvas_path, task_manager):
                     if not success:
                         return self._error("Session not found", 404)
                     return self._send(200, {"status": "deleted", "id": session_id})
+                except Exception as exc:
+                    return self._error(exc)
+            if path.startswith("/api/projects/") and path.endswith("/directories"):
+                try:
+                    project_id = unquote(path.strip("/").split("/")[2])
+                    data = self._body()
+                    harness.store.remove_project_directory(project_id, data.get("path", ""))
+                    return self._send(
+                        200,
+                        {
+                            "project_id": project_id,
+                            "directories": harness.store.project_directories(project_id),
+                        },
+                    )
                 except Exception as exc:
                     return self._error(exc)
             if path.startswith("/api/projects/"):
@@ -671,6 +837,8 @@ def create_app(database, workflows, components, frontend):
         components or project_root / ".demo-runtime" / "components",
     )
     harness = StudyUIAgent(database, langflow=workflow_client)
+    if not harness.store.list_workspaces():
+        harness.store.add_workspace(str(harness.project_root), harness.project_root.name or "StudyUI")
 
     router, manager = task_router(harness)
 
@@ -710,6 +878,12 @@ def create_app(database, workflows, components, frontend):
     app.state.harness = harness
     app.state.tasks = manager
     app.include_router(router)
+
+    @app.get("/canvas/flows", include_in_schema=False)
+    @app.get("/canvas/flows/", include_in_schema=False)
+    async def retire_standalone_flow_listing():
+        return RedirectResponse("/", status_code=307)
+
     app.mount(
         "/canvas",
         create_workbench_app(
@@ -817,6 +991,34 @@ def create_app(database, workflows, components, frontend):
                 "X-Accel-Buffering": "no",
             },
         )
+
+    @app.post("/api/sessions/{session_id}/workflows/{flow_id}/open")
+    async def associate_open_workflow(session_id: str, flow_id: str, request: Request):
+        host = urlsplit("http://" + request.headers.get("host", ""))
+        origin = request.headers.get("origin")
+        source = urlsplit(origin) if origin else None
+        if host.hostname not in {"localhost", "127.0.0.1", "::1"} or (
+            source
+            and (source.scheme != "http" or source.hostname != host.hostname or source.port != host.port)
+        ):
+            raise HTTPException(403, "Cross-origin requests are not accepted")
+        session = harness.store.session_context(session_id)
+        if session is None:
+            raise HTTPException(404, "Conversation does not exist")
+        try:
+            flow = harness.langflow.get_flow(flow_id)
+        except Exception as exc:
+            raise HTTPException(404, "Workflow does not exist") from exc
+        if not isinstance(flow, dict) or flow.get("is_component"):
+            raise HTTPException(404, "Workflow does not exist")
+        if flow.get("folder_id") != session.get("project_id"):
+            raise HTTPException(409, "Workflow does not belong to this conversation's project")
+        harness.store.append_event(
+            session_id,
+            "workflow_opened",
+            {"flow_id": flow_id, "name": str(flow.get("name") or "")[:160]},
+        )
+        return {"status": "opened", "flow_id": flow_id}
 
     @app.api_route("/{path:path}", methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS", "PUT"])
     async def studyui_routes(request: Request, path: str = ""):

@@ -148,6 +148,38 @@ def test_explicit_tab_delimiter_is_not_trimmed():
     assert form_config(node, "io.table_import")["delimiter"] == "\t"
 
 
+def test_explicit_null_header_is_preserved_as_no_header():
+    node = component_class("io.table_import")().set(ui_mode="form", cfg_header=None)
+    assert form_config(node, "io.table_import")["header"] is None
+    assert (
+        form_config(component_class("io.table_import")().set(ui_mode="form"), "io.table_import")["header"]
+        == 0
+    )
+
+
+def test_group_by_satisfies_grouped_statistics_group_requirement():
+    from materials_quality.science.grouped_stats import grouped_summary
+
+    node = component_class("stats.grouped")().set(
+        ui_mode="form", cfg_group="", cfg_group_by=["metric"], cfg_columns=["hardness"]
+    )
+    config = form_config(node, "stats.grouped")
+    assert "group" not in config
+    assert config["group_by"] == ["metric"]
+    assert config["columns"] == ["hardness"]
+    result = grouped_summary(pd.DataFrame({"metric": ["HV_A", "HV_A"], "hardness": [10.0, 14.0]}), config)
+    assert result.table.loc[0, "metric"] == "HV_A"
+    assert result.table.loc[0, "count"] == 2
+    assert result.table.loc[0, "mean"] == 12.0
+    assert result.table.loc[0, "std"] == pytest.approx(2**0.5 * 2)
+
+    missing = component_class("stats.grouped")().set(
+        ui_mode="form", cfg_group="", cfg_group_by=[], cfg_columns=["hardness"]
+    )
+    with pytest.raises(ValueError, match="分组列"):
+        form_config(missing, "stats.grouped")
+
+
 def test_integer_control_rejects_fraction_before_sdk_coercion():
     node = component_class("stats.predict")().set(ui_mode="form", cfg_seed=1.5)
     with pytest.raises(ValueError, match="整数"):

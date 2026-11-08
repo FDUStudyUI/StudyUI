@@ -19,6 +19,36 @@ def test_user_named_csv_reports_structure_without_numeric_rows(tmp_path):
     assert "99.75" not in json.dumps(result)
 
 
+def test_bam_lis_inspection_reports_sections_headers_units_and_row_counts_only(tmp_path):
+    file = tmp_path / "Tensile_A_02.lis"
+    file.write_bytes(
+        (
+            "BAM 5.2 Prüfung\r\n"
+            "[Daten]\r\n"
+            "Zeit\tWeg\tKraft\tDehnung\tSpannung\r\n"
+            "sec\tmm\tkN\t%\tMPa\r\n"
+            "0,10\t0,00\t0,00\t0,000\t0,0\r\n"
+            "0,20\t0,01\t0,25\t0,001\t12,34\r\n"
+            "0,30\t0,02\t0,50\t0,002\t24,68\r\n"
+        ).encode("cp1252")
+    )
+
+    result = inspect_file(authorized_file(str(file), f"研究 {file}"))
+
+    assert result["format"] == ".lis"
+    assert result["encoding"] == "cp1252"
+    assert result["delimiter"] == "\t"
+    section = result["table_sections"][0]
+    assert section["section"] == "Daten"
+    assert section["headers"] == ["Zeit", "Weg", "Kraft", "Dehnung", "Spannung"]
+    assert section["units"] == ["sec", "mm", "kN", "%", "MPa"]
+    assert section["data_rows"] == 3
+    assert section["first_column_order"]["strictly_increasing"] is True
+    serialized = json.dumps(result, ensure_ascii=False)
+    assert "12,34" not in serialized
+    assert "24,68" not in serialized
+
+
 def test_numeric_block_reports_nonmonotonic_order_without_values(tmp_path):
     file = tmp_path / "series.csv"
     file.write_text("x,y\n1.25,9.75\n1.25,8.75\n0.5,7.75\n", encoding="utf-8")
@@ -106,16 +136,24 @@ def test_adjacent_numeric_pair_coverage_is_metadata_not_measurement_values(tmp_p
     assert "0.1234" not in json.dumps(pair)
 
 
-def test_inspector_is_registered_read_only_and_requires_a_user_named_path(tmp_path):
+def test_inspector_is_registered_read_only_and_project_scoped(tmp_path):
     agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=object(), model=object())
     project = agent.store.create_project("research")
+    project_files = tmp_path / "project-files"
+    project_files.mkdir()
+    agent.store.add_project_directory(project, project_files)
     session = agent.new_session(project_id=project)
-    file = tmp_path / "raw.csv"
+    file = project_files / "raw.csv"
     file.write_text("x,y\n1,2\n", encoding="utf-8")
     decision = agent._authorize_tool(session, "inspect_research_file", {"path": str(file)}, f"读取 {file}")
     assert decision["allowed"] and decision["action"] == "data.inspect"
+    assert agent._authorize_tool(
+        session, "inspect_research_file", {"path": str(file)}, "继续检查已授权项目文件"
+    )["allowed"]
+    outside = tmp_path / "outside.csv"
+    outside.write_text("x,y\n1,2\n", encoding="utf-8")
     with pytest.raises(PermissionError):
-        agent._authorize_tool(session, "inspect_research_file", {"path": str(file)}, "读取其他文件")
+        agent._authorize_tool(session, "inspect_research_file", {"path": str(outside)}, f"读取 {file}")
     assert (
         json.loads(
             _bounded_tool_content(
@@ -130,8 +168,11 @@ def test_inspector_is_registered_read_only_and_requires_a_user_named_path(tmp_pa
 def test_file_authorization_persists_in_session_and_respects_revocation(tmp_path):
     agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=object(), model=object())
     project = agent.store.create_project("research")
+    project_files = tmp_path / "project-files"
+    project_files.mkdir()
+    agent.store.add_project_directory(project, project_files)
     session = agent.new_session(project_id=project)
-    file = tmp_path / "raw.csv"
+    file = project_files / "raw.csv"
     file.write_text("x,y\n1,2\n", encoding="utf-8")
     agent.store.append_message(session, {"role": "user", "content": f"请分析 {file}"})
     assert (

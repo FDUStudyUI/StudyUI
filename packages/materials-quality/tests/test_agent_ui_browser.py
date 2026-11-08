@@ -83,6 +83,7 @@ def test_task_cancel_and_refresh_does_not_replay(page, browser_task_app):
     page_errors = []
     task_submissions = []
     page.on("pageerror", lambda error: page_errors.append(str(error)))
+
     def local_only(route):
         if route.request.url.startswith(base + "/"):
             route.continue_()
@@ -97,6 +98,7 @@ def test_task_cancel_and_refresh_does_not_replay(page, browser_task_app):
             task_submissions.append(request.post_data_json)
 
     page.on("request", record_submission)
+
     def task_list_response(response):
         return response.url == tasks_url and response.request.method == "GET"
 

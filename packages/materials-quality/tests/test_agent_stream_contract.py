@@ -44,13 +44,16 @@ def test_partial_stream_fails_without_replaying(monkeypatch, suffix):
     assert len(requests) == 1
 
 
-@pytest.mark.parametrize("tool", [
-    {"index": -1},
-    {"index": 100_000},
-    {"index": True},
-    {"index": 0, "id": "call", "function": {"name": "run", "arguments": "{"}},
-    {"index": 0, "id": "call", "function": {"name": "run", "arguments": "[]"}},
-])
+@pytest.mark.parametrize(
+    "tool",
+    [
+        {"index": -1},
+        {"index": 100_000},
+        {"index": True},
+        {"index": 0, "id": "call", "function": {"name": "run", "arguments": "{"}},
+        {"index": 0, "id": "call", "function": {"name": "run", "arguments": "[]"}},
+    ],
+)
 def test_malformed_tool_fragments_fail(monkeypatch, tool):
     model, requests = connect(monkeypatch, frame({"tool_calls": [tool]}) + DONE)
     with pytest.raises(ValueError):
@@ -60,9 +63,17 @@ def test_malformed_tool_fragments_fail(monkeypatch, tool):
 
 def test_split_think_tags_and_tools(monkeypatch):
     stream = b"".join(frame({"content": s}) for s in ("<thi", "nk>private</thi", "nk>public"))
-    stream += frame({"tool_calls": [{
-        "index": 0, "id": "call", "function": {"name": "run", "arguments": '{"x":'},
-    }]})
+    stream += frame(
+        {
+            "tool_calls": [
+                {
+                    "index": 0,
+                    "id": "call",
+                    "function": {"name": "run", "arguments": '{"x":'},
+                }
+            ]
+        }
+    )
     stream += frame({"tool_calls": [{"index": 0, "function": {"arguments": "1}"}}]})
     model, requests = connect(monkeypatch, stream + frame({}, "tool_calls"))
     seen = []
@@ -72,6 +83,23 @@ def test_split_think_tags_and_tools(monkeypatch):
     assert result["reasoning_content"] == "private"
     assert result["tool_calls"][0]["function"]["arguments"] == '{"x":1}'
     assert len(requests) == 1
+
+
+def test_provider_reasoning_repeated_in_content_is_not_user_visible(monkeypatch):
+    stream = b"".join(
+        [
+            frame({"reasoning_content": "private reasoning"}),
+            frame({"content": "private reasoning\n\npublic answer"}),
+            frame({}, "stop"),
+            DONE,
+        ]
+    )
+    model, _ = connect(monkeypatch, stream)
+
+    result = model.complete([], [], on_chunk=lambda *_: None)
+
+    assert result["reasoning_content"] == "private reasoning"
+    assert result["content"] == "public answer"
 
 
 def test_stream_callback_cancellation_propagates(monkeypatch):
@@ -111,15 +139,20 @@ def test_disconnect_after_output_does_not_retry(monkeypatch):
 
 
 def test_explicit_unsupported_stream_falls_back(monkeypatch):
-    error = HTTPError("https://example.com", 400, "bad request", {}, io.BytesIO(
-        b'{"error":{"code":"stream_not_supported"}}'
-    ))
+    error = HTTPError(
+        "https://example.com",
+        400,
+        "bad request",
+        {},
+        io.BytesIO(b'{"error":{"code":"stream_not_supported"}}'),
+    )
     model, requests = connect(monkeypatch, error, b'{"choices":[{"message":{"content":"ok"}}]}')
     assert model.complete([], [], on_chunk=lambda *_: None)["content"] == "ok"
     assert [request.get("stream") for request in requests] == [True, None]
 
 
 def test_stream_total_includes_heartbeat_lines(monkeypatch):
+    monkeypatch.setattr(model_module, "_MAX_RESPONSE_BYTES", 2_000_000)
     heartbeat = b":" + b"x" * 249_998 + b"\n"
     model, requests = connect(monkeypatch, heartbeat * 9 + DONE)
     with pytest.raises(ValueError, match="2 MB"):
@@ -150,9 +183,13 @@ def test_stream_checkpoints_after_blocked_read(monkeypatch):
 
 
 def test_ambiguous_client_error_does_not_fall_back(monkeypatch):
-    error = HTTPError("https://example.com", 400, "bad request", {}, io.BytesIO(
-        b'{"error":{"code":"invalid_request_error","message":"bad request"}}'
-    ))
+    error = HTTPError(
+        "https://example.com",
+        400,
+        "bad request",
+        {},
+        io.BytesIO(b'{"error":{"code":"invalid_request_error","message":"bad request"}}'),
+    )
     model, requests = connect(monkeypatch, error)
     with pytest.raises(ValueError, match="HTTP 400"):
         model.complete([], [], on_chunk=lambda *_: None)

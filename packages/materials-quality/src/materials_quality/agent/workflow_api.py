@@ -17,26 +17,100 @@ from .workflow_executor import FileWorkflowExecutor
 from .workflow_files import WorkflowConflictError, WorkflowFileStore
 
 
+def _canvas_handle_id(handle):
+    """Match Langflow's ep() handle ID encoding used by its normal flow reset path."""
+    serialized = json.dumps(handle, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return serialized.replace('"', "œ")
+
+
 def _canvas_visible_flow(flow):
-    """Expose connected input handles in the canvas without editing the saved flow."""
+    """Expose DSH-canonical handles and connected inputs without editing the saved flow."""
     result = copy.deepcopy(flow)
     graph = result.get("data", {})
     nodes = {node.get("id"): node for node in graph.get("nodes", []) if isinstance(node, dict)}
     for edge in graph.get("edges", []):
         if not isinstance(edge, dict):
             continue
-        handle = edge.get("data", {}).get("targetHandle")
-        if not isinstance(handle, dict):
-            try:
-                handle = json.loads(edge.get("targetHandle", "{}"))
-            except (TypeError, ValueError):
+        edge_data = edge.get("data")
+        if not isinstance(edge_data, dict):
+            edge_data = {}
+        for side in ("source", "target"):
+            key = side + "Handle"
+            handle = edge_data.get(key)
+            if handle is None:
+                handle = edge.get(key)
+            if isinstance(handle, str):
+                try:
+                    handle = json.loads(handle)
+                except (TypeError, ValueError):
+                    continue
+            if not isinstance(handle, dict):
                 continue
-        target = nodes.get(edge.get("target"), {})
-        fields = target.get("data", {}).get("node", {}).get("template", {})
-        field = fields.get(handle.get("fieldName")) if isinstance(fields, dict) else None
-        if isinstance(field, dict):
-            field["advanced"] = False
-            field["show"] = True
+
+            handle = copy.deepcopy(handle)
+            node_id = edge.get(side)
+            node = nodes.get(node_id, {})
+            node_data = node.get("data", {})
+            component = node_data.get("node", {})
+            handle["id"] = node_data.get("id") or node_id
+            if side == "source":
+                outputs = component.get("outputs", [])
+                output = next(
+                    (
+                        item
+                        for item in outputs
+                        if isinstance(item, dict) and item.get("name") == handle.get("name")
+                    ),
+                    None,
+                )
+                if output is not None:
+                    if node_data.get("type"):
+                        handle["dataType"] = node_data["type"]
+                    output_types = output.get("types")
+                    if isinstance(output_types, list):
+                        handle["output_types"] = (
+                            output_types if len(output_types) == 1 else [output.get("selected")]
+                        )
+            else:
+                fields = component.get("template", {})
+                field = fields.get(handle.get("fieldName")) if isinstance(fields, dict) else None
+                if isinstance(field, dict):
+                    if field.get("type") is None:
+                        handle["type"] = None
+                    else:
+                        handle["type"] = field["type"]
+                    input_types = field.get("input_types")
+                    if input_types:
+                        handle["inputTypes"] = input_types
+                    elif field.get("type") == "model":
+                        model_type = field.get("model_type")
+                        handle["inputTypes"] = [
+                            "Embeddings" if model_type == "embedding" else "LanguageModel"
+                        ]
+                    else:
+                        handle.pop("inputTypes", None)
+                    if field.get("proxy"):
+                        handle["proxy"] = copy.deepcopy(field["proxy"])
+                    else:
+                        handle.pop("proxy", None)
+                    field["advanced"] = False
+                    field["show"] = True
+
+            edge_data[key] = handle
+            edge["data"] = edge_data
+            # DSH's regular setCurrentFlow/resetFlow path calls $pe directly; the
+            # Wci migration runs for imports, not for this API-loaded flow. Emit
+            # the same ep()-encoded IDs the canvas creates for connected ports.
+            edge[key] = _canvas_handle_id(handle)
+        if isinstance(edge.get("sourceHandle"), str) and isinstance(edge.get("targetHandle"), str):
+            edge["id"] = (
+                "reactflow__edge-"
+                + str(edge.get("source", ""))
+                + edge["sourceHandle"]
+                + "-"
+                + str(edge.get("target", ""))
+                + edge["targetHandle"]
+            )
     return result
 
 

@@ -1,3 +1,5 @@
+import re
+
 from fastapi.testclient import TestClient
 
 from materials_quality.agent.data_inspection import authorized_file, inspect_file
@@ -24,6 +26,9 @@ def test_ui_phase4_elements_and_rendering(tmp_path):
         assert "data-preview-dialog" in html
         assert "openLightbox" in html
         assert "previewData" in html
+        assert "artifact-preview-dialog" in html
+        assert "previewArtifact" in html
+        assert "artifact-preview-button" in html
 
         # Feature 2: Rich Markdown & Math
         assert "rich-table" in html
@@ -54,7 +59,7 @@ def test_ui_phase4_elements_and_rendering(tmp_path):
 
         # New UX Fix 1: Sticky footer & dialog click outside
         assert "sticky-dialog-footer" in html
-        assert "backdrop-filter:blur(12px)" in html
+        assert re.search(r"backdrop-filter\s*:\s*blur\(12px\)", html)
 
         # New UX Fix 2: Model URL preview & test banner
         assert "model-url-preview" in html
@@ -158,8 +163,10 @@ def test_session_delete_and_drop_overlay_hidden(tmp_path):
         page = client.get("/")
         assert page.status_code == 200
         assert 'id="drop-overlay"' in page.text
-        assert 'style="display:none"' in page.text
-        assert ".dropzone-overlay[hidden]{display:none !important}" in page.text
+        assert re.search(r'style="display:\s*none"', page.text)
+        assert re.search(
+            r"\.dropzone-overlay\[hidden\]\s*\{\s*display:\s*none\s*!important\s*;?\s*\}", page.text
+        )
 
         # Create session
         create_res = client.post("/api/sessions", json={"title": "Test Session to Delete"})
@@ -215,23 +222,27 @@ def test_deepseek_reasoning_and_gemini_stepper_ui_elements(tmp_path):
         assert page.status_code == 200
         html = page.text
 
-        # DeepSeek thinking container
-        assert "deepseek-thinking" in html
-        assert "thinking-head" in html
-        assert "thinking-content" in html
-        assert "toggleThinking" in html
+        # Provider-neutral reasoning container
+        assert "dsh-reasoning" in html
+        assert "dsh-reasoning-row" in html
+        assert "dsh-reasoning-body" in html
+        assert "setReasoningExpanded" in html
         assert "createThinkingBox" in html
 
-        # Gemini / Atria tool audit stepper
-        assert "audit-stepper-box" in html
-        assert "audit-steps-list" in html
-        assert "audit-step-item" in html
+        # Provider-neutral tool audit stepper
+        assert "dsh-tool-list" in html
+        assert "dsh-tool-summary-row" in html
+        assert "dsh-tool-row" in html
         assert "createAuditStepper" in html
 
         # Durable task polling supports reconnecting without replay.
         assert "model-badge" in html
         assert "recoverTask" in html
         assert "watchTask" in html
+
+        assert 'id="flow-context"' in html
+        assert "restoreWorkflowSelection" in html
+        assert "workflow_id" in html
 
 
 def test_harness_multi_model_thinking_adapter_think_tag(tmp_path):
@@ -340,13 +351,43 @@ def test_canvas_view_bidirectional_switch_controls(tmp_path):
         html = page.text
         # Verify canvas view has back button and view switchers
         assert 'id="btn-back-chat"' in html
-        assert "← 返回研究对话" in html
+        assert "← 返回对话" in html
         assert "btn-mode-chat" in html
         assert "btn-mode-split" in html
         assert "btn-mode-flow" in html
         # Verify no hardcoded Gemini/Atria in stepper or thinking titles
         assert "Gemini / Atria 引擎" not in html
         assert "DeepSeek + Gemini" not in html
+
+
+def test_workflow_open_is_persisted_for_same_project_conversation(tmp_path):
+    workflows = tmp_path / "workflows"
+    components = tmp_path / "components"
+    frontend = tmp_path / "frontend"
+    workflows.mkdir()
+    components.mkdir()
+    (frontend / "assets").mkdir(parents=True)
+    (frontend / "index.html").write_text("<!doctype html><html><body>Canvas</body></html>", encoding="utf-8")
+
+    app = create_app(tmp_path / "agent.sqlite3", workflows, components, frontend)
+    harness = app.state.harness
+    project_id = harness.store.create_project("workflow project")
+    other_project_id = harness.store.create_project("other workflow project")
+    session_id = harness.new_session("workflow conversation", project_id=project_id)
+    workflow = harness.langflow.create_flow("conversation workflow", project_id=project_id)
+    foreign_workflow = harness.langflow.create_flow("foreign workflow", project_id=other_project_id)
+
+    with TestClient(app, base_url="http://127.0.0.1:7880") as client:
+        opened = client.post(f"/api/sessions/{session_id}/workflows/{workflow['id']}/open", json={})
+        assert opened.status_code == 200
+        assert opened.json() == {"status": "opened", "flow_id": workflow["id"]}
+        history = client.get(f"/api/sessions/{session_id}")
+        assert history.status_code == 200
+        assert history.json()["workflow_ids"] == [workflow["id"]]
+
+        rejected = client.post(f"/api/sessions/{session_id}/workflows/{foreign_workflow['id']}/open", json={})
+        assert rejected.status_code == 409
+        assert client.get(f"/api/sessions/{session_id}").json()["workflow_ids"] == [workflow["id"]]
 
 
 def test_approval_execution_without_intent_or_group_permits_action(tmp_path):

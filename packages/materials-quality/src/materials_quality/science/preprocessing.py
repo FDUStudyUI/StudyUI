@@ -581,7 +581,14 @@ def _specimen_contract(frame, keys, label, *, master=False, allow_undeclared=Fal
     if not identity_matches:
         raise ValueError(f"{label}: declared specimen identity must be represented by the selected keys")
     non_specimen_roles = {
-        "curve_id", "technical_replicate", "peak_id", "x", "response", "variable", "value", "pair_id"
+        "curve_id",
+        "technical_replicate",
+        "peak_id",
+        "x",
+        "response",
+        "variable",
+        "value",
+        "pair_id",
     }
     for role in sorted(non_specimen_roles & roles.keys()):
         if roles[role] in keys and roles[role] != identity:

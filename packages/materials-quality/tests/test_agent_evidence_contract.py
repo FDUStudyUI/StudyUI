@@ -9,7 +9,7 @@ from materials_quality.agent.data_inspection import (
     authorized_file,
     inspect_file,
 )
-from materials_quality.agent.workflow import _port, apply_actions, validate_flow_connections
+from materials_quality.agent.workflow import _port, apply_actions, flow_summary, validate_flow_connections
 
 
 @pytest.mark.parametrize("filename", ["tensile.csv", "battery.csv", "empty.csv"])
@@ -122,11 +122,14 @@ def test_serialized_edges_require_canonical_handles():
 
 
 def test_new_connection_serializes_canonical_ports_and_records_aliases():
+    source_node = copy.deepcopy(SOURCE)
+    target_node = copy.deepcopy(TARGET)
+    target_node["template"]["input_table"]["type"] = "DataFrame"
     flow = {
         "data": {
             "nodes": [
-                {"id": "src", "data": {"node": SOURCE}},
-                {"id": "dst", "data": {"node": TARGET}},
+                {"id": "src", "data": {"type": "RawSource", "node": source_node}},
+                {"id": "dst", "data": {"type": "Analysis", "node": target_node}},
             ],
             "edges": [],
         }
@@ -135,8 +138,11 @@ def test_new_connection_serializes_canonical_ports_and_records_aliases():
     candidate, changes = apply_actions(flow, [action], {})
     validate_flow_connections(candidate)
     edge = candidate["data"]["edges"][0]
-    assert json.loads(edge["sourceHandle"])["name"] == "table"
-    assert json.loads(edge["targetHandle"])["fieldName"] == "input_table"
+    assert set(edge) == {"source", "target", "data"}
+    assert edge["data"]["sourceHandle"]["name"] == "table"
+    assert edge["data"]["sourceHandle"]["dataType"] == "RawSource"
+    assert edge["data"]["targetHandle"]["fieldName"] == "input_table"
+    assert edge["data"]["targetHandle"]["type"] == "DataFrame"
     assert "src.table" in changes[0] and "dst.input_table" in changes[0]
     assert "df" in changes[0] and "Import Table" in changes[0]
     assert flow["data"]["edges"] == []
@@ -145,3 +151,28 @@ def test_new_connection_serializes_canonical_ports_and_records_aliases():
     wrong_type["data"]["nodes"][1]["data"]["node"]["template"]["input_table"]["input_types"] = ["Message"]
     with pytest.raises(ValueError, match="incompatible"):
         apply_actions(wrong_type, [action], {})
+
+
+def test_workflow_summary_reads_canonical_nested_canvas_handles():
+    flow = {
+        "data": {
+            "nodes": [
+                {"id": "src", "data": {"node": {"outputs": []}}},
+                {"id": "dst", "data": {"node": {"template": {}}}},
+            ],
+            "edges": [
+                {
+                    "source": "src",
+                    "target": "dst",
+                    "data": {
+                        "sourceHandle": {"id": "src", "name": "table"},
+                        "targetHandle": {"id": "dst", "fieldName": "input_table"},
+                    },
+                }
+            ],
+        }
+    }
+
+    edge = flow_summary(flow)["edges"][0]
+    assert edge["sourceHandle"] == {"id": "src", "name": "table"}
+    assert edge["targetHandle"] == {"id": "dst", "fieldName": "input_table"}

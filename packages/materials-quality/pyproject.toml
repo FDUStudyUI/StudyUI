@@ -8,19 +8,38 @@ version = "0.8.0"
 description = "StudyUI materials-science research components, workflow engine and agent harness"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
-dependencies = ["pandas>=2.0,<3.0", "pint==0.24.4", "jsonschema>=4.23,<5", "filelock>=3.16,<4", "keyring>=25,<27", "requests>=2.32,<3"]
+dependencies = [
+  "pandas>=2.0,<3.0",
+  "pint==0.24.4",
+  "jsonschema>=4.23,<5",
+  "filelock>=3.16,<4",
+  "keyring>=25,<27",
+  "requests>=2.32,<3",
+]
 
 [project.optional-dependencies]
 langflow = ["lfx==1.13.0", "langchain-community>=0.4,<0.5"]
-dev = ["pytest>=8,<10", "ruff>=0.13", "build>=1.2"]
+dev = ["pytest>=8,<10", "ruff==0.17.3", "build>=1.2"]
 ui-test = ["langflow-base==1.13.0", "playwright==1.64.1"]
 instruments = ["h5py>=3.10,<4", "netCDF4>=1.6,<2", "zarr>=2.18,<3"]
 science = [
-  "scipy>=1.15,<1.16", "scikit-learn>=1.7,<1.8", "scikit-image>=0.25,<0.26",
-  "statsmodels>=0.14,<0.15", "matplotlib>=3.10,<3.11", "skops>=0.13,<0.14",
-  "PyMuPDF>=1.26,<1.27", "pdfplumber>=0.11,<0.12", "rapidocr-onnxruntime==1.4.4",
-  "reportlab>=4.4,<5", "openpyxl>=3.1,<4", "xlrd>=2,<3", "SQLAlchemy>=2,<3",
-  "requests>=2.32,<3", "charset-normalizer>=3,<4", "jcamp>=1.3,<2", "regex>=2024.11"
+  "scipy>=1.15,<1.16",
+  "scikit-learn>=1.7,<1.8",
+  "scikit-image>=0.25,<0.26",
+  "statsmodels>=0.14,<0.15",
+  "matplotlib>=3.10,<3.11",
+  "skops>=0.13,<0.14",
+  "PyMuPDF>=1.26,<1.27",
+  "pdfplumber>=0.11,<0.12",
+  "rapidocr-onnxruntime==1.4.4",
+  "reportlab>=4.4,<5",
+  "openpyxl>=3.1,<4",
+  "xlrd>=2,<3",
+  "SQLAlchemy>=2,<3",
+  "requests>=2.32,<3",
+  "charset-normalizer>=3,<4",
+  "jcamp>=1.3,<2",
+  "regex>=2024.11",
 ]
 
 [tool.hatch.build.targets.wheel]

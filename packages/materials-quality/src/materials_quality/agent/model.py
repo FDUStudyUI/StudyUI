@@ -4,20 +4,32 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from http.client import HTTPException
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from .tasks import checkpoint
+from .tasks import TaskCancelled, checkpoint
 
-_MAX_RESPONSE_BYTES = 2_000_000
+_MAX_RESPONSE_BYTES = 16_000_000
 _MAX_STREAM_LINE = 256_000
 _MAX_STREAM_TOOLS = 128
+_MODEL_REQUEST_ATTEMPTS = 6  # Initial request plus at least five retries.
+_RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0, 4.0, 8.0)
+
+
+def _retryable_http_status(status):
+    """Retry only HTTP responses that are likely to recover without a config change."""
+    return status in {408, 425, 429} or 500 <= status < 600
 
 
 class _StreamUnsupported(ValueError):
+    pass
+
+
+class _InvalidStreamResponse(ValueError):
     pass
 
 
@@ -91,48 +103,133 @@ class ChatModel:
         return base + "/chat/completions"
 
     def _execute_http(self, payload, headers, *, is_stream, on_chunk=None):
-        request = Request(
-            self._endpoint(),
-            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-            headers=headers,
-        )
-        for attempt in range(2):
+        endpoint = self._endpoint()
+        endpoint_parts = urlsplit(endpoint)
+        request_data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        current_url = endpoint
+        redirect_target = None
+        for attempt in range(_MODEL_REQUEST_ATTEMPTS):
             checkpoint()
-            response_started = False
+            request = Request(current_url, data=request_data, headers=headers)
             try:
                 with build_opener(_NoRedirect).open(request, timeout=self.timeout) as response:
-                    response_started = True
                     checkpoint()
                     content_type = getattr(response, "headers", {}).get("Content-Type", "")
                     if is_stream and ("text/event-stream" in content_type.lower() or not content_type):
-                        return _read_stream(response, on_chunk)
+                        emitted_output = False
+
+                        def emit(kind, text):
+                            nonlocal emitted_output
+                            emitted_output = emitted_output or bool(text)
+                            on_chunk(kind, text)
+
+                        try:
+                            return _read_stream(response, emit)
+                        except TaskCancelled:
+                            raise
+                        except (UnicodeError, ValueError, KeyError, IndexError, TypeError) as exc:
+                            raise _InvalidStreamResponse(str(exc)) from exc
+                        except (URLError, OSError, HTTPException) as exc:
+                            if emitted_output:
+                                raise _InvalidStreamResponse(
+                                    "Model request failed: stream interrupted after partial output"
+                                ) from exc
+                            raise
                     raw = response.read(_MAX_RESPONSE_BYTES + 1)
                     checkpoint()
                     if len(raw) > _MAX_RESPONSE_BYTES:
                         raise ValueError("Model response exceeded 2 MB")
                     body = strict_json(raw.decode("utf-8"))
-                    return body["choices"][0]["message"]
+                    message = body["choices"][0]["message"]
+                    if isinstance(body.get("usage"), dict):
+                        message = dict(message)
+                        message["usage"] = body["usage"]
+                    return message
             except HTTPError as exc:
+                follow_redirect = False
                 try:
                     checkpoint()
-                    if is_stream and not response_started and _stream_unsupported(exc):
+                    if is_stream and _stream_unsupported(exc):
                         raise _StreamUnsupported("Model service does not support streaming") from None
+                    location = exc.headers.get("Location") if exc.headers else None
+                    if 300 <= exc.code < 400 and location:
+                        candidate_url = urljoin(current_url, location)
+                        candidate = urlsplit(candidate_url)
+                        same_origin = (
+                            candidate.scheme.casefold() == endpoint_parts.scheme.casefold()
+                            and candidate.hostname
+                            and candidate.hostname.casefold() == (endpoint_parts.hostname or "").casefold()
+                            and candidate.port == endpoint_parts.port
+                        )
+                        if same_origin:
+                            current_url = candidate_url
+                            follow_redirect = True
+                        elif candidate.hostname:
+                            redirect_target = f"{candidate.hostname}{candidate.path[:160]}"
                 finally:
                     if exc.fp is not None:
                         exc.close()
-                if attempt == 0 and not response_started and (exc.code == 429 or 500 <= exc.code < 600):
-                    time.sleep(0.4)
+                if follow_redirect and attempt + 1 < _MODEL_REQUEST_ATTEMPTS:
                     continue
-                raise ValueError(f"Model service returned HTTP {exc.code}") from None
+                if _retryable_http_status(exc.code) and attempt + 1 < _MODEL_REQUEST_ATTEMPTS:
+                    self._prepare_retry(on_chunk, attempt)
+                    self._wait_before_retry(attempt, getattr(exc, "headers", None))
+                    continue
+                detail = f" (cross-origin redirect refused: {redirect_target})" if redirect_target else ""
+                raise ValueError(
+                    f"Model service returned HTTP {exc.code} after {attempt + 1} attempts{detail}"
+                ) from None
+            except _InvalidStreamResponse as exc:
+                raise ValueError(str(exc)) from exc
             except (URLError, OSError, HTTPException) as exc:
                 checkpoint()
-                if attempt == 0 and not response_started:
-                    time.sleep(0.4)
+                if attempt + 1 < _MODEL_REQUEST_ATTEMPTS:
+                    self._prepare_retry(on_chunk, attempt)
+                    self._wait_before_retry(attempt)
                     continue
-                raise ValueError(f"Model request failed: {type(exc).__name__}") from exc
+                raise ValueError(
+                    f"Model request failed: {type(exc).__name__} after {_MODEL_REQUEST_ATTEMPTS} attempts"
+                ) from exc
             except (UnicodeError, KeyError, IndexError, TypeError) as exc:
-                raise ValueError(f"Model request failed: {type(exc).__name__}") from exc
-        raise ValueError("Model service request failed after retries")
+                if attempt + 1 < _MODEL_REQUEST_ATTEMPTS:
+                    self._prepare_retry(on_chunk, attempt)
+                    self._wait_before_retry(attempt)
+                    continue
+                raise ValueError(
+                    f"Model request failed: {type(exc).__name__} after {_MODEL_REQUEST_ATTEMPTS} attempts"
+                ) from exc
+            except ValueError as exc:
+                # A malformed or interrupted provider response can be transient.
+                # Local configuration errors are raised before entering this loop.
+                if attempt + 1 < _MODEL_REQUEST_ATTEMPTS:
+                    self._prepare_retry(on_chunk, attempt)
+                    self._wait_before_retry(attempt)
+                    continue
+                raise ValueError(
+                    f"Model request failed: invalid response after {_MODEL_REQUEST_ATTEMPTS} attempts"
+                ) from exc
+
+    @staticmethod
+    def _prepare_retry(on_chunk, attempt):
+        if on_chunk:
+            on_chunk("reset", {"attempt": attempt + 2, "max_attempts": _MODEL_REQUEST_ATTEMPTS})
+
+    @staticmethod
+    def _wait_before_retry(attempt, response_headers=None):
+        delay = _RETRY_BACKOFF_SECONDS[min(attempt, len(_RETRY_BACKOFF_SECONDS) - 1)]
+        retry_after = response_headers.get("Retry-After") if response_headers else None
+        if retry_after:
+            try:
+                delay = min(30.0, max(delay, float(retry_after.strip())))
+            except (AttributeError, TypeError, ValueError):
+                pass
+        deadline = time.monotonic() + delay
+        while True:
+            checkpoint()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            time.sleep(min(0.2, remaining))
 
     def complete(self, messages, tools, *, max_tokens=3000, on_chunk=None):
         # DeepSeek requires each previous assistant reasoning field when tools
@@ -141,7 +238,9 @@ class ChatModel:
         if self.deepseek_api or self.reasoning_effort in {"low", "high", "max"}:
             messages = [
                 {**m, "reasoning_content": m.get("reasoning_content") or ""}
-                if m.get("role") == "assistant" else m for m in messages
+                if m.get("role") == "assistant"
+                else m
+                for m in messages
             ]
         else:
             messages = [{k: v for k, v in m.items() if k != "reasoning_content"} for m in messages]
@@ -171,14 +270,64 @@ class ChatModel:
             except _StreamUnsupported:
                 payload.pop("stream")
                 headers["Accept"] = "application/json"
-                message = self._execute_http(payload, headers, is_stream=False)
+                message = self._execute_http(payload, headers, is_stream=False, on_chunk=on_chunk)
         else:
             headers["Accept"] = "application/json"
             message = self._execute_http(payload, headers, is_stream=False, on_chunk=None)
 
         if not isinstance(message, dict):
             raise ValueError("Model response did not contain a message")
-        return message
+        return normalize_reasoning_fields(message)
+
+
+def normalize_reasoning_fields(message):
+    """Keep provider-specific analysis channels out of user-visible content."""
+    normalized = dict(message)
+    fragments = []
+    for field in ("reasoning_content", "reasoning", "analysis"):
+        value = normalized.pop(field, None)
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            raise ValueError(f"Invalid model {field} text")
+        if value and value not in fragments:
+            fragments.append(value)
+    content = normalized.get("content")
+    if isinstance(content, str):
+        embedded = []
+
+        def remove_thinking(match):
+            thought = match.group(2).strip()
+            if thought and thought not in embedded:
+                embedded.append(thought)
+            return ""
+
+        normalized["content"] = re.sub(
+            r"<(think|analysis)>([\s\S]*?)</\1>", remove_thinking, content, flags=re.IGNORECASE
+        )
+        for thought in embedded:
+            if thought not in fragments:
+                fragments.append(thought)
+    if fragments:
+        normalized["reasoning_content"] = "\n\n".join(fragments)
+        normalized["content"] = _remove_reasoning_from_content(normalized.get("content"), fragments)
+    return normalized
+
+
+def _remove_reasoning_from_content(content, fragments):
+    if not isinstance(content, str) or not content:
+        return content
+    visible = content
+    for private in sorted((item.strip() for item in fragments if item.strip()), key=len, reverse=True):
+        start = visible.find(private)
+        if start < 0:
+            continue
+        end = start + len(private)
+        before, after = visible[:start], visible[end:]
+        if before.strip() and after.strip() and not (before[-1].isspace() and after[0].isspace()):
+            continue
+        visible = before.rstrip() + ("\n\n" if before.strip() and after.strip() else "") + after.lstrip()
+    return visible.strip()
 
 
 def _stream_unsupported(error):
@@ -206,6 +355,7 @@ class _StreamText:
         self.on_chunk = on_chunk
         self.parts = {"content": [], "reasoning": []}
         self.thinking = False
+        self.thinking_tag = None
         self.pending = ""
 
     def append(self, kind, text):
@@ -218,20 +368,40 @@ class _StreamText:
         text = self.pending + fragment
         self.pending = ""
         while text:
-            tag = "</think>" if self.thinking else "<think>"
-            kind = "reasoning" if self.thinking else "content"
-            before, found, after = text.partition(tag)
-            if found:
-                self.append(kind, before)
-                self.thinking = not self.thinking
-                text = after
+            if self.thinking:
+                tag = f"</{self.thinking_tag}>"
+                before, found, after = text.partition(tag)
+                if found:
+                    self.append("reasoning", before)
+                    self.thinking = False
+                    self.thinking_tag = None
+                    text = after
+                    continue
+                for size in range(min(len(tag) - 1, len(text)), 0, -1):
+                    if text.endswith(tag[:size]):
+                        self.pending = text[-size:]
+                        text = text[:-size]
+                        break
+                self.append("reasoning", text)
+                break
+
+            open_tags = (("<think>", "think"), ("<analysis>", "analysis"))
+            matches = [(text.find(tag), tag, name) for tag, name in open_tags if text.find(tag) >= 0]
+            if matches:
+                start, tag, name = min(matches, key=lambda item: item[0])
+                self.append("content", text[:start])
+                self.thinking = True
+                self.thinking_tag = name
+                text = text[start + len(tag) :]
                 continue
-            for size in range(min(len(tag) - 1, len(text)), 0, -1):
-                if text.endswith(tag[:size]):
-                    self.pending = text[-size:]
+            max_size = min(max(len(tag) for tag, _ in open_tags) - 1, len(text))
+            for size in range(max_size, 0, -1):
+                suffix = text[-size:]
+                if any(tag.startswith(suffix) for tag, _ in open_tags):
+                    self.pending = suffix
                     text = text[:-size]
                     break
-            self.append(kind, text)
+            self.append("content", text)
             break
 
     def message(self):
@@ -241,7 +411,7 @@ class _StreamText:
         message = {"role": "assistant", "content": "".join(self.parts["content"]) or None}
         if self.parts["reasoning"]:
             message["reasoning_content"] = "".join(self.parts["reasoning"])
-        return message
+        return normalize_reasoning_fields(message)
 
 
 def _accumulate_tools(tools, fragments):
@@ -280,11 +450,13 @@ def _complete_tools(tools):
         arguments = fields["arguments"]
         if not isinstance(strict_json(arguments), dict):
             raise ValueError("Model stream tool arguments must be a JSON object")
-        calls.append({
-            "id": call_id,
-            "type": "function",
-            "function": {"name": fields["name"], "arguments": arguments},
-        })
+        calls.append(
+            {
+                "id": call_id,
+                "type": "function",
+                "function": {"name": fields["name"], "arguments": arguments},
+            }
+        )
         ids.add(call_id)
     return calls
 
@@ -294,6 +466,7 @@ def _read_stream(response, on_chunk):
     tools = {}
     total_bytes = 0
     finish_reason = None
+    usage = None
     done = False
     while True:
         checkpoint()
@@ -316,6 +489,8 @@ def _read_stream(response, on_chunk):
         chunk = strict_json(data.decode("utf-8"))
         if not isinstance(chunk, dict) or "error" in chunk:
             raise ValueError("Model stream returned an invalid event")
+        if isinstance(chunk.get("usage"), dict):
+            usage = chunk["usage"]
         choices = chunk.get("choices")
         if not isinstance(choices, list) or len(choices) > 1:
             raise ValueError("Invalid model stream choices")
@@ -328,13 +503,13 @@ def _read_stream(response, on_chunk):
         finish_reason = choice.get("finish_reason")
         if finish_reason not in (None, "stop", "tool_calls"):
             raise ValueError("Model stream returned an unsuccessful finish reason")
-        for field in ("reasoning_content", "content"):
+        for field in ("reasoning_content", "reasoning", "analysis", "content"):
             value = delta.get(field)
             if value is None:
                 continue
             if not isinstance(value, str):
                 raise ValueError("Invalid model stream text")
-            if field == "reasoning_content":
+            if field in {"reasoning_content", "reasoning", "analysis"}:
                 text.append("reasoning", value)
             else:
                 text.content(value)
@@ -346,6 +521,8 @@ def _read_stream(response, on_chunk):
     if finish_reason == "tool_calls" and not tools:
         raise ValueError("Model stream ended without the indicated tool calls")
     message = text.message()
+    if usage is not None:
+        message["usage"] = usage
     if tools:
         message["tool_calls"] = _complete_tools(tools)
     return message

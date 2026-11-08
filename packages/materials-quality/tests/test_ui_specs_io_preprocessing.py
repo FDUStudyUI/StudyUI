@@ -50,6 +50,7 @@ def test_csv_and_excel_header_sheet_and_schema_are_native():
         "sheet",
         "encoding",
         "delimiter",
+        "decimal_separator",
         "range",
         "names",
         "id_columns",
@@ -59,6 +60,8 @@ def test_csv_and_excel_header_sheet_and_schema_are_native():
     assert form["header"]["converter"] == "nullable_int"
     assert form["dtype"]["kind"] == "dict"
     assert form["id_columns"]["kind"] == "list"
+    assert form["decimal_separator"]["choices"] == [".", ","]
+    assert form["encoding"]["choices"].count("cp1252") == 1
     assert all(control["kind"] != "json" for control in form.values())
     text = fields("io.text_import")
     assert set(text["method"]["choices"]) == {"lines", "delimited", "fixed_width"}
@@ -128,7 +131,12 @@ def test_missing_merge_and_normalize_only_offer_supported_methods():
     assert merge["validate"]["default"] == "one_to_one"
     normalize = fields("preprocess.normalize")
     assert set(normalize["method"]["choices"]) == {
-        "minmax", "zscore", "robust", "blank_subtract", "reference_ratio", "linear_calibration",
+        "minmax",
+        "zscore",
+        "robust",
+        "blank_subtract",
+        "reference_ratio",
+        "linear_calibration",
     }
     assert normalize["calibration_standards"]["kind"] == "table"
     assert normalize["calibration_standards"]["converter"] == "pairs"

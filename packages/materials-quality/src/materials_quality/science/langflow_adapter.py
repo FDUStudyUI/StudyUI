@@ -521,11 +521,16 @@ def _execute_single(component, key, config_override=None):
         current_table = table_fingerprint(table) if table is not None else None
         if current_table not in {upstream.get("table_fingerprint"), upstream.get("features_fingerprint")}:
             raise ValueError("结果表与接入的上游报告不一致，请连接产生该表的节点报告。")
-        data = {**data, "upstream_execution": {
-            "operation": upstream.get("operation"), "provenance": upstream.get("provenance", {}),
-            "execution_status": upstream.get("execution_status"), "warnings": upstream.get("warnings", []),
-            "table_fingerprint": current_table,
-        }}
+        data = {
+            **data,
+            "upstream_execution": {
+                "operation": upstream.get("operation"),
+                "provenance": upstream.get("provenance", {}),
+                "execution_status": upstream.get("execution_status"),
+                "warnings": upstream.get("warnings", []),
+                "table_fingerprint": current_table,
+            },
+        }
     try:
         if key == "materials.analysis_plan":
             from .research_plan import run_research_plan

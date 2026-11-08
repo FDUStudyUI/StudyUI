@@ -77,9 +77,11 @@ def accept_ui(output, runtime, frontend=None):
                 page = context.new_page()
                 page.set_default_timeout(120000)
                 expect.set_options(timeout=120000)
-                page.add_init_script("window.__demoMessages=[];addEventListener('message',e=>{"
-                                     "if(e.data?.type==='studyui-agent-run-complete')"
-                                     "window.__demoMessages.push({origin:e.origin,data:e.data})});")
+                page.add_init_script(
+                    "window.__demoMessages=[];addEventListener('message',e=>{"
+                    "if(e.data?.type==='studyui-agent-run-complete')"
+                    "window.__demoMessages.push({origin:e.origin,data:e.data})});"
+                )
                 page.on("pageerror", lambda error: receipt["page_errors"].append(str(error)))
                 page.on(
                     "response",

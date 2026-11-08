@@ -37,6 +37,16 @@ def test_demo_catalog_preserves_original_bytes_and_truthful_shape():
             read_demo_bytes(bad)
 
 
+def test_demo_prompts_are_short_and_task_focused():
+    from materials_quality.demos.catalog import list_datasets
+
+    prompts = [record["prompt"] for record in list_datasets()]
+    assert all("{path}" in prompt for prompt in prompts)
+    assert all(len(prompt) <= 60 for prompt in prompts)
+    assert all("搭建可修改的工作流" not in prompt for prompt in prompts)
+    assert all("HTML 报告" not in prompt for prompt in prompts)
+
+
 @pytest.mark.parametrize("dataset_id", IDS)
 def test_stored_demo_flow_executes_with_raw_source_and_artifacts(dataset_id):
     from lfx.graph import Graph

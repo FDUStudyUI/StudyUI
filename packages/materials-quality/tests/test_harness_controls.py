@@ -32,6 +32,8 @@ def test_project_permission_presets_and_script_gate(tmp_path):
     assert store.get_preset(project) == "project_collaboration"
     assert store.authorize(project_id=project, action="workflow.list")["allowed"]
     assert store.authorize(project_id=project, action="workflow.run", task_authorized=True)["allowed"]
+    assert store.authorize(project_id=project, action="workflow.propose", task_authorized=True)["allowed"]
+    assert store.authorize(project_id=project, action="workflow.propose")["requires_approval"]
     assert not store.authorize(project_id=None, action="workflow.run", task_authorized=True)["allowed"]
     assert store.authorize(project_id=project, action="workflow.run")["requires_approval"]
     store.set_preset(project, "per_action")
@@ -73,6 +75,63 @@ def test_report_artifact_requires_intent_and_obeys_project_permission(tmp_path):
     assert agent._authorize_tool(session, "write_research_report", args, "请生成实验报告")[
         "requires_approval"
     ]
+
+
+def test_explicit_workflow_proposal_is_authorized_but_not_saved(tmp_path):
+    import copy
+
+    from materials_quality.agent.harness import StudyUIAgent, _explicit_workflow_proposal_intent
+    from materials_quality.agent.workflow import flow_digest
+
+    class Workflows:
+        def __init__(self):
+            self.flow = {
+                "id": "hardness-flow",
+                "name": "Copper hardness",
+                "folder_id": None,
+                "data": {
+                    "nodes": [
+                        {
+                            "id": "summary",
+                            "data": {"node": {"template": {"cfg_values": {"value": []}}}},
+                        }
+                    ],
+                    "edges": [],
+                },
+            }
+
+        def get_flow(self, flow_id):
+            assert flow_id == self.flow["id"]
+            return copy.deepcopy(self.flow)
+
+        def component_catalog(self):
+            return {}
+
+        def update_flow(self, *_args, **_kwargs):
+            raise AssertionError("A pending proposal must not change the saved workflow")
+
+    message = "请通过 StudyUI 提交这条工作流的待审批提案；不要直接保存或运行。"
+    assert _explicit_workflow_proposal_intent(message)
+    assert not _explicit_workflow_proposal_intent("不要提交工作流提案")
+
+    workflows = Workflows()
+    agent = StudyUIAgent(tmp_path / "proposal.sqlite3", langflow=workflows, model=object())
+    project = agent.store.create_project("Copper alloys")
+    workflows.flow["folder_id"] = project
+    session = agent.new_session(project_id=project)
+    args = {
+        "flow_id": workflows.flow["id"],
+        "rationale": "Preserve the measured values and stage the requested workflow change for review.",
+        "actions": [{"op": "set_node_config", "node_id": "summary", "config": {"cfg_values": ["HV", "HBW"]}}],
+    }
+    agent._turn_state.value = {"skill_preflight_complete": True}
+    decision = agent._authorize_tool(session, "propose_workflow_changes", args, message)
+    assert decision["allowed"] and not decision["requires_approval"]
+    original_digest = flow_digest(workflows.flow)
+    result = agent._dispatch(session, "propose_workflow_changes", args, message)
+    assert result["status"] == "pending_approval"
+    assert agent.store.get_proposal(result["proposal_id"])["status"] == "pending"
+    assert flow_digest(workflows.flow) == original_digest
 
 
 @pytest.mark.parametrize(
@@ -155,6 +214,89 @@ def test_explicit_intent_allows_scientific_context_between_action_and_workflow()
     message = "请修复并运行现有 BiFeO3 原始 XRD 工作流 41367d0a。"
     assert _explicit_build_intent(message)
     assert _explicit_run_intent(message)
+
+
+def test_plain_language_copper_alloy_research_request_authorizes_full_local_analysis_task():
+    from materials_quality.agent.harness import _explicit_build_intent, _explicit_run_intent
+
+    path = r"C:\Users\lsx\Desktop\铜合金机械测试_原始实验数据_Zenodo_2026-11-07"
+    request = f"我想研究一下九种铜合金的性质，数据是{path}"
+    assert _explicit_build_intent(request)
+    assert _explicit_run_intent(request)
+    neutral_path_request = "我想研究一下九种铜合金的性质，数据是 C:\\data\\dataset"
+    assert _explicit_build_intent(neutral_path_request)
+    assert _explicit_run_intent(neutral_path_request)
+
+    # Path and directory names are data-location text, not operation intent.
+    path_only = f"数据目录：{path}"
+    assert not _explicit_build_intent(path_only)
+    assert not _explicit_run_intent(path_only)
+
+    # Even directory names containing research verbs cannot override a refusal.
+    declined = f"我不想研究九种铜合金的性质，数据是{path}"
+    assert not _explicit_build_intent(declined)
+    assert not _explicit_run_intent(declined)
+
+    declined_build = f"研究九种铜合金的性质，但不要建流，数据是{path}"
+    assert not _explicit_build_intent(declined_build)
+
+
+def test_plain_language_research_request_passes_project_workflow_authorization(tmp_path):
+    from materials_quality.agent.harness import StudyUIAgent
+
+    project_flow = {"id": "local-flow", "folder_id": None, "data": {"nodes": [], "edges": []}}
+
+    class Workflows:
+        def get_flow(self, _flow_id):
+            return project_flow
+
+    agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=Workflows(), model=object())
+    project_id = agent.store.create_project("nine copper alloys")
+    session_id = agent.new_session(project_id=project_id)
+    project_flow["folder_id"] = project_id
+    request = (
+        "我想研究一下九种铜合金的性质，数据是"
+        r"C:\Users\lsx\Desktop\铜合金机械测试_原始实验数据_Zenodo_2026-11-07"
+    )
+    agent.store.append_message(session_id, {"role": "user", "content": request})
+    agent._turn_state.value = {"skill_preflight_complete": True, "canvas_run": None}
+
+    build = agent._authorize_tool(
+        session_id, "build_workflow", {"name": "Copper alloy analysis", "actions": []}, request
+    )
+    run = agent._authorize_tool(session_id, "run_workflow", {"flow_id": "local-flow"}, request)
+    assert build["allowed"] is True
+    assert run["allowed"] is True
+
+    refusal = "我不想研究九种铜合金的性质。"
+    agent.store.append_message(session_id, {"role": "user", "content": refusal})
+    assert not agent._session_task_intent(session_id, refusal, "build")
+    assert not agent._session_task_intent(session_id, refusal, "run")
+
+
+def test_one_sentence_materials_request_completes_skill_preflight(tmp_path):
+    from materials_quality.agent.harness import StudyUIAgent
+
+    agent = StudyUIAgent(tmp_path / "agent.sqlite3", model=object())
+    project_id = agent.store.create_project("copper alloy research")
+    session_id = agent.new_session(project_id=project_id)
+    request = (
+        "我想研究一下九种铜合金的性质，数据是"
+        r"C:\Users\lsx\Desktop\铜合金机械测试_原始实验数据_Zenodo_2026-11-07"
+    )
+    agent._turn_state.value = {"skill_preflight_complete": False}
+
+    context, blocked = agent._prepare_skill_context(session_id, request)
+    audit = agent._turn_state.value["skill_selection"]
+
+    assert blocked is None
+    assert context
+    assert audit["status"] == "completed"
+    assert {item["name"] for item in audit["loaded"]} >= {
+        "studyui-harness-operations",
+        "studyui-raw-data-integrity",
+    }
+    assert agent._turn_state.value["skill_preflight_complete"] is True
 
 
 @pytest.mark.parametrize(
@@ -356,6 +498,7 @@ def test_graph_tool_schema_documents_only_valid_action_keys():
         "node_id",
         "component_type",
         "config",
+        "configs",
         "source",
         "output",
         "target",
@@ -393,6 +536,80 @@ def test_scientific_missing_tokens_are_configurable_and_not_redacted_as_credenti
         "cfg_missing_tokens": values,
         "api_token": "[已隐藏]",
     }
+
+
+def test_batch_node_configuration_is_bounded_validated_and_copy_only():
+    from materials_quality.agent.workflow import MAX_BATCH_CONFIG_NODES
+
+    flow = {
+        "data": {
+            "nodes": [
+                {"id": node_id, "data": {"node": {"template": {"cfg_value": {"value": None}}}}}
+                for node_id in ("first", "second")
+            ],
+            "edges": [],
+        }
+    }
+    candidate, descriptions = apply_actions(
+        flow,
+        [
+            {
+                "op": "set_nodes_config",
+                "configs": {"first": {"cfg_value": 1}, "second": {"cfg_value": ["HV", "HBW"]}},
+            }
+        ],
+        {},
+    )
+    assert [node["data"]["node"]["template"]["cfg_value"]["value"] for node in flow["data"]["nodes"]] == [
+        None,
+        None,
+    ]
+    assert [
+        node["data"]["node"]["template"]["cfg_value"]["value"] for node in candidate["data"]["nodes"]
+    ] == [
+        1,
+        ["HV", "HBW"],
+    ]
+    assert descriptions == ["批量配置 2 个节点"]
+
+    with pytest.raises(ValueError, match="Unknown node input"):
+        apply_actions(
+            flow,
+            [
+                {
+                    "op": "set_nodes_config",
+                    "configs": {"first": {"cfg_value": 2}, "second": {"not_a_field": 3}},
+                }
+            ],
+            {},
+        )
+    assert [node["data"]["node"]["template"]["cfg_value"]["value"] for node in flow["data"]["nodes"]] == [
+        None,
+        None,
+    ]
+
+    too_many = {
+        "data": {
+            "nodes": [
+                {"id": str(index), "data": {"node": {"template": {"cfg_value": {"value": None}}}}}
+                for index in range(MAX_BATCH_CONFIG_NODES + 1)
+            ],
+            "edges": [],
+        }
+    }
+    with pytest.raises(ValueError, match="requires 1 to"):
+        apply_actions(
+            too_many,
+            [
+                {
+                    "op": "set_nodes_config",
+                    "configs": {
+                        str(index): {"cfg_value": index} for index in range(MAX_BATCH_CONFIG_NODES + 1)
+                    },
+                }
+            ],
+            {},
+        )
 
 
 def test_skill_import_hash_update_history_and_review_reset(tmp_path):
@@ -436,7 +653,7 @@ def test_agent_graph_connections_have_canvas_handles_and_auto_layout():
             "StudyUIAIAnalysis": {
                 "display_name": "AI 分析",
                 "template": {
-                    "input_table": {"type": "other", "input_types": ["DataFrame"]},
+                    "input_table": {"type": "DataFrame", "input_types": ["DataFrame"]},
                     "analysis_request": {"type": "str"},
                 },
                 "outputs": [],
@@ -453,8 +670,11 @@ def test_agent_graph_connections_have_canvas_handles_and_auto_layout():
     assert result["data"]["nodes"][0]["position"] != result["data"]["nodes"][1]["position"]
     edge = result["data"]["edges"][0]
     assert edge["source"] == "raw" and edge["target"] == "analysis"
-    assert json.loads(edge["sourceHandle"])["name"] == "table"
-    assert json.loads(edge["targetHandle"])["fieldName"] == "input_table"
+    assert set(edge) == {"source", "target", "data"}
+    assert edge["data"]["sourceHandle"]["name"] == "table"
+    assert edge["data"]["sourceHandle"]["dataType"] == "RawSource"
+    assert edge["data"]["targetHandle"]["fieldName"] == "input_table"
+    assert edge["data"]["targetHandle"]["type"] == "DataFrame"
     assert edge["data"]["sourceHandle"]["name"] == "table"
 
 
@@ -1330,7 +1550,8 @@ def test_ai_analysis_inherits_the_active_studyui_model():
         reset_subagent_model_scope(token)
 
 
-def test_changed_workflow_invalidates_approval_before_execution(tmp_path):
+@pytest.mark.parametrize("change", ["name", "folder_id"])
+def test_changed_workflow_invalidates_approval_before_execution(tmp_path, change):
     from materials_quality.agent.harness import StudyUIAgent
 
     flow = {"id": "flow-a", "folder_id": "project", "data": {"nodes": [], "edges": []}}
@@ -1356,17 +1577,57 @@ def test_changed_workflow_invalidates_approval_before_execution(tmp_path):
         "请运行工作流。",
         "逐项审批",
     )
-    flow["name"] = "changed after approval"
+    flow[change] = (
+        agent.store.create_project("moved after approval")
+        if change == "folder_id"
+        else "changed after approval"
+    )
 
-    with pytest.raises(ValueError, match="审批后工作流已变化"):
-        agent.decide_approval(approval_id, "approved")
+    result = agent.decide_approval(approval_id, "approved")
+    assert result["status"] == "invalidated"
     assert runs == []
-    failures = [
-        event
-        for event in agent.store.events(session_id)
-        if event["kind"] == "approved_action_completed" and not event["detail"]["ok"]
+    assert agent.store.get_approval(approval_id)["status"] == "invalidated"
+    invalidations = [
+        event for event in agent.store.events(session_id) if event["kind"] == "approval_invalidated"
     ]
-    assert len(failures) == 1
+    assert len(invalidations) == 1
+
+
+def test_cross_project_approval_is_invalidated_if_flow_moves_during_dispatch(tmp_path):
+    from materials_quality.agent.harness import StudyUIAgent
+
+    source = {"id": "foreign-flow", "folder_id": None, "data": {"nodes": [], "edges": []}}
+    moved_project = None
+    reads = []
+    runs = []
+
+    class Workflows:
+        def get_flow(self, _flow_id):
+            reads.append(1)
+            if len(reads) <= 2:
+                return source
+            return {**source, "folder_id": moved_project}
+
+        def run_flow(self, flow_id, **_kwargs):
+            runs.append(flow_id)
+            return {"outputs": []}
+
+    agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=Workflows())
+    current_project = agent.store.create_project("current")
+    foreign_project = agent.store.create_project("approved target")
+    moved_project = agent.store.create_project("new target")
+    source["folder_id"] = foreign_project
+    session = agent.new_session(project_id=current_project)
+    approval_id = agent._create_tool_approval(
+        session, "run_workflow", {"flow_id": source["id"]}, "请运行工作流", "越项目运行审批"
+    )
+
+    result = agent.decide_approval(approval_id, "approved")
+
+    assert result["status"] == "invalidated"
+    assert len(reads) == 3
+    assert runs == []
+    assert agent.store.get_approval(approval_id)["status"] == "invalidated"
 
 
 def test_successful_tool_calls_are_written_to_the_audit_log(tmp_path):
@@ -1582,8 +1843,8 @@ def test_large_workflow_inspection_preserves_graph_instead_of_generic_truncation
             {
                 "source": "node-0",
                 "target": "node-1",
-                "sourceHandle": json.dumps({"id": "node-0", "name": "table"}),
-                "targetHandle": json.dumps({"id": "node-1", "fieldName": "input_table"}),
+                "sourceHandle": {"id": "node-0", "name": "table"},
+                "targetHandle": {"id": "node-1", "fieldName": "input_table"},
             }
         ],
     }
@@ -1841,6 +2102,9 @@ def test_canvas_approval_only_covers_saved_run_parameters(tmp_path, override):
     agent = StudyUIAgent(tmp_path / "agent.sqlite3", langflow=Workflows())
     project = agent.store.create_project("Canvas scope")
     session = agent.new_session(project_id=project)
+    agent.store.add_project_directory(project, tmp_path)
+    if "tweaks" in override:
+        override = {"tweaks": {"input": {"cfg_path": str(tmp_path / "other.csv")}}}
     flow = {
         "id": "canvas-ai-flow",
         "name": "Canvas AI",
@@ -1848,8 +2112,11 @@ def test_canvas_approval_only_covers_saved_run_parameters(tmp_path, override):
         "data": {"nodes": [{"data": {"type": "StudyUIAIAnalysis"}}], "edges": []},
     }
     canvas = {
-        "flow_id": flow["id"], "project_id": project, "flow_digest": flow_digest(flow),
-        "external_data": True, "consumed": False,
+        "flow_id": flow["id"],
+        "project_id": project,
+        "flow_digest": flow_digest(flow),
+        "external_data": True,
+        "consumed": False,
     }
     state = {"canvas_run": canvas, "skill_preflight_complete": True}
     agent._turn_state.value = state

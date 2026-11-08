@@ -49,6 +49,52 @@ def task_router(harness):
         require_local_request(request)
         return await run_in_threadpool(owned_task, session_id, task_id)
 
+    @router.get("/api/sessions/{session_id}/tasks/{task_id}/events")
+    async def task_events(session_id: str, task_id: str, request: Request):
+        import asyncio
+
+        from starlette.responses import StreamingResponse
+
+        require_local_request(request)
+        await run_in_threadpool(owned_task, session_id, task_id)
+
+        async def event_stream():
+            loop = asyncio.get_running_loop()
+            queue = asyncio.Queue()
+
+            def receive(event):
+                loop.call_soon_threadsafe(queue.put_nowait, event)
+
+            snapshot = await run_in_threadpool(manager.subscribe, task_id, receive)
+            try:
+                initial = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":"))
+                yield f"event: snapshot\ndata: {initial}\n\n".encode("utf-8")
+                if snapshot["terminal"]:
+                    return
+                while not await request.is_disconnected():
+                    try:
+                        event = await asyncio.wait_for(queue.get(), timeout=15)
+                    except asyncio.TimeoutError:
+                        yield b": keep-alive\n\n"
+                        continue
+                    event_type = event.get("type", "message")
+                    payload = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
+                    yield f"event: {event_type}\ndata: {payload}\n\n".encode("utf-8")
+                    if event_type == "terminal":
+                        break
+            finally:
+                await run_in_threadpool(manager.unsubscribe, task_id, receive)
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache, no-transform",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
     @router.post("/api/sessions/{session_id}/tasks/{task_id}/cancel")
     async def task_cancel(session_id: str, task_id: str, request: Request):
         require_local_request(request)

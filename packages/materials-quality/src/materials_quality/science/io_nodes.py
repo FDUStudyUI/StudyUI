@@ -26,6 +26,9 @@ import pandas as pd
 
 from materials_quality.science.contracts import NodeResult, artifact_path, read_path, require_table
 
+_DECIMAL_COMMA_NUMBER = re.compile(r"^[+-]?(?:\d+(?:,\d*)?|,\d+)(?:[eE][+-]?\d+)?$")
+_DECIMAL_POINT_NUMBER = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
+
 
 def _decode(path, config):
     raw = path.read_bytes()
@@ -86,9 +89,32 @@ def _rectangle(frame, selection):
             result = result * 26 + ord(letter) - ord("A") + 1
         return result - 1
 
+    def column_label(index):
+        label = ""
+        number = index + 1
+        while number:
+            number, remainder = divmod(number - 1, 26)
+            label = chr(ord("A") + remainder) + label
+        return label
+
     c0, r0, c1, r1 = column(match[1]), int(match[2]) - 1, column(match[3]), int(match[4])
-    if c1 < c0 or r1 <= r0 or c1 >= frame.shape[1] or r1 > frame.shape[0]:
-        raise ValueError("range is reversed or extends beyond the input data")
+    row_count, column_count = frame.shape
+    bounds = (
+        f"解析后输入范围为 A1:{column_label(column_count - 1)}{row_count} "
+        f"({row_count} 行 × {column_count} 列)"
+        if row_count and column_count
+        else f"解析后输入为空 ({row_count} 行 × {column_count} 列)"
+    )
+    if c1 < c0 or r1 <= r0:
+        raise ValueError(
+            f"range is reversed: {str(selection)[:120]!r}; 起点 {match[1].upper()}{match[2]} "
+            f"晚于终点 {match[3].upper()}{match[4]}。{bounds}。"
+        )
+    if c1 >= column_count or r1 > row_count:
+        raise ValueError(
+            f"range extends beyond input data: {str(selection)[:120]!r}; {bounds}。"
+            "请依据该文件实际数据边界选择矩形，勿将空白尾部或其他工作表的尺寸当作数据范围。"
+        )
     return frame.iloc[r0:r1, c0 : c1 + 1].copy()
 
 
@@ -162,17 +188,84 @@ def _boolean_column(original, target):
 
 def _headers(frame, config):
     header = config.get("header", 0)
+    diagnostics = {
+        "mode": "inferred" if header is not None else "generated",
+        "column_count": frame.shape[1],
+    }
     if header is None:
-        names = config.get("names", [f"column_{i + 1}" for i in range(frame.shape[1])])
+        names = config.get("names")
+        if (
+            names is None
+            or isinstance(names, str)
+            and not names.strip()
+            or isinstance(names, (list, tuple))
+            and not names
+        ):
+            names = [f"column_{i + 1}" for i in range(frame.shape[1])]
+            diagnostics["generated_names"] = True
+        elif not isinstance(names, (list, tuple)):
+            raise ValueError(
+                "header=null 时 names 必须是列名列表；请检查导入节点的 names 配置，"
+                "留空可按实际数据列数自动命名。"
+            )
+        else:
+            names = [str(value) if value is not None and str(value).strip() else "" for value in names]
+            if len(names) != frame.shape[1]:
+                raise ValueError(
+                    f"表格导入列名数量不匹配：当前选择的数据区域有 {frame.shape[1]} 列，"
+                    f"names 提供了 {len(names)} 个名称 (header=null)。"
+                    "请先用 inspect_research_file 核实分隔符和 range，再用原始数据的实际列数修正 names；"
+                    "不得截断数据列或凭空补造科学变量。"
+                )
+            diagnostics["mode"] = "explicit"
         result = frame.copy()
     else:
         if type(header) is not int or not 0 <= header < len(frame):
             raise ValueError("header must be a zero-based row within the selected range or null")
-        names = frame.iloc[header].tolist()
-        names = [str(value) if pd.notna(value) else f"column_{i + 1}" for i, value in enumerate(names)]
+        source_names = frame.iloc[header].tolist()
+        names = [str(value) if pd.notna(value) and str(value).strip() else "" for value in source_names]
         result = frame.iloc[header + 1 :].copy()
-    if len(names) != result.shape[1] or len(set(names)) != len(names):
-        raise ValueError("column names must be unique and match the selected column count")
+    if len(names) != result.shape[1]:
+        raise ValueError(
+            f"表格导入列名数量不匹配：所选数据区域有 {result.shape[1]} 列，"
+            f"表头/手动列名有 {len(names)} 个。请检查 delimiter、range 和 header，"
+            "并依据 inspect_research_file 的文件结构定向修正；不要删除数据列来绕过错误。"
+        )
+
+    # Duplicate and blank header cells are common in instrument exports. Keep every
+    # source column and make labels deterministic; never let pandas silently mangle
+    # names or collapse equal labels during later column selection.
+    reserved = set(names)
+    used = set()
+    unique_names = []
+    adjustments = []
+    for index, original in enumerate(names):
+        is_blank = not original
+        candidate = original or f"column_{index + 1}"
+        reason = "blank" if is_blank else None
+        if candidate in used or is_blank and candidate in reserved:
+            if not is_blank:
+                reason = "duplicate"
+            suffix = 2
+            generated = f"{candidate}__{suffix}"
+            while generated in used or generated in reserved:
+                suffix += 1
+                generated = f"{candidate}__{suffix}"
+            candidate = generated
+        used.add(candidate)
+        unique_names.append(candidate)
+        if reason:
+            adjustments.append(
+                {
+                    "column_index": index + 1,
+                    "source_name": original,
+                    "assigned_name": candidate,
+                    "reason": reason,
+                }
+            )
+    names = unique_names
+    if adjustments:
+        diagnostics["renamed_columns"] = adjustments
     result.columns = names
     result = result.reset_index(drop=True)
     identifiers = config.get("id_columns", [])
@@ -190,6 +283,36 @@ def _headers(frame, config):
         or any(not isinstance(dtype, str) for dtype in requested.values())
     ):
         raise ValueError("dtype must map existing column names to explicit dtype strings")
+    decimal_separator = config.get("decimal_separator", ".")
+    if decimal_separator not in {".", ","}:
+        raise ValueError("decimal_separator must be '.' or ','")
+    normalized_columns = []
+    if decimal_separator == ",":
+        for name in result.columns:
+            if name in identifiers:
+                continue
+            series = result[name]
+            present = [value.strip() for value in series if isinstance(value, str) and value.strip()]
+            if not present or not any("," in value for value in present):
+                continue
+            if not all(
+                _DECIMAL_COMMA_NUMBER.fullmatch(value) or _DECIMAL_POINT_NUMBER.fullmatch(value)
+                for value in present
+            ):
+                continue
+            result[name] = series.map(
+                lambda value: (
+                    pd.NA
+                    if isinstance(value, str) and not value.strip()
+                    else value.strip().replace(",", ".")
+                    if isinstance(value, str) and "," in value
+                    else value
+                )
+            )
+            normalized_columns.append(name)
+    diagnostics["decimal_separator"] = decimal_separator
+    if normalized_columns:
+        diagnostics["decimal_comma_normalized_columns"] = normalized_columns
     text_types = {"str", "string", "object"}
     schema = {}
     for name in result.columns:
@@ -238,7 +361,7 @@ def _headers(frame, config):
             "role": "identifier" if name in identifiers else "data",
             "requested_dtype": dtype,
         }
-    return result, schema
+    return result, schema, diagnostics
 
 
 def table_import(table=None, *, config=None, data=None, tables=None):
@@ -270,19 +393,31 @@ def table_import(table=None, *, config=None, data=None, tables=None):
         # The published repository mixes line-ending styles across conditions.
         rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
         frame = pd.DataFrame(rows)
-        metadata.update(encoding=encoding, delimiter=delimiter)
-    frame, schema = _headers(_rectangle(frame, config.get("range")), config)
+        metadata.update(
+            encoding=encoding,
+            delimiter=delimiter,
+            decimal_separator=config.get("decimal_separator", "."),
+        )
+    frame, schema, header_diagnostics = _headers(_rectangle(frame, config.get("range")), config)
+    warnings = []
+    if header_diagnostics.get("renamed_columns"):
+        warnings.append(
+            f"导入器为 {len(header_diagnostics['renamed_columns'])} 个空白或重复表头生成了唯一列名；"
+            "所有源数据列均已保留。请在报告中使用实际列名并注明列名调整。"
+        )
     return NodeResult(
         table=frame,
         data={
             **metadata,
             "rows": len(frame),
             "columns": frame.columns.tolist(),
+            "header_diagnostics": header_diagnostics,
             "source_rows": config.get("range") or "entire file",
             "schema": schema,
             "preview": json_value(frame.head(20).to_dict("records")),
             "preview_rows": min(20, len(frame)),
         },
+        warnings=warnings,
     )
 
 

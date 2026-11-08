@@ -13,8 +13,9 @@ from pathlib import Path
 
 MAX_FILE_BYTES = 25 * 1024 * 1024
 MAX_EXPANDED_BYTES = 150 * 1024 * 1024
-SUPPORTED = {".csv", ".tsv", ".txt", ".ras", ".xlsx", ".xlsm"}
+SUPPORTED = {".csv", ".tsv", ".txt", ".ras", ".lis", ".xlsx", ".xlsm"}
 NUMBER = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
+LIS_NUMBER = re.compile(r"^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:[eE][+-]?\d+)?$")
 READ_DENIAL = re.compile(
     r"(?:不要|禁止|不得|不许|切勿|撤销).{0,12}(?:读取|访问|打开|检查|分析文件|文件访问)"
     r"|(?:不允许|禁止).{0,8}文件(?:读取|访问)",
@@ -70,7 +71,7 @@ def authorized_file(path, user_text):
     if original.is_symlink():
         raise ValueError("不支持符号链接文件；请提供真实文件路径。")
     if not resolved.is_file() or resolved.suffix.casefold() not in SUPPORTED:
-        raise ValueError("仅支持本地 CSV、TSV、TXT、RAS 和 Excel 数据文件。")
+        raise ValueError("仅支持本地 CSV、TSV、TXT、RAS、LIS 和 Excel 数据文件。")
     if resolved.stat().st_size > MAX_FILE_BYTES:
         raise ValueError("文件超过结构检查的 25 MB 上限。")
     return resolved
@@ -95,6 +96,154 @@ def _labels(row, row_number):
             if text and len(text) <= 100 and not NUMBER.fullmatch(text):
                 labels.append({"row": row_number, "column": col, "label": text})
     return labels
+
+
+def _lis_cells(line):
+    cells = [cell.strip() for cell in line.split("\t")]
+    while cells and not cells[-1]:
+        cells.pop()
+    return cells
+
+
+def _lis_numeric_row(cells):
+    values = [cell for cell in cells if cell]
+    if len(values) < 2 or any(not LIS_NUMBER.fullmatch(value) for value in values):
+        return None
+    try:
+        numbers = [float(value.replace(",", ".")) for value in values]
+    except (ValueError, OverflowError):
+        return None
+    return numbers if all(math.isfinite(value) for value in numbers) else None
+
+
+def _inspect_lis(path, raw, result):
+    """Inspect BAM LIS section/table metadata without returning measurement rows."""
+    try:
+        text = raw.decode("utf-8-sig")
+        encoding = "utf-8-sig"
+    except UnicodeDecodeError:
+        try:
+            text = raw.decode("cp1252")
+            encoding = "cp1252"
+        except UnicodeDecodeError:
+            text = raw.decode("latin1")
+            encoding = "latin1"
+
+    lines = text.splitlines()
+    section_rows = []
+    table_sections = []
+    labels = []
+    for line_number, line in enumerate(lines, 1):
+        stripped = line.strip()
+        if re.fullmatch(r"\[[^\]]{1,80}\]", stripped):
+            section_rows.append({"line": line_number, "name": stripped[1:-1]})
+            marker_index = line_number
+            header_index = marker_index
+            while header_index < len(lines) and not lines[header_index].strip():
+                header_index += 1
+            if header_index >= len(lines) or re.fullmatch(r"[-=]{3,}", lines[header_index].strip()):
+                continue
+
+            header = _lis_cells(lines[header_index])
+            if len([cell for cell in header if cell]) < 2 or _lis_numeric_row(header):
+                continue
+            units_index = header_index + 1
+            while units_index < len(lines) and not lines[units_index].strip():
+                units_index += 1
+            if units_index >= len(lines):
+                units = []
+                data_index = units_index
+            else:
+                units_candidate = _lis_cells(lines[units_index])
+                # A unit row is metadata, not a data row. Keep only the
+                # intersection so inconsistent widths are visible, not guessed.
+                units = units_candidate if not _lis_numeric_row(units_candidate) else []
+                data_index = units_index + 1 if units else units_index
+
+            data_rows = 0
+            first_data_line = None
+            last_data_line = None
+            first_column_values = []
+            for row_index in range(data_index, len(lines)):
+                row = _lis_cells(lines[row_index])
+                if not row:
+                    if data_rows:
+                        break
+                    continue
+                numbers = _lis_numeric_row(row)
+                if numbers is None:
+                    break
+                data_rows += 1
+                first_data_line = first_data_line or row_index + 1
+                last_data_line = row_index + 1
+                first_column_values.append(numbers[0])
+
+            first_column_order = None
+            if len(first_column_values) >= 2:
+                differences = [
+                    right - left
+                    for left, right in zip(first_column_values, first_column_values[1:], strict=False)
+                ]
+                first_column_order = {
+                    "checked_rows": len(first_column_values),
+                    "strictly_increasing": all(value > 0 for value in differences),
+                    "strictly_decreasing": all(value < 0 for value in differences),
+                    "adjacent_equal_count": sum(value == 0 for value in differences),
+                }
+            table = {
+                "section": stripped[1:-1],
+                "header_line": header_index + 1,
+                "data_start_line": first_data_line,
+                "data_end_line": last_data_line,
+                "data_rows": data_rows,
+                "columns": len(header),
+                "headers": header[:80],
+                "units": units[:80],
+                "first_column_order": first_column_order,
+            }
+            table_sections.append(table)
+            if not labels:
+                labels = [
+                    {"row": header_index + 1, "column": index, "label": value}
+                    for index, value in enumerate(header, 1)
+                    if value
+                ][:100]
+
+    result.update(
+        encoding=encoding,
+        delimiter="\t",
+        rows=len(lines),
+        maximum_columns=max((len(_lis_cells(line)) for line in lines), default=0),
+        sections=section_rows[:80],
+        table_sections=table_sections[:40],
+        first_row_text_labels=labels,
+        numeric_blocks=[
+            {
+                "section": table["section"],
+                "start_row": table["data_start_line"],
+                "end_row": table["data_end_line"],
+                "data_rows": table["data_rows"],
+                "nonempty_numeric_cells_per_row": table["columns"],
+                "first_column_order": table["first_column_order"],
+                "first_column_order_note": "仅检查该表第一列的顺序；物理含义由表头和单位标识。",
+            }
+            for table in table_sections
+            if table["data_rows"]
+        ][:20],
+        numeric_blocks_note="仅返回各节连续数值行的结构统计，不包含任何测量值。",
+        recommended_import_config={
+            "encoding": encoding,
+            "delimiter": "\t",
+            "note": "BAM LIS 含多个命名区段和逗号小数；请选定已核验区段并处理小数格式后再做数值分析。",
+        },
+        note=(
+            "BAM LIS 结构检查仅返回区段、列标签、单位、行数和顺序标志；"
+            "不返回测量行或具体数值。逗号小数及不同区段须在导入/分析分支单独核验。"
+        ),
+    )
+    labels_text = [cell["label"] for cell in labels]
+    result["standards_and_compliance"] = audit_standards_and_dimensions(path, labels_text, None)
+    return result
 
 
 def inspect_file(path):
@@ -200,9 +349,7 @@ def inspect_file(path):
                         "observed_last_nonempty_column": max(used_columns, default=0),
                         "sparse_text_columns_after_first_two_rows": sparse[:20],
                         "adjacent_numeric_pairs": pairs[:8],
-                        "pair_note": (
-                            "仅说明相邻列数值覆盖。列的物理含义需依据候选表头和来源核实。"
-                        ),
+                        "pair_note": ("仅说明相邻列数值覆盖。列的物理含义需依据候选表头和来源核实。"),
                         "first_two_rows_text_labels": labels,
                         "labels_may_be_truncated": True,
                     }
@@ -225,6 +372,9 @@ def inspect_file(path):
             None,
         )
         return result
+
+    if path.suffix.lower() == ".lis":
+        return _inspect_lis(path, raw, result)
 
     for encoding in ("utf-8-sig", "utf-8", "gb18030", "gbk", "cp936", "shift_jis", "latin1"):
         try:
@@ -299,8 +449,7 @@ def inspect_file(path):
             recommended["start_row"] = main_block["start_row"]
             recommended["end_row"] = main_block["end_row"]
             recommended["note"] = (
-                f"第 {main_block['start_row']} 行起为主要连续数值区。"
-                "可设置数据区间或跳过前置行。"
+                f"第 {main_block['start_row']} 行起为主要连续数值区。可设置数据区间或跳过前置行。"
             )
         elif main_block["start_row"] == 2:
             recommended["header"] = 0
@@ -406,8 +555,7 @@ def audit_standards_and_dimensions(path: Path, labels: list[str], main_block: di
             "scope": scope,
             "evidence": order,
             "detail": (
-                "判据为区块中所有相邻有限数值严格递增。"
-                "此项仅检查记录顺序，物理轴身份及标准适用性待核实。"
+                "判据为区块中所有相邻有限数值严格递增。此项仅检查记录顺序，物理轴身份及标准适用性待核实。"
             ),
         }
     )

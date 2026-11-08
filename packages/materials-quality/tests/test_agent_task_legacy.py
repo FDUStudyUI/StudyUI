@@ -146,6 +146,7 @@ def test_durable_submission_cannot_enter_legacy_sse_session(app_client, monkeypa
     assert "event: step_end" in response.text
     assert "event: done" in response.text
 
+
 def test_review_draft_download_preserves_the_submitted_bytes(app_client):
     _, client, session = app_client
     code = "\n# 审核草稿\nprint('example')  \n\n"
@@ -158,6 +159,7 @@ def test_review_draft_download_preserves_the_submitted_bytes(app_client):
     download = client.get(f"/api/sessions/{session}/artifacts/{artifact_id}")
     assert download.status_code == 200
     assert download.content == code.encode("utf-8")
+
 
 def test_approval_execution_preserves_pending_request_while_session_is_busy(app_client, monkeypatch):
     app, client, session = app_client
@@ -197,6 +199,86 @@ def test_approval_execution_preserves_pending_request_while_session_is_busy(app_
     result = client.post(f"/api/approvals/{approval_id}/approve", json={})
     assert result.status_code == 200, result.text
     assert dispatched == [(session, "run_workflow")]
+
+
+def test_approved_agent_tool_resumes_the_research_task(app_client, monkeypatch):
+    app, client, _ = app_client
+    harness = app.state.harness
+    project = harness.store.create_project("approval continuation")
+    session = harness.new_session(project_id=project)
+    flow = {"id": "flow-resume", "folder_id": project, "data": {"nodes": [], "edges": []}}
+    runs = []
+    monkeypatch.setattr(harness.langflow, "get_flow", lambda _flow_id: flow)
+    monkeypatch.setattr(
+        harness.langflow,
+        "run_flow",
+        lambda flow_id, **_kwargs: runs.append(flow_id) or {"outputs": []},
+    )
+
+    class Model:
+        calls = 0
+
+        def complete(self, messages, tools, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "approved-run",
+                            "function": {
+                                "name": "run_workflow",
+                                "arguments": '{"flow_id":"flow-resume"}',
+                            },
+                        }
+                    ],
+                }
+            assert any(
+                "approved_action_succeeded" in message.get("content", "")
+                for message in messages
+                if message.get("role") in {"system", "user"}
+            )
+            return {"content": "九种铜合金工作流已运行；我已依据实际结果继续完成验证和报告。"}
+
+    model = Model()
+    harness.model, harness._custom_model = model, True
+
+    def authorize(_session, name, _args, _text):
+        if name == "run_workflow":
+            return {"allowed": False, "action": "workflow.run", "reason": "需要逐项审批"}
+        return {"allowed": True, "action": harness._tool_action(name)}
+
+    monkeypatch.setattr(harness, "_authorize_tool", authorize)
+    submitted = client.post(
+        f"/api/sessions/{session}/tasks",
+        json={"message": "请运行工作流 flow-resume 并生成研究报告", "request_key": "initial"},
+    )
+    assert submitted.status_code == 202, submitted.text
+    first = app.state.tasks.get(submitted.json()["id"])
+    for _ in range(200):
+        first = app.state.tasks.get(first["id"])
+        if first["terminal"]:
+            break
+        time.sleep(0.01)
+    assert first["status"] == "waiting_approval"
+    approval_id = first["result"]["task_pending_approvals"][0]["id"]
+
+    approved = client.post(f"/api/approvals/{approval_id}/approve", json={})
+    assert approved.status_code == 200, approved.text
+    approval_result = approved.json()
+    continuation_id = approval_result["continuation_task"]["id"]
+    assert approval_result["approval_tasks"] == [{"id": first["id"], "status": "completed", "terminal": True}]
+    assert app.state.tasks.get(first["id"])["status"] == "completed"
+    for _ in range(300):
+        continuation = app.state.tasks.get(continuation_id)
+        if continuation["terminal"]:
+            break
+        time.sleep(0.01)
+
+    assert continuation["status"] == "completed"
+    assert "验证和报告" in continuation["result"]["message"]
+    assert runs == ["flow-resume"]
+    assert model.calls == 2
 
 
 @pytest.mark.parametrize("method", ["DELETE", "PATCH"])

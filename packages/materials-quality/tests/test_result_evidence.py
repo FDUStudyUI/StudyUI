@@ -75,12 +75,15 @@ def test_native_evidence_binds_matching_report_and_rejects_unrelated_result():
     from materials_quality.science.catalog import component_class
 
     source = component_class("stats.grouped")().set(
-        input_table=DataFrame({"group": ["A", "A"], "value": [1., 3.]}),
-        cfg_group_by=["group"], cfg_columns=["value"],
+        input_table=DataFrame({"group": ["A", "A"], "value": [1.0, 3.0]}),
+        cfg_group_by=["group"],
+        cfg_columns=["value"],
     )
     table, report = source.build_table(), source.build_report()
     node = component_class("lit.result_evidence")().set(
-        input_table=table, input_data=report, cfg_columns=["mean"],
+        input_table=table,
+        input_data=report,
+        cfg_columns=["mean"],
     )
     bundle = node.build_report().data["data"]["evidence_bundle"]
     assert bundle["upstream_execution"]["operation"] == "stats.grouped"

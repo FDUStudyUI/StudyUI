@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 
-def session_directory(harness, session_id, kind="uploads"):
+def session_directory(harness, session_id, kind="uploads", *, base=None):
     try:
         canonical = str(uuid.UUID(session_id))
     except (ValueError, TypeError, AttributeError) as exc:
@@ -16,10 +16,10 @@ def session_directory(harness, session_id, kind="uploads"):
     context = harness.store.session_context(session_id)
     if harness.permissions.get_preset(context.get("project_id")) in {"read_only", "per_action"}:
         raise PermissionError("当前权限不允许保存文件；请在设置中选择项目协作。")
-    base = harness.project_root.resolve()
-    requested_root = harness.project_root / kind
+    base_root = Path(base or harness.working_directory(session_id)).resolve()
+    requested_root = base_root / kind
     root = requested_root.resolve()
-    if requested_root.is_symlink() or not root.is_relative_to(base):
+    if requested_root.is_symlink() or not root.is_relative_to(base_root):
         raise PermissionError("文件目录越界。")
     directory = root / session_id
     if directory.is_symlink() or not directory.resolve().is_relative_to(root):
@@ -55,7 +55,7 @@ def save_code_draft(harness, session_id, name, code):
     if not isinstance(code, str) or not code.strip() or len(code.encode("utf-8")) > 50_000:
         raise ValueError("代码草稿必须在 1 字节至 50 KB 之间。")
     artifact_kind = harness.artifact_root.resolve().relative_to(harness.project_root.resolve())
-    directory = session_directory(harness, session_id, artifact_kind)
+    directory = session_directory(harness, session_id, artifact_kind, base=harness.project_root)
     draft_id = str(uuid.uuid4())
     target = directory / (draft_id + ".py.txt")
     raw = code.encode("utf-8")

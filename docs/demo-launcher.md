@@ -1,5 +1,7 @@
 # 安装、运行与排障
 
+从 `beta-demo` 便携包解压后，目录结构与源码仓库根目录一致，可直接使用本文命令，无需克隆仓库。
+
 ## 环境要求
 
 当前启动器以 Python 3.10 验收。Windows 需要 Python Launcher (`py`) 或 `python` 命令；macOS/Linux 需要 `python3.10` 或 `python3`。依赖安装使用专用 `.demo-venv`，首次安装需联网下载 LFX、画布资源和科学计算包。

@@ -30,6 +30,20 @@ jobs:
       - run: python -m pip install -e .
       - run: ruff check src components tests scripts examples
       - run: ruff check ../../scripts --config pyproject.toml
+      - run: ruff format --check src components tests scripts examples
+      - run: ruff format --check ../../scripts --config pyproject.toml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check frontend and CI formatting
+        run: |
+          npx --yes prettier@3.3.3 --check \
+            src/materials_quality/agent/ui/index.html \
+            'src/materials_quality/agent/ui/assets/*.js' \
+            'src/materials_quality/agent/ui/assets/*.css' \
+            '../../scripts/assets/*.html' \
+            '../../.github/workflows/*.yml' \
+            ../../.prettierrc.json
       - run: python -m pytest -q
       - run: python -m scripts.build_example
       - run: python -m scripts.build_mechanics

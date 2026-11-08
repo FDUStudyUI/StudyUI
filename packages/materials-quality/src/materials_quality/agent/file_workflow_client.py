@@ -87,8 +87,14 @@ class FileWorkflowClient:
         return flow
 
     def run_flow(
-        self, flow_id, *, tweaks=None, input_value="", external_data_approved=False,
-        expected_digest=None, expected_project_id=None,
+        self,
+        flow_id,
+        *,
+        tweaks=None,
+        input_value="",
+        external_data_approved=False,
+        expected_digest=None,
+        expected_project_id=None,
     ):
         return self.executor.run(
             str(flow_id),

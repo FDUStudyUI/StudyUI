@@ -362,15 +362,25 @@ def combined_table(packet):
             contract is not None and all(contract[field] == first[field] for field in fields)
             for contract in contracts
         )
-        provenance = [{"operation": "concat", "contract_sha256": contract["contract_sha256"]}
-                      for contract in contracts if contract is not None]
+        provenance = [
+            {"operation": "concat", "contract_sha256": contract["contract_sha256"]}
+            for contract in contracts
+            if contract is not None
+        ]
         if compatible:
             try:
-                result = attach_contract(result, make_contract(
-                    result, granularity=first["granularity"], roles=first["roles"],
-                    experimental_design=first["experimental_design"], aggregation=first["aggregation"],
-                    derived_from=provenance, units_state=first["units_state"],
-                ))
+                result = attach_contract(
+                    result,
+                    make_contract(
+                        result,
+                        granularity=first["granularity"],
+                        roles=first["roles"],
+                        experimental_design=first["experimental_design"],
+                        aggregation=first["aggregation"],
+                        derived_from=provenance,
+                        units_state=first["units_state"],
+                    ),
+                )
             except ValueError:
                 compatible = False
         if not compatible:

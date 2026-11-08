@@ -64,3 +64,26 @@ def test_task_error_and_waiting_approval_are_not_success(tmp_path):
     assert wait(manager, task["id"])["status"] == "failed"
     task = manager.submit("session", "approval", lambda progress: {"pending_approvals": [{"id": "a"}]})
     assert wait(manager, task["id"])["status"] == "waiting_approval"
+
+
+def test_task_waits_for_every_approval_and_closes_after_the_last_decision(tmp_path):
+    manager = TaskManager(tmp_path / "tasks.sqlite3")
+    approvals = [{"id": "a"}, {"id": "b"}]
+    task = manager.submit(
+        "session",
+        "two-approvals",
+        lambda progress: {
+            "message": "等待审批",
+            "pending_approvals": approvals,
+            "task_pending_approvals": approvals,
+        },
+    )
+    assert wait(manager, task["id"])["status"] == "waiting_approval"
+
+    first = manager.resolve_approval("session", "a", "approved")
+    assert first == [{"id": task["id"], "status": "waiting_approval", "terminal": True}]
+    assert manager.get(task["id"])["result"]["task_pending_approvals"] == [{"id": "b"}]
+
+    second = manager.resolve_approval("session", "b", "rejected")
+    assert second == [{"id": task["id"], "status": "cancelled", "terminal": True}]
+    assert manager.get(task["id"])["result"]["pending_approvals"] == []

@@ -2,10 +2,11 @@ import threading
 import time
 
 import pytest
-from test_agent_boundary_reliability import app_client as app_client
 
 from materials_quality.agent.harness import StudyUIAgent
 from materials_quality.agent.tasks import TaskManager
+
+pytest_plugins = ["test_agent_boundary_reliability"]
 
 
 def settle(manager, task_id):

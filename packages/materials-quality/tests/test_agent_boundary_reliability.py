@@ -12,8 +12,9 @@ def app_client(tmp_path):
     for name in ("workflows", "components", "frontend/assets"):
         (tmp_path / name).mkdir(parents=True)
     (tmp_path / "frontend/index.html").write_text("<html>Canvas</html>", encoding="utf-8")
-    app = create_app(tmp_path / "agent.sqlite3", tmp_path / "workflows",
-                     tmp_path / "components", tmp_path / "frontend")
+    app = create_app(
+        tmp_path / "agent.sqlite3", tmp_path / "workflows", tmp_path / "components", tmp_path / "frontend"
+    )
     with TestClient(app, base_url="http://127.0.0.1:7880") as client:
         session = client.post("/api/sessions", json={"title": "boundary"}).json()["id"]
         yield app, client, session
@@ -22,9 +23,14 @@ def app_client(tmp_path):
 def test_upload_requires_real_session_and_cannot_escape(app_client, tmp_path):
     _, client, _ = app_client
     for session in ("", "missing-session", "../outside", str(tmp_path / "outside")):
-        response = client.post("/api/upload", content=b"a,b\n1,2", headers={
-            "X-Filename": "input.csv", "X-StudyUI-Session": quote(session),
-        })
+        response = client.post(
+            "/api/upload",
+            content=b"a,b\n1,2",
+            headers={
+                "X-Filename": "input.csv",
+                "X-StudyUI-Session": quote(session),
+            },
+        )
         assert response.status_code in {400, 403, 404}
     assert not (tmp_path / "outside").exists()
 
@@ -45,18 +51,31 @@ def test_upload_preserves_versions_and_respects_read_only(app_client):
 
 def test_generated_code_is_only_a_review_draft(app_client):
     app, client, session = app_client
-    response = client.post("/api/canvas/insert-node", json={
-        "name": "Example", "code": "print('must not run')", "session_id": session,
-    })
+    response = client.post(
+        "/api/canvas/insert-node",
+        json={
+            "name": "Example",
+            "code": "print('must not run')",
+            "session_id": session,
+        },
+    )
     assert response.status_code == 202
     draft = response.json()
     assert draft["status"] == "draft"
     assert draft["executable"] is False
     assert not list((app.state.harness.project_root / ".demo-runtime/components").rglob("example.py"))
     app.state.harness.permissions.set_preset(None, "read_only")
-    assert client.post("/api/canvas/insert-node", json={
-        "name": "Example", "code": "pass", "session_id": session,
-    }).status_code == 403
+    assert (
+        client.post(
+            "/api/canvas/insert-node",
+            json={
+                "name": "Example",
+                "code": "pass",
+                "session_id": session,
+            },
+        ).status_code
+        == 403
+    )
 
 
 def test_ui_does_not_claim_unperformed_scientific_checks(app_client):
@@ -68,8 +87,11 @@ def test_ui_does_not_claim_unperformed_scientific_checks(app_client):
 
 def test_message_endpoint_enforces_origin(app_client):
     _, client, session = app_client
-    response = client.post(f"/api/sessions/{session}/messages", json={"message": "hello"},
-                           headers={"Origin": "https://unrelated.example"})
+    response = client.post(
+        f"/api/sessions/{session}/messages",
+        json={"message": "hello"},
+        headers={"Origin": "https://unrelated.example"},
+    )
     assert response.status_code == 403
 
 
@@ -97,7 +119,11 @@ def test_durable_task_api_result_recovery_and_origin(app_client):
     assert task["status"] == "completed"
     assert task["result"]["message"] == "task result"
     assert client.get(f"/api/sessions/{session}/tasks").json()["items"][0]["id"] == task_id
-    assert client.post(f"/api/sessions/{session}/tasks", json=body,
-                       headers={"Origin": "https://unrelated.example"}).status_code == 403
+    assert (
+        client.post(
+            f"/api/sessions/{session}/tasks", json=body, headers={"Origin": "https://unrelated.example"}
+        ).status_code
+        == 403
+    )
     other = client.post("/api/sessions", json={"title": "other"}).json()["id"]
     assert client.get(f"/api/sessions/{other}/tasks/{task_id}").status_code == 404

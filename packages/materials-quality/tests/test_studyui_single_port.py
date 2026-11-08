@@ -12,7 +12,7 @@ def test_agent_and_workbench_share_one_host_and_port(tmp_path):
     (frontend / "assets").mkdir(parents=True)
     (frontend / "index.html").write_text(
         '<!doctype html><html><head><base href="/canvas/" />'
-        '<title>StudyUI Workbench</title></head><body>Canvas</body></html>',
+        "<title>StudyUI Workbench</title></head><body>Canvas</body></html>",
         encoding="utf-8",
     )
     app = create_app(tmp_path / "agent.sqlite3", workflows, components, frontend)
@@ -25,8 +25,8 @@ def test_agent_and_workbench_share_one_host_and_port(tmp_path):
 
         page = client.get("/")
         assert page.status_code == 200
-        assert 'data-src="/canvas/"' in page.text
-        assert 'href="/canvas/"' in page.text
+        assert 'data-src="/canvas"' in page.text
+        assert "__CANVAS_BASE_PATH__" not in page.text
 
         canvas = client.get("/canvas/")
         assert canvas.status_code == 200
