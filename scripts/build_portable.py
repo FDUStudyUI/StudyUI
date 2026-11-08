@@ -42,6 +42,7 @@ VENV = ROOT / ".demo-venv"
 
 INCLUDE_FILES = (
     "README.md",
+    "LICENSE",
     ".python-version",
     "start_demo.bat",
     "start_demo.sh",
