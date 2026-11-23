@@ -531,6 +531,7 @@ def _execute_single(component, key, config_override=None):
                 "table_fingerprint": current_table,
             },
         }
+    checkpoint_record = None
     try:
         if key == "materials.analysis_plan":
             from .research_plan import run_research_plan
@@ -538,7 +539,17 @@ def _execute_single(component, key, config_override=None):
             result, run = run_research_plan(table, config, component._ctx.get("analysis_plan_previous"))
             component._ctx["analysis_plan_previous"] = run
         else:
-            result = operation(table, config=config, data=data, tables=tables)
+            from .checkpoints import invoke
+
+            result, checkpoint_record = invoke(
+                key,
+                table,
+                config,
+                data,
+                tables,
+                lambda: operation(table, config=config, data=data, tables=tables),
+                dependencies=[e.get("checkpoint", {}).get("key") for e in envelopes],
+            )
     except ImportError as exc:
         raise ValueError(
             "This method needs the science dependencies: pip install '.[science]' — " + str(exc)
@@ -600,6 +611,7 @@ def _execute_single(component, key, config_override=None):
                 "warnings": result.warnings,
                 "artifacts": result.artifacts,
                 "elapsed_seconds": perf_counter() - started,
+                "checkpoint": checkpoint_record or {},
                 "features_preview": None
                 if result.features is None
                 else {
@@ -633,7 +645,8 @@ def _execute_single(component, key, config_override=None):
         "artifact_hashes": _file_hashes(result.artifacts, paths=True),
     }
     state = "完成" if result_data.get("execution_status", "completed") == "completed" else "未全部完成"
-    component.status = f"{get(key)['title']}：{state}；{len(result.warnings)} 条提示"
+    reuse = "（复用已完成计算）" if checkpoint_record and checkpoint_record["status"] == "reused" else ""
+    component.status = f"{get(key)['title']}：{state}{reuse}；{len(result.warnings)} 条提示"
     return result, envelope
 
 

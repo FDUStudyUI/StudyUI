@@ -146,6 +146,7 @@ def flow_summary(flow):
                     and isinstance(field, dict)
                     and "value" in field
                     and not _is_secret(name, field)
+                    and not (name.startswith("cfg_") and field.get("show", True) is False)
                 ):
                     config[name] = _safe_value(name, field, field["value"])
         summaries.append(
@@ -466,7 +467,17 @@ def _set_config(node, config):
             json.dumps(value, allow_nan=False)
         except (TypeError, ValueError):
             raise ValueError(f"Node input {name} must be finite JSON data") from None
+        options = field.get("options")
+        if options and not field.get("combobox") and value not in (None, ""):
+            selected = value if isinstance(value, list) else [value]
+            if any(item not in options for item in selected):
+                raise ValueError(f"Node input {name} must use one of {options}")
         field["value"] = value
+        # LFX omits hidden inputs when constructing a graph. Explicit scientific
+        # form values must reach the component; its form composer still enforces
+        # method applicability and optional-value switches.
+        if name.startswith("cfg_"):
+            field["show"] = True
 
 
 def _add_node(data, action, components):

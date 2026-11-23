@@ -113,7 +113,7 @@ def run_research_plan(table, config=None, previous=None):
                 if record.result is not None and record.result.table is not None
             },
             "automatic_repair": False,
-            "retry_scope": "same live component instance or explicit Python AnalysisRun",
+            "retry_scope": "live AnalysisRun; project checkpoints also survive workflow executor restarts",
             "scientific_validation": "not_established_by_execution_success",
         },
         warnings=warnings + ([] if result is None else result.warnings),

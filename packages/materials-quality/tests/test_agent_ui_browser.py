@@ -111,6 +111,8 @@ def test_task_cancel_and_refresh_does_not_replay(page, browser_task_app):
     assert model.started.wait(5)
     task_id = card.get_attribute("data-task-id")
     assert task_id
+    playwright.expect(card.locator(".dsh-task-clock")).to_contain_text("耗时")
+    playwright.expect(card.locator(".dsh-task-reference")).to_contain_text(task_id)
 
     page.reload()
     card = page.locator(f'[data-task-id="{task_id}"]')

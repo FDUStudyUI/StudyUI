@@ -2064,7 +2064,7 @@ def test_workflow_summary_and_tool_reply_omit_component_source_code():
     assert json.loads(content)["node_count"] == 1
 
 
-def test_tool_round_limit_requests_a_final_summary_without_more_tools(tmp_path, monkeypatch):
+def test_tool_round_limit_returns_receipts_without_another_model_request(tmp_path, monkeypatch):
     from materials_quality.agent import harness as harness_module
     from materials_quality.agent.harness import StudyUIAgent
 
@@ -2093,7 +2093,8 @@ def test_tool_round_limit_requests_a_final_summary_without_more_tools(tmp_path, 
     session_id = agent.new_session(project_id=project_id)
     result = agent.run_turn(session_id, "列出科研 Skill。")
 
-    assert "已核验" in result["message"]
+    assert agent.model.calls == 1
+    assert "已记录" in result["message"]
     assert "工具调用轮数已达上限" in result["message"]
 
 

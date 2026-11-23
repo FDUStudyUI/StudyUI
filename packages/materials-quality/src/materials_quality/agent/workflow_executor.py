@@ -5,11 +5,24 @@ from __future__ import annotations
 import copy
 import json
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 
+from .tasks import checkpoint
 from .workflow_files import WorkflowFileStore
 
 _WORKFLOW_RUN_GATE = threading.BoundedSemaphore(1)
+
+
+@contextmanager
+def _workflow_slot():
+    while not _WORKFLOW_RUN_GATE.acquire(timeout=0.05):
+        checkpoint()
+    try:
+        checkpoint()
+        yield
+    finally:
+        _WORKFLOW_RUN_GATE.release()
 
 
 def _serialize_output(value):
@@ -208,9 +221,16 @@ class FileWorkflowExecutor:
         try:
             runtime_flow = _prepare_runtime_outputs(flow)
             resolved_output_type = (
-                "debug" if include_all_nodes else ("any" if output_type == "debug" else output_type)
+                "debug"
+                if include_all_nodes or flow.get("studyui_protocol")
+                else ("any" if output_type == "debug" else output_type)
             )
-            with _WORKFLOW_RUN_GATE:
+            from materials_quality.science.checkpoints import checkpoint_scope
+
+            with (
+                _workflow_slot(),
+                checkpoint_scope(self.store.root / ".checkpoints" / flow_id) as checkpoints,
+            ):
                 outputs = run_flow_from_json(
                     runtime_flow,
                     input_value=input_value,
@@ -224,8 +244,15 @@ class FileWorkflowExecutor:
         finally:
             reset_external_data_approval(token)
             reset_upstream_image_scope(image_scope)
-        return {
+        result = {
             "flow_id": flow_id,
             "revision": revision,
             "outputs": [_serialize_run_outputs(value) for value in outputs],
+            "checkpoints": checkpoints,
         }
+        if flow.get("studyui_protocol"):
+            from .run_bundle import create_bundle
+
+            archive = create_bundle(flow, outputs, self.store.root / ".runs", checkpoints)
+            result["artifacts"] = [{"path": str(archive), "kind": "reproducibility_bundle"}]
+        return result

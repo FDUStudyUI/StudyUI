@@ -4,6 +4,8 @@
 
 ## 使用手册
 
+[材料任务：真实仪器数据、方法检查与复现](material-tasks.md) · [升级更改与审核记录](../../../docs/agent-stability-review.md)
+
 | 任务 | 手册 |
 |---|---|
 | 多文件、逐曲线光谱、时序与组间研究 | [批量分析](batch-processing.md) |

@@ -9,11 +9,14 @@ import sqlite3
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 
 _cancel = ContextVar("studyui_task_cancel", default=None)
+_deadline = ContextVar("studyui_task_deadline", default=None)
+TURN_BUDGET_SECONDS = 240
 TERMINAL = {"completed", "cancelled", "failed", "interrupted", "waiting_approval"}
 
 
@@ -25,10 +28,28 @@ class TaskCancelled(Exception):
     """The user requested stopping before the next operation."""
 
 
+class TaskDeadlineExceeded(TimeoutError):
+    """The turn budget has expired; preserve completed work."""
+
+
+@contextmanager
+def task_budget(seconds=None):
+    proposed = time.monotonic() + (TURN_BUDGET_SECONDS if seconds is None else seconds)
+    current = _deadline.get()
+    token = _deadline.set(min(current, proposed) if current is not None else proposed)
+    try:
+        yield
+    finally:
+        _deadline.reset(token)
+
+
 def checkpoint():
     signal = _cancel.get()
     if signal is not None and signal.is_set():
         raise TaskCancelled("任务已取消；已完成的操作和产物保留。")
+    deadline = _deadline.get()
+    if deadline is not None and time.monotonic() >= deadline:
+        raise TaskDeadlineExceeded("本次任务已达到时间预算；已完成的工作流和产物保留，可调整任务后继续。")
 
 
 def _now():

@@ -1,0 +1,1299 @@
+{
+  "schema_version": "studyui-stability-acceptance/1",
+  "date": "2026-11-23",
+  "branch": "fix/agent-stability-review",
+  "environment": {
+    "python": "3.10.8",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "libraries": {
+      "lfx": "1.13.0",
+      "numpy": "2.2.6",
+      "pandas": "2.2.3",
+      "scipy": "1.15.3",
+      "pyarrow": "25.0.1"
+    }
+  },
+  "automated_tests": {
+    "passed": 1773,
+    "skipped": 10,
+    "failed": 0,
+    "skip_reason": "Optional h5py, netCDF4 and Zarr dependencies are not installed in this preserved local environment."
+  },
+  "original_instrument_reference": {
+    "mode": "reference_original_instruments",
+    "model": null,
+    "cases": 9,
+    "cold_replays": 3,
+    "counts": {
+      "workflow_built": 9,
+      "method_contract": 9,
+      "execution": 9,
+      "repeatable": 9
+    },
+    "numeric_reference_passed": 9,
+    "expert_method_review": "not_collected; method_contract checks declared units, settings and method prerequisites",
+    "case_results": [
+      {
+        "id": "tensile_aluminum_2",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 0.75,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected": [
+            68119.86039255091,
+            221.58780714518537
+          ],
+          "reference": "closed_form_OLS_and_segment_intersection",
+          "instrument_summary": {
+            "modulus_MPa": 67307.936,
+            "yield_MPa": 221.912
+          },
+          "modulus_difference_from_instrument_percent": 1.2062833014979235
+        }
+      },
+      {
+        "id": "tensile_brass_2",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 0.578,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected": [
+            89191.76917138262,
+            248.58001812768447
+          ],
+          "reference": "closed_form_OLS_and_segment_intersection",
+          "instrument_summary": {
+            "modulus_MPa": 97929.791,
+            "yield_MPa": 245.573
+          },
+          "modulus_difference_from_instrument_percent": -8.92274122040899
+        }
+      },
+      {
+        "id": "tensile_1018_2",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 0.391,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected": [
+            150702.6968570054,
+            377.8651479985511
+          ],
+          "reference": "closed_form_OLS_and_segment_intersection",
+          "instrument_summary": {
+            "modulus_MPa": 163958.183,
+            "yield_MPa": 375.821
+          },
+          "modulus_difference_from_instrument_percent": -8.084674946046821
+        }
+      },
+      {
+        "id": "xrd_amethyst",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 0.343,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            20.68,
+            23.98,
+            26.62,
+            45.79,
+            50.14,
+            50.26,
+            68.35,
+            68.53,
+            75.67
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      },
+      {
+        "id": "xrd_graphite",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 0.235,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            13.06,
+            26.47,
+            44.53,
+            54.55
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      },
+      {
+        "id": "xrd_calcite",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 0.218,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            23.12,
+            29.48,
+            36.04,
+            39.48,
+            43.24,
+            47.6,
+            48.6,
+            57.48,
+            64.76
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      },
+      {
+        "id": "raman_pet_1",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 0.313,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            630.354,
+            699.372,
+            853.719,
+            1117.29,
+            1173.08,
+            1285.43,
+            1613.55,
+            1721.49
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      },
+      {
+        "id": "raman_pet_3",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 0.234,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            260.87,
+            630.354,
+            699.372,
+            853.719,
+            1029.94,
+            1117.29,
+            1173.08,
+            1285.43,
+            1409.99,
+            1448.47,
+            1613.55,
+            1721.49
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      },
+      {
+        "id": "raman_pet_4",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 0.313,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            278.567,
+            630.354,
+            699.372,
+            791.936,
+            856.39,
+            993.576,
+            1091.74,
+            1114.74,
+            1183.16,
+            1290.37,
+            1414.81,
+            1458.04,
+            1613.55,
+            1726.03
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      }
+    ],
+    "median_build_seconds": 0.313
+  },
+  "live_agent_current": {
+    "mode": "live_agent_prepared_real_measurements",
+    "model": "deepseek-flash",
+    "cases": 9,
+    "cold_replays": 3,
+    "counts": {
+      "workflow_built": 9,
+      "method_contract": 9,
+      "execution": 9,
+      "repeatable": 9
+    },
+    "numeric_reference_passed": 9,
+    "expert_method_review": "not_collected; method_contract checks declared units, settings and method prerequisites",
+    "case_results": [
+      {
+        "id": "tensile_aluminum_2",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 44.5,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected": [
+            68119.86039255091,
+            221.58780714518537
+          ],
+          "reference": "closed_form_OLS_and_segment_intersection",
+          "instrument_summary": {
+            "modulus_MPa": 67307.936,
+            "yield_MPa": 221.912
+          },
+          "modulus_difference_from_instrument_percent": 1.2062833014979235
+        }
+      },
+      {
+        "id": "tensile_brass_2",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 33.578,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected": [
+            89191.76917138262,
+            248.58001812768447
+          ],
+          "reference": "closed_form_OLS_and_segment_intersection",
+          "instrument_summary": {
+            "modulus_MPa": 97929.791,
+            "yield_MPa": 245.573
+          },
+          "modulus_difference_from_instrument_percent": -8.92274122040899
+        }
+      },
+      {
+        "id": "tensile_1018_2",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 26.812,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected": [
+            150702.6968570054,
+            377.8651479985511
+          ],
+          "reference": "closed_form_OLS_and_segment_intersection",
+          "instrument_summary": {
+            "modulus_MPa": 163958.183,
+            "yield_MPa": 375.821
+          },
+          "modulus_difference_from_instrument_percent": -8.084674946046821
+        }
+      },
+      {
+        "id": "xrd_amethyst",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 31.219,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            20.68,
+            23.98,
+            26.62,
+            45.79,
+            50.14,
+            50.26,
+            68.35,
+            68.53,
+            75.67
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      },
+      {
+        "id": "xrd_graphite",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 29.562,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            13.06,
+            26.47,
+            44.53,
+            54.55
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      },
+      {
+        "id": "xrd_calcite",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 35.719,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            23.12,
+            29.48,
+            36.04,
+            39.48,
+            43.24,
+            47.6,
+            48.6,
+            57.48,
+            64.76
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      },
+      {
+        "id": "raman_pet_1",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 23.859,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            630.354,
+            699.372,
+            853.719,
+            1117.29,
+            1173.08,
+            1285.43,
+            1613.55,
+            1721.49
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      },
+      {
+        "id": "raman_pet_3",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 34.703,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            260.87,
+            630.354,
+            699.372,
+            853.719,
+            1029.94,
+            1117.29,
+            1173.08,
+            1285.43,
+            1409.99,
+            1448.47,
+            1613.55,
+            1721.49
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      },
+      {
+        "id": "raman_pet_4",
+        "workflow_built": true,
+        "method_contract": true,
+        "build_seconds": 32.687,
+        "execution": true,
+        "repeatable": true,
+        "numerical_reference": {
+          "passed": true,
+          "expected_peak_positions": [
+            278.567,
+            630.354,
+            699.372,
+            791.936,
+            856.39,
+            993.576,
+            1091.74,
+            1114.74,
+            1183.16,
+            1290.37,
+            1414.81,
+            1458.04,
+            1613.55,
+            1726.03
+          ],
+          "reference": "direct_local_maximum_and_topographic_prominence_definition"
+        }
+      }
+    ],
+    "median_build_seconds": 32.687
+  },
+  "analytic_engineering_reference": {
+    "mode": "scripted_tool_contract",
+    "model": "scripted-protocol-contract",
+    "cases": 9,
+    "passed": true,
+    "counts": {
+      "workflow_built": 9,
+      "method_contract": 9,
+      "execution": 9,
+      "numeric_reference": 9
+    },
+    "failures": []
+  },
+  "real_provider_cancellation": {
+    "model": "deepseek-flash",
+    "received_stream_before_cancel": true,
+    "cancel_status": "cancelled",
+    "cancel_ms": 94,
+    "next_status": "completed",
+    "late_completion_effects": 0
+  },
+  "browser_material_tasks": {
+    "passed": true,
+    "cases": [
+      {
+        "id": "tensile_aluminum_2",
+        "flow_id": "aaad54df-fdf3-4123-af74-b680558def41",
+        "artifacts": 3,
+        "passed": true
+      },
+      {
+        "id": "raman_pet_1",
+        "flow_id": "d0b0d94e-b518-4473-8713-9f5ca177b3f7",
+        "artifacts": 4,
+        "passed": true
+      },
+      {
+        "id": "xrd_graphite",
+        "flow_id": "8d53f3a8-5cd6-41e3-b1d9-a034392676df",
+        "artifacts": 4,
+        "passed": true
+      }
+    ],
+    "page_errors": [],
+    "model_calls": 0
+  },
+  "browser_existing_five_examples": {
+    "passed": true,
+    "cases": {
+      "ti64_tensile": {
+        "passed": true,
+        "flow_id": "c0c985a4-773c-4481-ab4f-913121517014",
+        "session_id": "76c244e8-c305-4216-9c03-51b47af0b200",
+        "artifacts": 3,
+        "plots": 1,
+        "reports": 1,
+        "source_sha256": "61797a436c0b43a0a63a70afd455e93fd04b0de3e2f7219d3c793bbd21be2c11"
+      },
+      "raman_spectra": {
+        "passed": true,
+        "flow_id": "cf210615-6bbe-4a52-b250-1380442b0822",
+        "session_id": "76c244e8-c305-4216-9c03-51b47af0b200",
+        "artifacts": 4,
+        "plots": 1,
+        "reports": 1,
+        "source_sha256": "9f8232c0fb7f2958130b540d7cf9220233fd995bc000f801258f264a07811dc4"
+      },
+      "material_contrast": {
+        "passed": true,
+        "flow_id": "6f8a7fe1-fc64-4a37-8282-1d226dae7d3c",
+        "session_id": "76c244e8-c305-4216-9c03-51b47af0b200",
+        "artifacts": 5,
+        "plots": 1,
+        "reports": 1,
+        "source_sha256": "34d583b6aa2803cb378afb0f6293cc9d4f256598ccbbe7e67454c0f632075075"
+      },
+      "zirconia_xrd": {
+        "passed": true,
+        "flow_id": "4b4b6d22-e220-43fa-bc64-c3a3ea48456a",
+        "session_id": "76c244e8-c305-4216-9c03-51b47af0b200",
+        "artifacts": 3,
+        "plots": 1,
+        "reports": 1,
+        "source_sha256": "e8e70be1a20e1bdc9ffeca4ee8874f024240538f5698916024f516466fa45ffb"
+      },
+      "battery_cycle": {
+        "passed": true,
+        "flow_id": "f2ed4de9-b028-4e14-aa07-5a6e52204000",
+        "session_id": "76c244e8-c305-4216-9c03-51b47af0b200",
+        "artifacts": 5,
+        "plots": 2,
+        "reports": 1,
+        "source_sha256": "20d3ca71f1bd3133ac77924a6cf034a5606d048276738f1ca3271c09e47d94ff"
+      }
+    },
+    "model_calls": 0,
+    "json_typed": false,
+    "page_errors": [],
+    "api_errors": [],
+    "repeat_run_notified": true
+  },
+  "wheel": {
+    "verification_passed": true,
+    "components": 70,
+    "instrument_files_verified_and_compiled": 9
+  },
+  "preserved_development_runs": {
+    "initial_real_instruments": {
+      "mode": "live_agent_prepared_real_measurements",
+      "model": "deepseek-flash",
+      "cases": 9,
+      "cold_replays": 3,
+      "counts": {
+        "workflow_built": 7,
+        "method_contract": 7,
+        "execution": 6,
+        "repeatable": 6
+      },
+      "numeric_reference_passed": 6,
+      "expert_method_review": "not_collected; method_contract checks declared units, settings and method prerequisites",
+      "case_results": [
+        {
+          "id": "tensile_aluminum_2",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 66.64,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected": [
+              68119.86039255091,
+              221.58780714518537
+            ],
+            "reference": "closed_form_OLS_and_segment_intersection",
+            "instrument_summary": {
+              "modulus_MPa": 67307.936,
+              "yield_MPa": 221.912
+            },
+            "modulus_difference_from_instrument_percent": 1.2062833014979235
+          }
+        },
+        {
+          "id": "tensile_brass_2",
+          "workflow_built": false,
+          "method_contract": false,
+          "error_type": "ValueError",
+          "error": "Model returned invalid strict JSON",
+          "build_seconds": 49.641,
+          "execution": false,
+          "repeatable": false,
+          "numerical_reference": {
+            "passed": false
+          }
+        },
+        {
+          "id": "tensile_1018_2",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 77.25,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected": [
+              150702.6968570054,
+              377.8651479985511
+            ],
+            "reference": "closed_form_OLS_and_segment_intersection",
+            "instrument_summary": {
+              "modulus_MPa": 163958.183,
+              "yield_MPa": 375.821
+            },
+            "modulus_difference_from_instrument_percent": -8.084674946046821
+          }
+        },
+        {
+          "id": "xrd_amethyst",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 67.484,
+          "execution": false,
+          "repeatable": false,
+          "numerical_reference": {
+            "passed": false
+          }
+        },
+        {
+          "id": "xrd_graphite",
+          "workflow_built": false,
+          "method_contract": false,
+          "error_type": "ValueError",
+          "error": "Model returned invalid strict JSON",
+          "build_seconds": 51.782,
+          "execution": false,
+          "repeatable": false,
+          "numerical_reference": {
+            "passed": false
+          }
+        },
+        {
+          "id": "xrd_calcite",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 61.937,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              23.12,
+              29.48,
+              36.04,
+              39.48,
+              43.24,
+              47.6,
+              48.6,
+              57.48,
+              64.76
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        },
+        {
+          "id": "raman_pet_1",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 90.64,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              630.354,
+              699.372,
+              853.719,
+              1117.29,
+              1173.08,
+              1285.43,
+              1613.55,
+              1721.49
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        },
+        {
+          "id": "raman_pet_3",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 61.985,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              260.87,
+              630.354,
+              699.372,
+              853.719,
+              1029.94,
+              1117.29,
+              1173.08,
+              1285.43,
+              1409.99,
+              1448.47,
+              1613.55,
+              1721.49
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        },
+        {
+          "id": "raman_pet_4",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 75.593,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              278.567,
+              630.354,
+              699.372,
+              791.936,
+              856.39,
+              993.576,
+              1091.74,
+              1114.74,
+              1183.16,
+              1290.37,
+              1414.81,
+              1458.04,
+              1613.55,
+              1726.03
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        }
+      ],
+      "median_build_seconds": 66.64
+    },
+    "protocol_preferred_model_run": {
+      "mode": "live_agent_prepared_real_measurements",
+      "model": "deepseek-flash",
+      "cases": 9,
+      "cold_replays": 3,
+      "counts": {
+        "workflow_built": 9,
+        "method_contract": 9,
+        "execution": 9,
+        "repeatable": 9
+      },
+      "numeric_reference_passed": 9,
+      "expert_method_review": "not_collected; method_contract checks declared units, settings and method prerequisites",
+      "case_results": [
+        {
+          "id": "tensile_aluminum_2",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 86.031,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected": [
+              68119.86039255091,
+              221.58780714518537
+            ],
+            "reference": "closed_form_OLS_and_segment_intersection",
+            "instrument_summary": {
+              "modulus_MPa": 67307.936,
+              "yield_MPa": 221.912
+            },
+            "modulus_difference_from_instrument_percent": 1.2062833014979235
+          }
+        },
+        {
+          "id": "tensile_brass_2",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 71.563,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected": [
+              89191.76917138262,
+              248.58001812768447
+            ],
+            "reference": "closed_form_OLS_and_segment_intersection",
+            "instrument_summary": {
+              "modulus_MPa": 97929.791,
+              "yield_MPa": 245.573
+            },
+            "modulus_difference_from_instrument_percent": -8.92274122040899
+          }
+        },
+        {
+          "id": "tensile_1018_2",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 78.265,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected": [
+              150702.6968570054,
+              377.8651479985511
+            ],
+            "reference": "closed_form_OLS_and_segment_intersection",
+            "instrument_summary": {
+              "modulus_MPa": 163958.183,
+              "yield_MPa": 375.821
+            },
+            "modulus_difference_from_instrument_percent": -8.084674946046821
+          }
+        },
+        {
+          "id": "xrd_amethyst",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 91.375,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              20.68,
+              23.98,
+              26.62,
+              45.79,
+              50.14,
+              50.26,
+              68.35,
+              68.53,
+              75.67
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        },
+        {
+          "id": "xrd_graphite",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 66.766,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              13.06,
+              26.47,
+              44.53,
+              54.55
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        },
+        {
+          "id": "xrd_calcite",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 62.734,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              23.12,
+              29.48,
+              36.04,
+              39.48,
+              43.24,
+              47.6,
+              48.6,
+              57.48,
+              64.76
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        },
+        {
+          "id": "raman_pet_1",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 50.25,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              630.354,
+              699.372,
+              853.719,
+              1117.29,
+              1173.08,
+              1285.43,
+              1613.55,
+              1721.49
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        },
+        {
+          "id": "raman_pet_3",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 50.672,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              260.87,
+              630.354,
+              699.372,
+              853.719,
+              1029.94,
+              1117.29,
+              1173.08,
+              1285.43,
+              1409.99,
+              1448.47,
+              1613.55,
+              1721.49
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        },
+        {
+          "id": "raman_pet_4",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 63.593,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              278.567,
+              630.354,
+              699.372,
+              791.936,
+              856.39,
+              993.576,
+              1091.74,
+              1114.74,
+              1183.16,
+              1290.37,
+              1414.81,
+              1458.04,
+              1613.55,
+              1726.03
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        }
+      ],
+      "median_build_seconds": 66.766
+    },
+    "generic_catalog_rerun_before_task_tool": {
+      "mode": "live_agent_prepared_real_measurements",
+      "model": "deepseek-flash",
+      "cases": 9,
+      "cold_replays": 3,
+      "counts": {
+        "workflow_built": 9,
+        "method_contract": 9,
+        "execution": 5,
+        "repeatable": 5
+      },
+      "numeric_reference_passed": 5,
+      "expert_method_review": "not_collected; method_contract checks declared units, settings and method prerequisites",
+      "case_results": [
+        {
+          "id": "tensile_aluminum_2",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 59.735,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected": [
+              68119.86039255091,
+              221.58780714518537
+            ],
+            "reference": "closed_form_OLS_and_segment_intersection",
+            "instrument_summary": {
+              "modulus_MPa": 67307.936,
+              "yield_MPa": 221.912
+            },
+            "modulus_difference_from_instrument_percent": 1.2062833014979235
+          }
+        },
+        {
+          "id": "tensile_brass_2",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 79.594,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected": [
+              89191.76917138262,
+              248.58001812768447
+            ],
+            "reference": "closed_form_OLS_and_segment_intersection",
+            "instrument_summary": {
+              "modulus_MPa": 97929.791,
+              "yield_MPa": 245.573
+            },
+            "modulus_difference_from_instrument_percent": -8.92274122040899
+          }
+        },
+        {
+          "id": "tensile_1018_2",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 52.453,
+          "execution": false,
+          "repeatable": false,
+          "numerical_reference": {
+            "passed": false
+          }
+        },
+        {
+          "id": "xrd_amethyst",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 58.312,
+          "execution": false,
+          "repeatable": false,
+          "numerical_reference": {
+            "passed": false
+          }
+        },
+        {
+          "id": "xrd_graphite",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 36.141,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              13.06,
+              26.47,
+              44.53,
+              54.55
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        },
+        {
+          "id": "xrd_calcite",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 51.578,
+          "execution": false,
+          "repeatable": false,
+          "numerical_reference": {
+            "passed": false
+          }
+        },
+        {
+          "id": "raman_pet_1",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 49.281,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              630.354,
+              699.372,
+              853.719,
+              1117.29,
+              1173.08,
+              1285.43,
+              1613.55,
+              1721.49
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        },
+        {
+          "id": "raman_pet_3",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 51.266,
+          "execution": true,
+          "repeatable": true,
+          "numerical_reference": {
+            "passed": true,
+            "expected_peak_positions": [
+              260.87,
+              630.354,
+              699.372,
+              853.719,
+              1029.94,
+              1117.29,
+              1173.08,
+              1285.43,
+              1409.99,
+              1448.47,
+              1613.55,
+              1721.49
+            ],
+            "reference": "direct_local_maximum_and_topographic_prominence_definition"
+          }
+        },
+        {
+          "id": "raman_pet_4",
+          "workflow_built": true,
+          "method_contract": true,
+          "build_seconds": 47.109,
+          "execution": false,
+          "repeatable": false,
+          "numerical_reference": {
+            "passed": false
+          }
+        }
+      ],
+      "median_build_seconds": 51.578
+    },
+    "synthetic_before_inactive_field_summary_fix": {
+      "mode": "live_model",
+      "model": "deepseek-flash",
+      "cases": 9,
+      "passed": false,
+      "counts": {
+        "workflow_built": 9,
+        "method_contract": 9,
+        "execution": 8,
+        "numeric_reference": 8
+      },
+      "failures": [
+        {
+          "task": "mechanics",
+          "trial": 0,
+          "error_type": "ComponentBuildError",
+          "error": "Error building Component 材料科学·光谱或衍射图: \n\ncolumns must contain unique string names"
+        }
+      ]
+    }
+  },
+  "evaluation_notes": [
+    "Reference mode imports original instrument bytes; live mode uses explicitly prepared real measurement tables.",
+    "Live testing includes every case in each recorded run, including unsuccessful cases; no best-of selection.",
+    "The generic-catalog rerun had two plot failures and two absent feature outputs in the requested run results.",
+    "A native cold replay process once exited with Windows access violation under concurrent testing without thread caps. Cold replays now use the same one-thread numerical library settings as the project launcher; the rerun is recorded separately.",
+    "Method contracts and condition tests are engineering checks. Independent expert scoring of scientific method selection has not yet been collected.",
+    "One 9-case success run does not establish a population success rate. Data hashes, fixed settings and reference comparisons are retained for inspection."
+  ],
+  "source_sha256": {
+    "src/materials_quality/__init__.py": "451934cc55be27a49acb338eed6d70782e4edc0346d4ae3a677b01394847177b",
+    "src/materials_quality/agent/__init__.py": "57c2563e6d729b3d56a00639c1503bc881c81fc673989719344ed9323544766f",
+    "src/materials_quality/agent/academic_search.py": "3efebe78e418409b3b04c4bd96159b8789bb5a452a513fd7629c4470e5dbf572",
+    "src/materials_quality/agent/data_inspection.py": "6a21dfc5a203990b4ac2442a8f800ec4286f8033ef654440a5c24af7933d04da",
+    "src/materials_quality/agent/demo_reference.py": "a092045f98a745108a82b88faabc526e06d74f83c906e168e6611654f4bb581d",
+    "src/materials_quality/agent/execution_context.py": "5f5975724f83dfd0b14cb5cde46c28ee07a7a31eb03f6f6a5fd9b9236a9c321e",
+    "src/materials_quality/agent/file_workflow_client.py": "31bd405577a1b2cfccb2ec355d4fbecc480ed88fcf07a620ed6acbf76f21b42b",
+    "src/materials_quality/agent/harness.py": "a80557c652b3f7d47e5ef2fc99772dabf467c078c4c78ee14e895ced4eb26ea4",
+    "src/materials_quality/agent/material_protocols.py": "6b8a91977b3bf9cc34c01c932bfaab70c3b0558ccb96193b4966e84b6a565648",
+    "src/materials_quality/agent/material_workbench.py": "fb4dc6098f240a459f299db86d3c867aa2113f9ecd8cdcf99eb6613b683395ae",
+    "src/materials_quality/agent/model.py": "78f4066313ec6710b78e7d059b20c72f084e8b8d3d0e2a2391d0c51dbfb554c0",
+    "src/materials_quality/agent/model_io.py": "18b2744af17b92bcdd958807c98b8607963a0f0df0b5f84568fa983055c6f5dc",
+    "src/materials_quality/agent/model_profiles.py": "ce9373ea52d404e021df79d650e2693ee3eb7b6d84122b4dfbf678b9d351ac44",
+    "src/materials_quality/agent/permissions.py": "f75f90bbc9cadd4b840e623dca8a0640e476623e8794a64fd2b586d864ad8a17",
+    "src/materials_quality/agent/reference_execution.py": "2ba0933bc96435a9e1377c0dedc6e612aed114820d1caa8715f22477acb875c0",
+    "src/materials_quality/agent/run_bundle.py": "5cba0b45e07af20ca3088bdc4998949c6fed78ab1a87b5c8dd89d8e7e36a7dc6",
+    "src/materials_quality/agent/server.py": "13b8ebca7b786289beffb2b4b2259f8350918bb0766c907cfa1342b820c3faba",
+    "src/materials_quality/agent/skill_registry.py": "446f0451a38732f4d3de24747d5fe68653fb3f56aa8dff66f7dfa558d800ef67",
+    "src/materials_quality/agent/skill_sandbox.py": "c0c679eaa656a9ef6271f67d3aba5505ee368d7c9b8a48b5092ebcd8de9d315a",
+    "src/materials_quality/agent/store.py": "75c6cf7591314f73eee50e1531fb47ea619e8c27aba5587257335026c3a61d57",
+    "src/materials_quality/agent/task_api.py": "d3a406592a9153d196f496e558d2fbdb33f17ccb3ff7428d323c76a084a2ce5a",
+    "src/materials_quality/agent/tasks.py": "979f741c196d51ca9879fe7c8234e7541aa9ae0ba7f9477e03575d830e65369b",
+    "src/materials_quality/agent/uploads.py": "2432929083198ea236a7986e3a3f76a8acd0da8103c9cf5aeb09e34f8cbe66d1",
+    "src/materials_quality/agent/workbench.py": "8c672c38b2ff681e9c421005e1d70eca43416491dff004b941e5495aa899e1ac",
+    "src/materials_quality/agent/workflow.py": "2d2ea85f30534703d950d26365b0a0397bf2eed2b8b94904554ae6584756b8bc",
+    "src/materials_quality/agent/workflow_api.py": "bc2f3f075200afcccb9fbad92c6d4ba8fc0b002a7852af033bf8747740dbc6c8",
+    "src/materials_quality/agent/workflow_executor.py": "c7e2b597e88df49f1a54fb7d1f334b2321fc4a2a8b91109bf9651583f6f4b3bf",
+    "src/materials_quality/agent/workflow_files.py": "2d8dd6abbcddce1d37ce50a52304fc5d06b9ef8c38933905ecdd748283bf62fc",
+    "src/materials_quality/agent/workflow_host.py": "7c08925ab7f86684d03e705c9d9f6e1573c6b1050e8b0c24dd8e0d4b34144cbd",
+    "src/materials_quality/aggregate.py": "38a21b0480a758a1445b6e79bb3a50dee0f0d22a8ccc4128e072259040cfaec1",
+    "src/materials_quality/batch/__init__.py": "688824947daff0d756d5c403fc67e91d97bac7390e0699f6013e5800b448301b",
+    "src/materials_quality/batch/execution.py": "26b3c575abf169480fa8ab1560b4fdc2e96f29ff16cb6123047b8cb2c3883001",
+    "src/materials_quality/batch/native.py": "0475ffb9c9e12df4e93ae1d145c877bf04db6e1d4da10cd80fee47632647f2a1",
+    "src/materials_quality/batch/packet.py": "61eb6841b5b0637997706a27bd568ff7496014dec984838d67f693dd49b9737f",
+    "src/materials_quality/batch/quality.py": "aa0557b77054efe2198d1087609e188f54a0f289e08977f0ac39055c1be02fc5",
+    "src/materials_quality/batch/source.py": "949f886565058df0238ef630dbd629ca2c8eb6578d2641974025046971364e1c",
+    "src/materials_quality/batch/summary.py": "af2968346d577797ad6335e1ab5201dc0b1322a4134e357476c01270a5f5e17d",
+    "src/materials_quality/checks.py": "809d59cbea673ae530de7e3705ffd9dc8d4408af54f4fe45bf71cfd02d3f2d30",
+    "src/materials_quality/common.py": "a2ff737373cbbf3899ec88de5a6eb9b6327fa0ec9cc8692c363eb6b5605a3a19",
+    "src/materials_quality/component_manifest.py": "a977e043965ef3a799161cd106fb4900b7ecaa78cc11a0a82235fdadcef77bd9",
+    "src/materials_quality/context.py": "9f013768e0519d5fd4dc48ca04b562de51a076b7fbfddd90636fccb138d0f8ab",
+    "src/materials_quality/demos/__init__.py": "e46541f4499abc2884b4146f043c6b49c472a3b8ad8a42962afd062d9aef2e76",
+    "src/materials_quality/demos/catalog.py": "3eb79abb85fccc3794981376e660ace14facc24cab75ff913cca94bd614fdc73",
+    "src/materials_quality/demos/reference.py": "8fc0ce44b0f4bded2ac023dd585e001b51d1581db8a7126c5de9004060442657",
+    "src/materials_quality/evaluation/__init__.py": "2c19ec838105da9f6aa30c8b899a06a7c22b3026b629910144616d21e479c421",
+    "src/materials_quality/evaluation/design.py": "b476cc8d36c345e0dd23bac43f0b60658f681c707afffb68b5a5c4d0b4138443",
+    "src/materials_quality/evaluation/spectral.py": "8c2b48e4f1b53f6395936c38de692ff1327b35c44b28d668218627d04cb87303",
+    "src/materials_quality/langflow_support.py": "b3815eca7fa09a05b5f985727a29971773df614389bb69c671b1cdc6a276b5ac",
+    "src/materials_quality/material_examples/__init__.py": "45670be2508a6e84d67f7e6d4dfc517466fb77ba08925f18fc30a760e18c15cd",
+    "src/materials_quality/outliers.py": "fc659d54448d6fce0ac3759f841abffb6272dcf0eaee2839d78ddf350a8b5ae9",
+    "src/materials_quality/quality_extensions.py": "26b07e27492a11d9e52c27899065b0198699fbc4a85c88e1e97088b53483d3b2",
+    "src/materials_quality/quality_form_import.py": "7fe8fabfffda825cb0db0be33692fe95a57b3043525050d42bae86d609c9b321",
+    "src/materials_quality/quality_ui.py": "89fd962179d7b3c59057e5193536c1f2fdfcd361263862270815ee4a6497b0b2",
+    "src/materials_quality/science/__init__.py": "ee1051bccb56191233a0e635fddf3127a1315fc55652ca2d08b27a3360849fc8",
+    "src/materials_quality/science/analysis_plan.py": "3c48bd8fe1cb791dbb66ef47c59a8d7823f96fee44dd3eb5d9851bdf44eefde4",
+    "src/materials_quality/science/battery.py": "8ef99153c8dc2a4483b14ebdfc2596ab7e0525f7766997f9ab2bc2d71c2da9d4",
+    "src/materials_quality/science/calibration.py": "0afedc9f9856c8fa02e9e890f218d4f7646fc1ffb570f45cf7fd237f9fd15fcf",
+    "src/materials_quality/science/catalog.py": "befe71fd866a552fed24349c474d78a391c161f35acd33962ed18007d0070264",
+    "src/materials_quality/science/checkpoints.py": "0f3e2c08e1a2a8f9cb5b2a5bf09d2b76a2027bbe2d4116e4016d2ba8292fb3db",
+    "src/materials_quality/science/chemometrics.py": "bc338f932476b7461b345ee121f0ee8f4361302fbe903696e7084756104f9807",
+    "src/materials_quality/science/contracts.py": "9eecbaa2de2e131e71f5214bfa6708e93d76e0010eb77b996169dbba79aaf2b8",
+    "src/materials_quality/science/contrast_study.py": "6db8e4e9b3b9d01f07f3a2ca64f8c4c314f8e2b3515d5b322408af4a147d311d",
+    "src/materials_quality/science/electrical.py": "b5a6e6acab58d6cd9404848e666c1abfb6699f812d423bef4a9c5fd95ff1fc24",
+    "src/materials_quality/science/extract_nodes.py": "d10bfac8d1edfbe1d497367437d08c578d613656ab44ad14df577487bc23f384",
+    "src/materials_quality/science/features.py": "645e6f974d938f5bf3bb451d4e39f72cbac1c49d1cddae38f650d1da86117579",
+    "src/materials_quality/science/flow_migration.py": "3357ceb31b07d326fb867dc9fc624a04bb38cd70698cbe1f90ac24177fdb3bf4",
+    "src/materials_quality/science/grouped_stats.py": "40cc63975c356a9dc4153c11ebd1e2c6f335ceccc526684ec9d8a8aadd546684",
+    "src/materials_quality/science/image_batch.py": "3122dddca666634146bfbfd7ff1821c88364ab0a195be09ac4b1e61ba54e989c",
+    "src/materials_quality/science/instrument_arrays.py": "e25e09e598973116234da77003a816192c578c7294005c89938f04db9c3a0601",
+    "src/materials_quality/science/io_nodes.py": "ab1f45367e04a4615f98d8f7275910fc50d6ebf3b6fcebbafb13739edf068bdd",
+    "src/materials_quality/science/langflow_adapter.py": "2f5fe1cfa1b7e4b85cc2c1ad9de051e1c96c5aac25ea5e9c641ba1dc5233e894",
+    "src/materials_quality/science/lit_evidence.py": "740ff8ca7fa04e26d0bcbbfe09a0ada756d9d3bcd8a7f530bba27b24b23ece09",
+    "src/materials_quality/science/literature.py": "292dfef8ad5beb2ae22be6013c566f834333d1187511c3be58294bb20b9a48cd",
+    "src/materials_quality/science/material_tasks.py": "d8e4fa1a68dd05bae108ea8eefb4024448e16c34bd0ca798975b249c25b5a0de",
+    "src/materials_quality/science/materials.py": "1b2ef0da5ac3f9f11396c61bca2418218f84ba26273bd5eed3507ecdb83cdecd",
+    "src/materials_quality/science/materials_curves.py": "4b16bf234428f0d29bc2f806b7762b22c4586597672fcc7d79fdbb6cdc84fa71",
+    "src/materials_quality/science/materials_images.py": "d4a7bb95b89f9eda37603aefe8595b221df98558183c946c438b0cc3efd00bee",
+    "src/materials_quality/science/method_cards.py": "ef19327c3ee3260c9d9b07710216b280e3bc3c252fecde0dd201e47e6dc3970c",
+    "src/materials_quality/science/model_comparison.py": "686b07968ff5971bea101f7cbcd0fc2dc0267d339c16d0e053f80e6b65712d80",
+    "src/materials_quality/science/plot_style.py": "09aad404a1fef657934e242c7ef53bc4e579d84a4067fa797cb065d765682ace",
+    "src/materials_quality/science/preprocessing.py": "e903fa4eea5f880b76241999adab748e6428701d52cef9b651b3f8dfde65c411",
+    "src/materials_quality/science/research_plan.py": "afabc8f0f68e3371af8299fb924e8e89c45a6163c9014a1f807380468029396a",
+    "src/materials_quality/science/result_evidence.py": "0a8f5924c080d702d385ac1de400f029adcc262fae272f6b33170a9e34920e94",
+    "src/materials_quality/science/series_dynamics.py": "cfb0b3183f898f116e0af1d598a4988c9be397925d9db68aff06d147c6389956",
+    "src/materials_quality/science/spectrum_batch.py": "ffe2233cabda49e2fb6d20993a058a29fe76626db7ee3e23b18a07a3517ad5e8",
+    "src/materials_quality/science/statistics.py": "23c6aca1919c606a9063c0067bf62ebe261ce693cecb892b6fc59d56a44e3270",
+    "src/materials_quality/science/stats_models.py": "3096c95b0a4437c3e2857dd94a386e71018056be2ae69ca8daf8a49ff31152d7",
+    "src/materials_quality/science/table_contract.py": "948f0c3807e32bfb3be03aec2577596203f1543553a7fa72273dc227dec6e239",
+    "src/materials_quality/science/ui_config_import.py": "032181c5570c5386f01f938414f1a5c2ffb085ed62eb278d48f97e73857cc6ae",
+    "src/materials_quality/science/ui_schema.py": "bfa8d708b12ff31a3dc9a710727e9319d49ad93641f14ef7faa6f8df426afd54",
+    "src/materials_quality/science/ui_specs_chemometrics.py": "6ef83d3ffb3473b88b18f451282cb231b4f765c7d26ac0aac860f1c812a74be4",
+    "src/materials_quality/science/ui_specs_evidence.py": "b94e461a597d194d4403ce572cd490a7ab3e0f26e2ac5b83c6034d63f50fe567",
+    "src/materials_quality/science/ui_specs_io.py": "01c42415b3ab6a26e316f99f4f71ac1236346ce8cf4794952b5aca2cd74f4cdc",
+    "src/materials_quality/science/ui_specs_literature.py": "562210e84e299207a545b3ab553acf5643a451644dd31c19c05545ba2b2e2f0c",
+    "src/materials_quality/science/ui_specs_materials.py": "366fdcfdf817526dbc0359c493d6066cd497691251ccde363dc373dc7b2c4007",
+    "src/materials_quality/science/ui_specs_methods.py": "70c5c43cdd4144a6cda26a96e6a3e901a3fbef1598f1d9e7368384ea3b02e75d",
+    "src/materials_quality/science/ui_specs_preprocessing.py": "53ba3f1beed0c0e0a7700c9b5a83d120ce220228248f2d2f2b98f98c695e7f61",
+    "src/materials_quality/science/ui_specs_research_plan.py": "605ce99f93875d5e61070e1e8e22ad150cb44248f8dacbae17e26224e48e4cc7",
+    "src/materials_quality/science/ui_specs_statistics.py": "23be59a20905289109201642e9bb4b9633b2b99a1b2ee4ed30190b7c76fa973f",
+    "src/materials_quality/science/ui_specs_visualization.py": "9a16ca4aca3efe0b7276aa3ee8886608e6ae12f03dd98c7568507c54dc252d6d",
+    "src/materials_quality/science/ui_types.py": "a888cfc0b0cbebbccd3676c4237f087f4db8c3d4033fe21200369d74ad6e5e16",
+    "src/materials_quality/science/visualization.py": "c55a8f604a8f526c0dfe959cf3bdf1ef799ca1ea3e446e6134a75355a3959204",
+    "src/materials_quality/science/viz_report.py": "7a0eb631ea3f06ca97dc5892be7f3c4daded63b0f95dcbbd3b837164f6664c10",
+    "src/materials_quality/skills/__init__.py": "c0fba2cef1299787d198856030df659ef250a234b6c4b39c955c4abae1221c0e",
+    "src/materials_quality/skills/__main__.py": "654b175992f70c84eba7e87292ed2fe578f74122ad6411c6d31b3a2070bb00f2",
+    "src/materials_quality/skills/execution.py": "c7061d8472d626ef2c7a2ad147b6cc5256f8eb2f88f5476ef06277dcc5617147",
+    "src/materials_quality/skills/model.py": "5230397213ef5804588ab207bbef6df4f4397369c512e2a2176c696bdb2f0315",
+    "src/materials_quality/skills/native.py": "6858ac3ba5ecb6b6b4572232a6057c45570339f0f341fc6d2085ea0912695f4f",
+    "src/materials_quality/skills/planning.py": "162de53af140c1c8ffab17ef59ce760994b1b101671ef937786b971f702d9cf1",
+    "src/materials_quality/skills/registry.py": "a2f6f45c0ad8b1eb6046a77f5137aa18192135bd5ea1cbfaf36913a5c5181c90",
+    "src/materials_quality/skills/reporting.py": "69f03f7d463d346a099d5064495a378b8bc81d8e2824329832cd1047debb551c",
+    "src/materials_quality/skills/semantics.py": "ba579d7d7fcc0e25c43e905e35676f6e53659b8385e1e3bfd30985d3833aaad2",
+    "src/materials_quality/skills/spectral_study.py": "113ba9265653618bed2cb14c7073460b2078f755771970f3ea126bfd40bcf545",
+    "src/materials_quality/skills/tasks.py": "7d2774e35913dd07adb2c5dc9f93ad07de553177cddc524884968d6b433aad02",
+    "src/materials_quality/units.py": "c4c918296a98bdfb5fd8d4ab01bcca1d671e3e6506e9fd4d7073b6abed7c5ab5"
+  }
+}

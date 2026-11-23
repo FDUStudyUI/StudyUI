@@ -11,12 +11,14 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from .tasks import TaskCancelled, checkpoint
+from .model_io import transport_checkpoint as checkpoint
+from .tasks import TaskCancelled
 
 _MAX_RESPONSE_BYTES = 16_000_000
 _MAX_STREAM_LINE = 256_000
 _MAX_STREAM_TOOLS = 128
-_MODEL_REQUEST_ATTEMPTS = 6  # Initial request plus at least five retries.
+_MODEL_REQUEST_ATTEMPTS = 3  # All attempts share one wall-clock budget.
+MODEL_CALL_BUDGET_SECONDS = 90
 _RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0, 4.0, 8.0)
 
 # finish_reason values that mean the provider delivered the answer it was asked for.
@@ -99,6 +101,10 @@ class _RetryableModelResponse(ValueError):
 
 class _PermanentModelResponse(ValueError):
     """Provider-side stop that retrying the identical request cannot fix."""
+
+
+class ModelToolArgumentsError(ValueError):
+    """A finished response contains invalid arguments; none of its calls were executed."""
 
 
 def strict_json(text):
@@ -216,7 +222,10 @@ class ChatModel:
             checkpoint()
             request = Request(current_url, data=request_data, headers=headers)
             try:
-                with build_opener(_NoRedirect).open(request, timeout=self.timeout) as response:
+                with build_opener(_NoRedirect).open(request, timeout=min(self.timeout, 30)) as response:
+                    from .model_io import register_response
+
+                    register_response(response)
                     checkpoint()
                     content_type = getattr(response, "headers", {}).get("Content-Type", "")
                     if is_stream and ("text/event-stream" in content_type.lower() or not content_type):
@@ -230,6 +239,8 @@ class ChatModel:
                         try:
                             return _read_stream(response, emit)
                         except TaskCancelled:
+                            raise
+                        except ModelToolArgumentsError:
                             raise
                         except (_RetryableModelResponse, _PermanentModelResponse):
                             raise
@@ -302,6 +313,8 @@ class ChatModel:
                 ) from exc
             except _PermanentModelResponse as exc:
                 raise ValueError(str(exc)) from exc
+            except ModelToolArgumentsError:
+                raise
             except _InvalidStreamResponse as exc:
                 raise ValueError(str(exc)) from exc
             except (URLError, OSError, HTTPException) as exc:
@@ -355,6 +368,17 @@ class ChatModel:
             time.sleep(min(0.2, remaining))
 
     def complete(self, messages, tools, *, max_tokens=None, on_chunk=None):
+        from .model_io import run_model_io
+
+        return run_model_io(
+            lambda emit: self._complete(
+                messages, tools, max_tokens=max_tokens, on_chunk=emit if on_chunk else None
+            ),
+            on_chunk,
+            MODEL_CALL_BUDGET_SECONDS,
+        )
+
+    def _complete(self, messages, tools, *, max_tokens=None, on_chunk=None):
         # DeepSeek requires each previous assistant reasoning field when tools
         # are present. Older StudyUI sessions did not persist it; an empty field
         # represents unavailable historical reasoning, never invented text.
@@ -587,8 +611,13 @@ def _complete_tools(tools):
         if not call_id.strip() or call_id in ids or not fields["name"].strip():
             raise ValueError("Model stream tool call is missing a unique ID or function name")
         arguments = fields["arguments"]
-        if not isinstance(strict_json(arguments), dict):
-            raise ValueError("Model stream tool arguments must be a JSON object")
+        try:
+            if not isinstance(strict_json(arguments), dict):
+                raise ValueError("expected an object")
+        except ValueError as exc:
+            raise ModelToolArgumentsError(
+                "Model returned invalid tool argument JSON; no calls executed"
+            ) from exc
         calls.append(
             {
                 "id": call_id,

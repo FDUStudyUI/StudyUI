@@ -228,7 +228,7 @@ def _native_value(spec, value, native):
             for key, items in value.items()
         }
     if kind == "choice":
-        if value not in spec["choices"]:
+        if value not in spec["choices"] and not spec.get("combobox"):
             raise ValueError("unsupported choice")
         return str(value)
     if kind == "bool":

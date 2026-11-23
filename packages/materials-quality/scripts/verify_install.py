@@ -61,6 +61,15 @@ def main():
     demos = evaluate_demos()
     if not demos["passed"] or len(demos["cases"]) != 5:
         raise RuntimeError("Wheel demonstration data or reference workflows failed verification")
+    from materials_quality.material_examples import compile_example, examples, read_source
+
+    instruments = {}
+    for item in examples():
+        read_source(item["id"])
+        compiled = compile_example(item["id"])
+        instruments[item["id"]] = compiled["protocol"]["assessment"]["status"] == "ready"
+    if len(instruments) != 9 or not all(instruments.values()):
+        raise RuntimeError("Wheel original instrument sources or protocols failed verification")
     from materials_quality.agent.workbench import _batch_spectrum_form_class
 
     batch = _batch_spectrum_form_class()()
@@ -75,6 +84,7 @@ def main():
                 "components": count,
                 "flows": results,
                 "demo_references": {case["dataset_id"]: case["passed"] for case in demos["cases"]},
+                "instrument_protocols": instruments,
                 "batch_form_update": True,
             },
             ensure_ascii=False,

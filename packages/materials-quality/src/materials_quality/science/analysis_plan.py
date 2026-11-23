@@ -368,15 +368,29 @@ class AnalysisPlanRunner:
                 selected = getattr(primary, step["source_output"])
                 if selected is None:
                     raise ValueError(f"selected source_output {step['source_output']} is unavailable")
-                if op == "materials.batch_spectra":
-                    result = resolved[op](deepcopy(selected), config=deepcopy(step["config"]))
-                else:
-                    result = resolved[op](
+                from .checkpoints import invoke
+
+                def compute(
+                    op=op, selected=selected, step=step, primary=primary, dependency_tables=dependency_tables
+                ):
+                    if op == "materials.batch_spectra":
+                        return resolved[op](deepcopy(selected), config=deepcopy(step["config"]))
+                    return resolved[op](
                         deepcopy(selected),
                         config=deepcopy(step["config"]),
                         data=deepcopy(primary.data),
                         tables=deepcopy(dependency_tables),
                     )
+
+                result, disk_record = invoke(
+                    op,
+                    selected,
+                    step["config"],
+                    primary.data,
+                    dependency_tables,
+                    compute,
+                    dependencies=record.dependency_fingerprints,
+                )
                 if type(result) is not NodeResult or result.artifacts:
                     raise ValueError("pure operation must return an artifact-free NodeResult")
                 source_contract = read_contract(selected)
@@ -407,6 +421,10 @@ class AnalysisPlanRunner:
                     "scientific": deepcopy(result.data),
                 }
                 record.status = "success"
+                if disk_record and disk_record["status"] == "reused":
+                    record.status, record.reason = "reused", "persistent_checkpoint_match"
+                    executions -= 1
+                    reused += 1
                 if result.data.get("execution_status") in {"failed", "partial_failed", "skipped"}:
                     record.status = "failed"
                     record.diagnostics["error_type"] = "ScientificExecutionFailure"

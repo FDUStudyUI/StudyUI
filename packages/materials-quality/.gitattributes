@@ -1,1 +1,3 @@
 * text=auto eol=lf
+# Raw instrument sources retain their original encoding, whitespace and CRLF.
+src/materials_quality/material_examples/data/* -text -diff -merge

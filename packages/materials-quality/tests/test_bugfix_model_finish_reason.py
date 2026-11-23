@@ -165,7 +165,7 @@ def test_insufficient_system_resource_is_retried_without_duplicate_output(monkey
 
     assert result["content"] == "ok"
     assert len(requests) == 2
-    assert ("reset", {"attempt": 2, "max_attempts": 6}) in seen
+    assert ("reset", {"attempt": 2, "max_attempts": 3}) in seen
     assert [item for item in seen if item[0] == "content"] == [("content", "ok")]
 
 
@@ -180,8 +180,8 @@ def test_retryable_reason_exhaustion_reports_actionable_failure(monkeypatch):
     message = str(excinfo.value)
     assert message.startswith("Model request failed:")
     assert "insufficient_system_resource" in message
-    assert "6 attempts" in message
-    assert len(requests) == 6
+    assert "3 attempts" in message
+    assert len(requests) == 3
 
 
 def test_retryable_reason_after_partial_output_continues_without_retry(monkeypatch):

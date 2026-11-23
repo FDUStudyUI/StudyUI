@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from .contracts import NodeResult, artifact_path, require_table
+from .contracts import NodeResult, artifact_path, export_filename, require_table
 
 
 def _json_safe(value):
@@ -203,9 +203,7 @@ def build_report(table, c, data):
         content += "\n\n## Result table\n\n" + table_markdown + "\n\n## Figures\n\n"
         content += "\n\n".join(f"![{_md(f['caption'])}](data:image/png;base64,{f['data']})" for f in verified)
         extension = "md"
-    filename = c.get("filename", f"analysis-report.{extension}")
-    if Path(filename).suffix != "." + extension:
-        raise ValueError("report filename extension must match its format")
+    filename = export_filename(c.get("filename", f"analysis-report.{extension}"), extension)
     path = artifact_path({**c, "overwrite": False}, filename)
     path.write_text(content, encoding="utf-8")
     if path.read_text(encoding="utf-8") != content:

@@ -18,13 +18,20 @@ from .academic_search import PROVIDERS as RESEARCH_PROVIDERS
 from .academic_search import search as search_literature
 from .data_inspection import READ_DENIAL, authorized_file, inspect_file
 from .file_workflow_client import FileWorkflowClient
-from .model import DEFAULT_MAX_OUTPUT_TOKENS, ChatModel, normalize_reasoning_fields, strict_json
+from .material_protocols import PROTOCOL_SCHEMA, compile_material_protocol
+from .model import (
+    DEFAULT_MAX_OUTPUT_TOKENS,
+    ChatModel,
+    ModelToolArgumentsError,
+    normalize_reasoning_fields,
+    strict_json,
+)
 from .model_profiles import ModelProfiles
 from .permissions import PermissionStore, new_approval_id
 from .skill_registry import SkillRegistry
 from .skill_sandbox import SkillSandbox
 from .store import SessionStore
-from .tasks import TaskCancelled, checkpoint
+from .tasks import TaskCancelled, TaskDeadlineExceeded, checkpoint, task_budget
 from .workflow import (
     apply_actions,
     component_catalog_summary,
@@ -45,6 +52,19 @@ MAX_AUTO_SKILL_CONTEXT_CHARS = 36_000
 # A provider length cutoff can split one long answer; ask the model to continue
 # from the cut-off point at most this many times before returning partial text.
 MAX_TRUNCATED_CONTINUATIONS = 2
+
+
+def _verified_completion(state, text):
+    failures = state.get("operation_failures", {})
+    if failures:
+        state["task_status"] = "failed"
+        names = sorted({name for name, _ in failures})
+        return (
+            "尚未完成："
+            + "、".join(names)
+            + " 仍有失败步骤。已保存的工作流和产物保留；请查看步骤记录，调整后继续。"
+        )
+    return text
 
 
 def _normalized_usage(value):
@@ -552,7 +572,11 @@ TOOLS = [
     ),
     _tool(
         "build_workflow",
-        "Create one StudyUI JSON workflow in the current project. Use list_components once for canonical "
+        "Build custom multi-branch or advanced workflows. For standard mechanics, spectra or XRD "
+        "use build_material_workflow instead. Compatibility protocol input needs verified columns, "
+        "declared units and user-confirmed method parameters; omit actions. The program builds native forms "
+        "and connections. Ask for missing fit_range/yield_offset or baseline/prominence. "
+        "For other tasks create one StudyUI JSON workflow. Use list_components once for canonical "
         "types and ports, then place ALL nodes and connections in this single call. Exact forms: "
         "{op:'add_node',node_id:'raw',component_type:'ScienceIoInstrumentImport',config:{cfg_path:'...'}} "
         "and {op:'connect',source:'raw',output:'table',target:'analysis',input:'input_table'}. Only use "
@@ -563,6 +587,7 @@ TOOLS = [
             "name": {"type": "string", "minLength": 1, "maxLength": 160},
             "description": {"type": "string", "maxLength": 2000},
             "rationale": {"type": "string", "minLength": 1, "maxLength": 2000},
+            "protocol": PROTOCOL_SCHEMA,
             "actions": {
                 "type": "array",
                 "minItems": 1,
@@ -573,7 +598,21 @@ TOOLS = [
                 "items": GRAPH_ACTION_SCHEMA,
             },
         },
-        ["name", "rationale", "actions"],
+        ["name", "rationale"],
+    ),
+    _tool(
+        "build_material_workflow",
+        "Create a complete editable single-curve materials workflow: mechanics, spectra or XRD. "
+        "Use this task-level tool for these three standard analyses instead of assembling individual nodes. "
+        "Provide actual columns, declared units and confirmed method parameters. It validates the input "
+        "and creates import, analysis, plots, features and HTML report without running them. "
+        "Ask for missing fit_range/yield_offset or baseline/prominence. No component lookup is needed.",
+        {
+            "name": {"type": "string", "minLength": 1, "maxLength": 160},
+            "rationale": {"type": "string", "minLength": 1, "maxLength": 2000},
+            "protocol": PROTOCOL_SCHEMA,
+        },
+        ["name", "rationale", "protocol"],
     ),
     _tool(
         "run_workflow",
@@ -812,6 +851,17 @@ class StudyUIAgent:
             "图操作必须严格使用 add_node={op,node_id,component_type,config}、connect={op,source,output,"
             "target,input}、"
             "set_node_config={op,node_id,config}。节点类型、端口和配置字段照搬目录；"
+            "典型单曲线建流调用 build_material_workflow：表格、Excel、数值 XY 仪器文件的"
+            "力学、光谱、XRD 在列名、单位及"
+            "方法参数已确认时，直接提交 task/path/x/y/x_unit/y_unit 和对应方法参数，"
+            "省去逐节点目录查询与 actions。标准任务不要绕过该工具手工拼图；"
+            "多分支、批量和其他自定义任务才使用 build_workflow 的 actions。"
+            "力学需要 fit_range/yield_offset；光谱和 XRD 需要 baseline/prominence；缺少时先询问。"
+            "协议编译器已验证输入并生成原生表单和连线；成功后无需重新手写同一流程。"
+            "若用户只要求创建保存，协议建流返回成功即可说明已保存、尚未运行并结束；"
+            "不为未启用的默认参数发起额外检查或修复。"
+            "节点概览可能包含当前方法未启用的默认字段，不得把未启用字段视为已配置的分析方法或据此反复修补。"
+            "超出协议范围的多曲线、仪器文件及自定义任务继续使用下面的 actions 方式。"
             "把全部节点与连线放进一次 build_workflow 调用，"
             "不要试探替代字段名或重复提交同一建流请求。建流后核对连线；用户明确要求运行时，运行并根据错误自主修正、复跑，"
             "不要对同一个错误无变化地重复尝试；不能确定的物理参数不要猜测。"
@@ -893,12 +943,19 @@ class StudyUIAgent:
             "existing_approval_ids": {item["id"] for item in self.store.pending_approvals(session_id)},
         }
         try:
-            return self._run_turn(
-                session_id,
-                user_text,
-                internal_context=internal_context,
-                on_progress=on_progress,
-            )
+            with task_budget():
+                return self._run_turn(
+                    session_id,
+                    user_text,
+                    internal_context=internal_context,
+                    on_progress=on_progress,
+                )
+        except TimeoutError as exc:
+            self._turn_state.value["task_status"] = "failed"
+            text = str(exc)
+            self.store.append_message(session_id, {"role": "assistant", "content": text})
+            self.store.append_event(session_id, "task_budget_exceeded", {"error_type": type(exc).__name__})
+            return self._turn_response(session_id, text)
         finally:
             try:
                 del self._turn_state.value
@@ -924,6 +981,11 @@ class StudyUIAgent:
             from .reference_execution import run_reference_canvas
 
             return run_reference_canvas(self, flow, session_id, on_progress=on_progress)
+
+        if flow.get("studyui_protocol") is not None:
+            from .material_workbench import run_canvas
+
+            return run_canvas(self, flow, session_id, on_progress=on_progress)
 
         has_ai = any(
             isinstance(node, dict) and node.get("data", {}).get("type") == "StudyUIAIAnalysis"
@@ -1184,7 +1246,9 @@ class StudyUIAgent:
                 ]
             )
         empty_replies = 0
+        repeated_failures = {}
         truncated_continues = 0
+        argument_repairs = 0
         time.time()
 
         profile = self.model_profiles.active()
@@ -1252,10 +1316,28 @@ class StudyUIAgent:
                 else:
                     response = self.model.complete(messages, TOOLS, max_tokens=output_limit)
             except ValueError as exc:
+                if isinstance(exc, ModelToolArgumentsError) and argument_repairs < 2:
+                    argument_repairs += 1
+                    messages.append(
+                        {
+                            "role": "system",
+                            "content": (
+                                "刚才的工具参数不是有效 JSON，该响应中的工具均未执行。"
+                                "请重新输出完整 JSON 对象；"
+                                "从上一个已完成步骤继续，不要重复创建或运行已成功完成的工作流。"
+                            ),
+                        }
+                    )
+                    self.store.append_event(
+                        session_id, "model_arguments_repair", {"attempt": argument_repairs}
+                    )
+                    emit("model_retry", {"reason": "tool_argument_json", "attempt": argument_repairs})
+                    continue
                 if not str(exc).startswith(("Model request failed:", "Model service returned HTTP")):
-                    raise
+                    if not isinstance(exc, ModelToolArgumentsError):
+                        raise
                 text = (
-                    "模型服务请求失败（已重试 5 次，共请求 6 次，现已停止）；"
+                    "模型服务请求失败，现已停止；"
                     "已保存的工作流、执行记录和附件仍在当前项目中。请检查模型配置或稍后继续本次会话。"
                 )
                 self.store.append_message(session_id, {"role": "assistant", "content": text})
@@ -1400,6 +1482,9 @@ class StudyUIAgent:
                 "role": "assistant",
                 "content": response.get("content") or "",
             }
+            if not tool_calls:
+                response["content"] = _verified_completion(state, assistant_message["content"])
+                assistant_message["content"] = response["content"]
             if isinstance(response.get("reasoning_content"), str):
                 assistant_message["reasoning_content"] = response["reasoning_content"]
             if tool_calls:
@@ -1494,7 +1579,33 @@ class StudyUIAgent:
                         "not_run",
                         "failed",
                         "not_deleted",
+                        "not_created",
+                        "needs_input",
                     }
+                    failure_name = "build_workflow" if name == "build_material_workflow" else name
+                    operation_key = (failure_name, str(args.get("flow_id") or args.get("name") or ""))
+                    if (
+                        name
+                        in {
+                            "build_workflow",
+                            "build_material_workflow",
+                            "propose_workflow_changes",
+                            "run_workflow",
+                            "write_research_report",
+                        }
+                        and not approval_pending
+                    ):
+                        failures = state.setdefault("operation_failures", {})
+                        if operation_ok:
+                            failures.pop(operation_key, None)
+                            # Malformed arguments may fail before a target can be identified.
+                            failures.pop((failure_name, ""), None)
+                        else:
+                            failures[operation_key] = True
+                    if operation_ok:
+                        repeated_failures.pop(
+                            (name, json.dumps(args, sort_keys=True, ensure_ascii=False)), None
+                        )
                     self.store.append_event(
                         session_id,
                         "tool_call",
@@ -1545,9 +1656,20 @@ class StudyUIAgent:
                     state.setdefault("tool_steps", []).append(step_item)
                     emit("tool_end", {"step": step_item})
 
-                except TaskCancelled:
+                except (TaskCancelled, TaskDeadlineExceeded):
                     raise
                 except Exception as exc:
+                    if name in {
+                        "build_workflow",
+                        "build_material_workflow",
+                        "propose_workflow_changes",
+                        "run_workflow",
+                        "write_research_report",
+                    }:
+                        safe_args = args if isinstance(args, dict) else {}
+                        target = str(safe_args.get("flow_id") or safe_args.get("name") or "")
+                        failure_name = "build_workflow" if name == "build_material_workflow" else name
+                        state.setdefault("operation_failures", {})[(failure_name, target)] = True
                     duration_ms = max(1, int((time.time() - t0) * 1000))
                     step_item = {
                         "id": call_id,
@@ -1586,6 +1708,11 @@ class StudyUIAgent:
                     if self_healing.get("workflow_diagnostic"):
                         err_payload["workflow_diagnostic"] = self_healing["workflow_diagnostic"]
                     tool_content = json.dumps(err_payload, ensure_ascii=False)
+                    failure_key = (name, json.dumps(args, sort_keys=True, ensure_ascii=False))
+                    if not budget_exhausted:
+                        repeated_failures[failure_key] = repeated_failures.get(failure_key, 0) + 1
+                    if repeated_failures.get(failure_key, 0) >= 3:
+                        state["repeated_failure"] = True
                     self.store.append_event(
                         session_id,
                         "tool_call",
@@ -1599,6 +1726,25 @@ class StudyUIAgent:
                 }
                 self.store.append_message(session_id, tool_message)
                 messages.append(tool_message)
+                if state.get("repeated_failure"):
+                    for deferred_call in tool_calls[call_index + 1 :]:
+                        deferred_message = {
+                            "role": "tool",
+                            "tool_call_id": str(deferred_call.get("id", "")),
+                            "name": deferred_call.get("function", {}).get("name") or "unknown",
+                            "content": json.dumps(
+                                {"status": "not_run", "reason": "前序工具重复失败，任务已停止。"},
+                                ensure_ascii=False,
+                            ),
+                        }
+                        self.store.append_message(session_id, deferred_message)
+                        messages.append(deferred_message)
+                    state["task_status"] = "failed"
+                    text = "同一工具和参数已重复失败三次，已停止循环；请查看失败步骤并调整参数后继续。"
+                    self.store.append_message(session_id, {"role": "assistant", "content": text})
+                    turn_res = self._turn_response(session_id, text, existing_artifact_ids)
+                    emit("done", {"result": turn_res})
+                    return turn_res
                 if approval_pending:
                     for deferred_call in tool_calls[call_index + 1 :]:
                         deferred_id = str(deferred_call.get("id", ""))
@@ -1653,26 +1799,8 @@ class StudyUIAgent:
         state["task_status"] = "failed"
         if getattr(self._turn_state, "value", {}).get("tool_calls", 0) >= MAX_TOOL_CALLS_PER_TURN:
             final = "本轮工具调用总量已达上限；已完成的检索、工作流改动和运行记录均已保留。"
-        try:
-            summary = self.model.complete(
-                messages
-                + [
-                    {
-                        "role": "system",
-                        "content": (
-                            "工具调用轮数已到上限。现在只依据已有工具结果总结已完成的操作、运行结果、"
-                            "失败和待办；不要要求或尝试新工具调用，不得猜测工具未返回的数值。"
-                        ),
-                    }
-                ],
-                [],
-                max_tokens=getattr(self.model, "max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS),
-            )
-            content = summary.get("content") if isinstance(summary, dict) else None
-            if isinstance(content, str) and content.strip():
-                final += "\n\n" + content.strip()
-        except Exception:
-            pass
+        steps = state.get("tool_steps", [])
+        final += f"\n已记录 {len(steps)} 个工具步骤，成功 {sum(bool(s.get('ok')) for s in steps)} 个。"
         self.store.append_message(session_id, {"role": "assistant", "content": final})
         self.store.append_event(session_id, "assistant_message", {"tool_round_limit_reached": True})
         turn_res = self._turn_response(session_id, final)
@@ -1823,6 +1951,10 @@ class StudyUIAgent:
             and approved_exec.get("tool") == name
             and approved_exec.get("args") == args
         )
+        if name == "build_material_workflow":
+            if "protocol" not in args or "actions" in args:
+                raise ValueError("材料任务需要 protocol；自定义图请使用 build_workflow。")
+            name = "build_workflow"
         if name == "recommend_analysis_methods":
             from materials_quality.science.method_cards import recommend_methods
 
@@ -2024,6 +2156,17 @@ class StudyUIAgent:
         if name == "build_workflow":
             if not is_approved and not self._session_task_intent(session_id, user_text, "build"):
                 return {"status": "not_created", "reason": "请先明确要求创建或搭建工作流。"}
+            approved_empty_canvas = is_approved and args.get("actions") == []
+            if "protocol" not in args and not args.get("actions") and not approved_empty_canvas:
+                raise ValueError("请提供 protocol 或非空 actions；不会将空白流程标记为分析流程已创建。")
+            compiled = None
+            if "protocol" in args:
+                if args.get("actions"):
+                    raise ValueError("protocol 和 actions 请选择一种建流方式。")
+                spec = args["protocol"]
+                self._authorized_research_file(session_id, spec.get("path"), user_text)
+                compiled = compile_material_protocol(spec)
+                args = {**args, "actions": compiled["actions"]}
             project_id = self._session_project(session_id)
             if not project_id:
                 projects = self.store.list_projects()
@@ -2052,6 +2195,8 @@ class StudyUIAgent:
             else:
                 candidate = flow
                 descriptions = ["创建初始工作流"]
+            if compiled:
+                candidate["studyui_protocol"] = compiled["protocol"]
             self.langflow.store.save(candidate, create_only=True)
             self.store.append_event(
                 session_id,
@@ -2065,6 +2210,12 @@ class StudyUIAgent:
                 "nodes": len(candidate["data"]["nodes"]),
                 "edges": len(candidate["data"]["edges"]),
                 "changes": descriptions,
+                "protocol": (
+                    {k: v for k, v in compiled["protocol"].items() if k != "assessment"}
+                    | {"method_checks": compiled["protocol"]["assessment"]["status"]}
+                    if compiled
+                    else None
+                ),
             }
         if name == "run_workflow":
             if not is_approved and not self._session_task_intent(session_id, user_text, "run"):
@@ -2542,6 +2693,7 @@ class StudyUIAgent:
             "list_components": "component.list",
             "propose_workflow_changes": "workflow.propose",
             "build_workflow": "workflow.create",
+            "build_material_workflow": "workflow.create",
             "run_workflow": "workflow.run",
             "delete_workflow": "workflow.delete",
             "list_pending_approvals": "approval.list",
@@ -2638,6 +2790,8 @@ class StudyUIAgent:
     def _authorize_tool(self, session_id, name, args, user_text):
         if name not in {row["function"]["name"] for row in TOOLS}:
             raise PermissionError("Tool is not registered")
+        if name == "build_material_workflow":
+            name = "build_workflow"
         if name == "list_pending_approvals":
             return {
                 "allowed": True,
@@ -3197,6 +3351,8 @@ class StudyUIAgent:
         old_ids = existing_artifact_ids or set()
         artifacts = [item for item in self.store.latest_artifacts(session_id) if item["id"] not in old_ids]
         state = getattr(self._turn_state, "value", {})
+        if state.get("task_status", "completed") == "completed":
+            text = _verified_completion(state, text)
         profile = self.model_profiles.active()
         model_display_name = (
             getattr(self.model, "model", None)
@@ -3222,6 +3378,10 @@ class StudyUIAgent:
             "usage_steps": list(state.get("usage_steps", [])),
             "model": model_display_name,
             "task_status": state.get("task_status", "completed"),
+            "verification": {
+                "unresolved_tools": sorted({name for name, _ in state.get("operation_failures", {})}),
+                "scope": "tool_execution_status",
+            },
         }
         response["task_pending_approvals"] = [
             item
@@ -3418,6 +3578,13 @@ def _redact_for_audit(value, key=""):
 
 
 def _approval_summary(name, args, reason):
+    if name in {"build_workflow", "build_material_workflow"} and args.get("protocol"):
+        return {
+            "title": f"创建材料工作流：{str(args.get('name', '材料分析'))[:120]}",
+            "impact": "按确认参数生成导入、分析、图表与报告节点；创建流程但不运行计算。",
+            "task": args["protocol"].get("task"),
+            "reason": reason,
+        }
     if name == "build_workflow":
         actions = args.get("actions", [])
         nodes = [

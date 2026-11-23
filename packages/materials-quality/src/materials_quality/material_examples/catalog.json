@@ -1,0 +1,350 @@
+[
+  {
+    "id": "tensile_aluminum_2",
+    "title": "铝合金引伸计拉伸",
+    "filename": "tensile_aluminum_2.xlsx",
+    "sha256": "7ca0c1e559304576c436594a7a3dd64f9b8e104a8356a6a49210fe3003e4f47c",
+    "bytes": 1066101,
+    "source": {
+      "doi": "10.5281/zenodo.19007867",
+      "url": "https://zenodo.org/records/19007867",
+      "title": "FAIR Train: tensile testing data",
+      "authors": [
+        "Brian, Schuster",
+        "Erwin, Cazares",
+        "Edgar, Tarin",
+        "Wodo, Olga"
+      ],
+      "license": "cc-by-4.0",
+      "original_member": "TensileTestProject/data/dataClass2025/rawData/aluminum_2_Crosshead_Extensometer_displacement_S20 50mm Gage Length ASTM E8 Metals Tension (Extensometer-Crosshead) 279- Test Run 1-Test Run 1.xlsx"
+    },
+    "protocol": {
+      "task": "mechanics",
+      "x": "strain",
+      "y": "stress",
+      "x_unit": "fraction",
+      "y_unit": "MPa",
+      "fit_range": [
+        0.0005,
+        0.001
+      ],
+      "yield_offset": 0.002,
+      "sort": true,
+      "import_options": {
+        "sheet": "Sheet2",
+        "header": 1
+      }
+    },
+    "preparation": {
+      "area_mm2": 41.3896,
+      "gauge_mm": 50.0,
+      "last_index": 4843,
+      "strain_range": [
+        0.0001,
+        0.015
+      ],
+      "force_column": "Load (N)",
+      "extension_column": "Extensometer (mm)"
+    },
+    "instrument_summary": {
+      "modulus_MPa": 67307.936,
+      "yield_MPa": 221.912
+    },
+    "scope": "按原表几何参数换算工程应力/应变；保留峰值载荷前且应变 0.0001–0.015 的点。固定拟合段 0.0005–0.001，用于选段敏感性与实现复核；另记录与原仪器自动汇总的差异。"
+  },
+  {
+    "id": "tensile_brass_2",
+    "title": "黄铜引伸计拉伸",
+    "filename": "tensile_brass_2.xlsx",
+    "sha256": "822c82ce800af5c829a401c670d40e1e5ba55dce10d5bb5ee9888e46f561b5ba",
+    "bytes": 1188870,
+    "source": {
+      "doi": "10.5281/zenodo.19007867",
+      "url": "https://zenodo.org/records/19007867",
+      "title": "FAIR Train: tensile testing data",
+      "authors": [
+        "Brian, Schuster",
+        "Erwin, Cazares",
+        "Edgar, Tarin",
+        "Wodo, Olga"
+      ],
+      "license": "cc-by-4.0",
+      "original_member": "TensileTestProject/data/dataClass2025/rawData/Brass_2_Crosshead_Extensometer_displacement_S20 50mm Gage Length ASTM E8 Metals Tension (Extensometer-Crosshead) 273- Test Run 1-Test Run 1.xlsx"
+    },
+    "protocol": {
+      "task": "mechanics",
+      "x": "strain",
+      "y": "stress",
+      "x_unit": "fraction",
+      "y_unit": "MPa",
+      "fit_range": [
+        0.0005,
+        0.001
+      ],
+      "yield_offset": 0.002,
+      "sort": true,
+      "import_options": {
+        "sheet": "Sheet2",
+        "header": 1
+      }
+    },
+    "preparation": {
+      "area_mm2": 43.0254,
+      "gauge_mm": 50.0,
+      "last_index": 6759,
+      "strain_range": [
+        0.0001,
+        0.015
+      ],
+      "force_column": "Load (N)",
+      "extension_column": "Extensometer (mm)"
+    },
+    "instrument_summary": {
+      "modulus_MPa": 97929.791,
+      "yield_MPa": 245.573
+    },
+    "scope": "按原表几何参数换算工程应力/应变；保留峰值载荷前且应变 0.0001–0.015 的点。固定拟合段 0.0005–0.001，用于选段敏感性与实现复核；另记录与原仪器自动汇总的差异。"
+  },
+  {
+    "id": "tensile_1018_2",
+    "title": "1018 钢引伸计拉伸",
+    "filename": "tensile_1018_2.xlsx",
+    "sha256": "4686dbc48e2f40971b8fddf30f7c55bbf883099b012cfbf0963d5c63da7b1c4d",
+    "bytes": 997708,
+    "source": {
+      "doi": "10.5281/zenodo.19007867",
+      "url": "https://zenodo.org/records/19007867",
+      "title": "FAIR Train: tensile testing data",
+      "authors": [
+        "Brian, Schuster",
+        "Erwin, Cazares",
+        "Edgar, Tarin",
+        "Wodo, Olga"
+      ],
+      "license": "cc-by-4.0",
+      "original_member": "TensileTestProject/data/dataClass2025/rawData/1018_2_Crosshead_Extensometer_displacement_S20 50mm Gage Length ASTM E8 Metals Tension (Extensometer-Crosshead) 281- Test Run 1-Test Run 1-Crosshead data.xlsx"
+    },
+    "protocol": {
+      "task": "mechanics",
+      "x": "strain",
+      "y": "stress",
+      "x_unit": "fraction",
+      "y_unit": "MPa",
+      "fit_range": [
+        0.0005,
+        0.001
+      ],
+      "yield_offset": 0.002,
+      "sort": true,
+      "import_options": {
+        "sheet": "Sheet2",
+        "header": 1
+      }
+    },
+    "preparation": {
+      "area_mm2": 45.36,
+      "gauge_mm": 50.0,
+      "last_index": 3295,
+      "strain_range": [
+        0.0001,
+        0.015
+      ],
+      "force_column": "Load (N)",
+      "extension_column": "Extensometer (mm)"
+    },
+    "instrument_summary": {
+      "modulus_MPa": 163958.183,
+      "yield_MPa": 375.821
+    },
+    "scope": "按原表几何参数换算工程应力/应变；保留峰值载荷前且应变 0.0001–0.015 的点。固定拟合段 0.0005–0.001，用于选段敏感性与实现复核；另记录与原仪器自动汇总的差异。"
+  },
+  {
+    "id": "xrd_amethyst",
+    "title": "紫水晶（石英）衍射",
+    "filename": "xrd_amethyst.dat",
+    "sha256": "6cbe8980b38047cb7bd34a3dbf3d09532f8d8e8d0652e26b5972bff29656bdbc",
+    "bytes": 30275,
+    "source": {
+      "doi": "10.5281/zenodo.20032690",
+      "url": "https://zenodo.org/records/20032690",
+      "title": "X-ray diffraction patterns of mineral phases: amethyst (quartz), graphite, and calcite",
+      "authors": [
+        "Jiménez-Vázquez, Adriana"
+      ],
+      "license": "cc-by-4.0",
+      "original_member": "Amethyst.dat"
+    },
+    "protocol": {
+      "task": "xrd",
+      "x": "x",
+      "y": "y",
+      "x_unit": "deg",
+      "y_unit": "a.u.",
+      "baseline": "none",
+      "prominence": 100
+    },
+    "scope": "Bruker D8 Advance、Cu Kα、10–90° 原始衍射。未标定绝对强度，按任意强度描述；候选峰不等于物相自动鉴定。"
+  },
+  {
+    "id": "xrd_graphite",
+    "title": "石墨衍射",
+    "filename": "xrd_graphite.dat",
+    "sha256": "5d5a1528ac4544ff5803340b3d6ca28852966105459d3bb87882823f86996ff1",
+    "bytes": 32480,
+    "source": {
+      "doi": "10.5281/zenodo.20032690",
+      "url": "https://zenodo.org/records/20032690",
+      "title": "X-ray diffraction patterns of mineral phases: amethyst (quartz), graphite, and calcite",
+      "authors": [
+        "Jiménez-Vázquez, Adriana"
+      ],
+      "license": "cc-by-4.0",
+      "original_member": "Graphite.dat"
+    },
+    "protocol": {
+      "task": "xrd",
+      "x": "x",
+      "y": "y",
+      "x_unit": "deg",
+      "y_unit": "a.u.",
+      "baseline": "none",
+      "prominence": 100
+    },
+    "scope": "Bruker D8 Advance、Cu Kα、10–90° 原始衍射。未标定绝对强度，按任意强度描述；候选峰不等于物相自动鉴定。"
+  },
+  {
+    "id": "xrd_calcite",
+    "title": "方解石衍射",
+    "filename": "xrd_calcite.dat",
+    "sha256": "d04ce690ab4a9344fba87b1c8f581f34c944ca5d3adbd321d19917938b0169f6",
+    "bytes": 23368,
+    "source": {
+      "doi": "10.5281/zenodo.20032690",
+      "url": "https://zenodo.org/records/20032690",
+      "title": "X-ray diffraction patterns of mineral phases: amethyst (quartz), graphite, and calcite",
+      "authors": [
+        "Jiménez-Vázquez, Adriana"
+      ],
+      "license": "cc-by-4.0",
+      "original_member": "Calcite.dat"
+    },
+    "protocol": {
+      "task": "xrd",
+      "x": "x",
+      "y": "y",
+      "x_unit": "deg",
+      "y_unit": "a.u.",
+      "baseline": "none",
+      "prominence": 100
+    },
+    "scope": "Bruker D8 Advance、Cu Kα、10–90° 原始衍射。未标定绝对强度，按任意强度描述；候选峰不等于物相自动鉴定。"
+  },
+  {
+    "id": "raman_pet_1",
+    "title": "PET 研磨样品",
+    "filename": "raman_pet_1.txt",
+    "sha256": "3c7e199f2a19e3a87a419f32b86f09d501460be1406a8defa2992f0f8bb83e2e",
+    "bytes": 15088,
+    "source": {
+      "doi": "10.5281/zenodo.20546300",
+      "url": "https://zenodo.org/records/20546300",
+      "title": "Raw Data: Raman Spectroscopy Enables Real-Time Identification and Monitoring of Plastic Biodegradation Metabolites",
+      "authors": [
+        "Pedari, Sydney",
+        "Hu, Yaxi",
+        "McMullin, David",
+        "Heidarian, Paul",
+        "Brady, Allyson",
+        "Grégoire, Daniel"
+      ],
+      "license": "cc-by-4.0",
+      "original_member": "RAMAN/Plastics for crystallinity/SAMPLE1_PET_Goodfellow_Ground_785_600_2.txt"
+    },
+    "protocol": {
+      "task": "spectra",
+      "x": "x",
+      "y": "y",
+      "x_unit": "cm^-1",
+      "y_unit": "counts",
+      "baseline": "none",
+      "prominence": 100,
+      "file_format": "xy",
+      "import_options": {
+        "encoding": "cp1252"
+      }
+    },
+    "scope": "XploRA Plus、785 nm 激发；保留仪器注释与原始 counts。描述峰位和曲线，不从三条样品曲线直接推断结晶度。"
+  },
+  {
+    "id": "raman_pet_3",
+    "title": "PET 无定形薄膜",
+    "filename": "raman_pet_3.txt",
+    "sha256": "eeda88675853b38ed716adb79dc7bd89364ca20e79d58d14b0d89c8c0982d039",
+    "bytes": 15050,
+    "source": {
+      "doi": "10.5281/zenodo.20546300",
+      "url": "https://zenodo.org/records/20546300",
+      "title": "Raw Data: Raman Spectroscopy Enables Real-Time Identification and Monitoring of Plastic Biodegradation Metabolites",
+      "authors": [
+        "Pedari, Sydney",
+        "Hu, Yaxi",
+        "McMullin, David",
+        "Heidarian, Paul",
+        "Brady, Allyson",
+        "Grégoire, Daniel"
+      ],
+      "license": "cc-by-4.0",
+      "original_member": "RAMAN/Plastics for crystallinity/SAMPLE3_PET_Goodfellow_amorphous_Film_785_600.txt"
+    },
+    "protocol": {
+      "task": "spectra",
+      "x": "x",
+      "y": "y",
+      "x_unit": "cm^-1",
+      "y_unit": "counts",
+      "baseline": "none",
+      "prominence": 100,
+      "file_format": "xy",
+      "import_options": {
+        "encoding": "cp1252"
+      }
+    },
+    "scope": "XploRA Plus、785 nm 激发；保留仪器注释与原始 counts。描述峰位和曲线，不从三条样品曲线直接推断结晶度。"
+  },
+  {
+    "id": "raman_pet_4",
+    "title": "PET 双轴取向薄膜",
+    "filename": "raman_pet_4.txt",
+    "sha256": "5a588c6b7c9af775064c9189b1a61af2226b7be9e1878d9ed1cc681bfd4936a0",
+    "bytes": 15080,
+    "source": {
+      "doi": "10.5281/zenodo.20546300",
+      "url": "https://zenodo.org/records/20546300",
+      "title": "Raw Data: Raman Spectroscopy Enables Real-Time Identification and Monitoring of Plastic Biodegradation Metabolites",
+      "authors": [
+        "Pedari, Sydney",
+        "Hu, Yaxi",
+        "McMullin, David",
+        "Heidarian, Paul",
+        "Brady, Allyson",
+        "Grégoire, Daniel"
+      ],
+      "license": "cc-by-4.0",
+      "original_member": "RAMAN/Plastics for crystallinity/SAMPLE4_PET_Goodfellow_biaxially-orientated_Film_785_600.txt"
+    },
+    "protocol": {
+      "task": "spectra",
+      "x": "x",
+      "y": "y",
+      "x_unit": "cm^-1",
+      "y_unit": "counts",
+      "baseline": "none",
+      "prominence": 100,
+      "file_format": "xy",
+      "import_options": {
+        "encoding": "cp1252"
+      }
+    },
+    "scope": "XploRA Plus、785 nm 激发；保留仪器注释与原始 counts。描述峰位和曲线，不从三条样品曲线直接推断结晶度。"
+  }
+]

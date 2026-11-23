@@ -136,6 +136,11 @@ def make_handler(harness, canvas_path, task_manager):
                 return self._send(200, {"skills": harness.skills.list()})
             if path == "/api/demo-datasets":
                 return self._send(200, {"datasets": DEMO_DATASETS})
+            if path == "/api/material-tasks":
+                from materials_quality.material_examples import examples
+                from materials_quality.science.material_tasks import task_catalog
+
+                return self._send(200, {"tasks": task_catalog(), "examples": examples()})
             if path == "/api/sessions":
                 return self._send(200, harness.store.list_sessions())
             if path == "/api/projects":
@@ -336,6 +341,32 @@ def make_handler(harness, canvas_path, task_manager):
                         },
                     )
                 data = self._body()
+                if path in {
+                    "/api/material-tasks/preview",
+                    "/api/material-tasks/check",
+                    "/api/material-tasks/build",
+                    "/api/material-tasks/example",
+                }:
+                    from . import material_workbench
+
+                    operation = path.rsplit("/", 1)[-1]
+                    spec = data.get("protocol") or {
+                        "path": data.get("path"),
+                        "import_options": data.get("import_options", {}),
+                        "file_format": data.get("file_format", "auto"),
+                        "id": data.get("id"),
+                    }
+                    try:
+                        result = task_manager.run_legacy(
+                            data.get("session_id"),
+                            getattr(material_workbench, operation),
+                            harness,
+                            data.get("session_id"),
+                            spec,
+                        )
+                        return self._send(201 if operation in {"build", "example"} else 200, result)
+                    except PermissionError as exc:
+                        return self._error(exc, 403)
                 if path == "/api/workspaces/register":
                     try:
                         workspace = harness.store.add_workspace(data.get("path", ""), data.get("name"))

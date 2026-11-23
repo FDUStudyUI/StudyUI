@@ -57,7 +57,12 @@ def test_file_executor_passes_json_to_lfx_without_http(tmp_path, monkeypatch):
     result = FileWorkflowExecutor(store).run(flow["id"], tweaks={"node": {"value": 1}})
     assert calls[0][0] == flow
     assert calls[0][1]["tweaks"] == {"node": {"value": 1}}
-    assert result == {"flow_id": flow["id"], "revision": revision, "outputs": [{"result": "ok"}]}
+    assert result == {
+        "flow_id": flow["id"],
+        "revision": revision,
+        "outputs": [{"result": "ok"}],
+        "checkpoints": [],
+    }
 
 
 def test_file_api_reads_edits_and_runs_without_login(tmp_path, monkeypatch):
@@ -449,3 +454,21 @@ def test_external_run_uses_the_checked_snapshot(tmp_path, monkeypatch):
         expected_project_id=original["folder_id"],
     )
     assert result["outputs"] == ["ok"]
+
+
+def test_history_preserves_updates_in_deep_project_directory(tmp_path):
+    import uuid
+
+    from materials_quality.agent.workflow_files import WorkflowFileStore
+
+    root = tmp_path
+    while len(str(root)) < 180:
+        root = root / "project-workspace"
+    store = WorkflowFileStore(root / "flows")
+    flow = {"id": str(uuid.uuid4()), "name": "before", "data": {"nodes": [], "edges": []}}
+    store.save(flow, create_only=True)
+    flow["name"] = "after"
+    store.save(flow)
+    assert store.history(flow["id"])[0]["name"] == "before"
+    store.restore(flow["id"], store.history(flow["id"])[0]["revision"])
+    assert store.read(flow["id"])[0]["name"] == "before"

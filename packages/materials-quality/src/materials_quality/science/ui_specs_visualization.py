@@ -344,7 +344,7 @@ SPECS = {
         field(
             "filename",
             "导出文件名",
-            info="可选简单文件名；CSV 须以 .csv 结尾，Excel 须以 .xlsx 结尾。留空自动选择 results.csv/xlsx。",
+            info="可选简单文件名；省略扩展名时按 CSV/Excel 自动补齐。留空使用 results.csv/xlsx。",
         ),
         field(
             "output_dir",
@@ -385,7 +385,7 @@ SPECS = {
         field(
             "filename",
             "报告文件名",
-            info="可选简单文件名；HTML 须为 .html，Markdown 须为 .md；留空自动使用 analysis-report.html/md。",
+            info="可选简单文件名；省略扩展名时按 HTML/Markdown 自动补齐。留空使用 analysis-report.html/md。",
         ),
         field(
             "output_dir",

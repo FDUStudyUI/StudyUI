@@ -3,7 +3,6 @@
 import hashlib
 import json
 from numbers import Integral
-from pathlib import Path
 
 import matplotlib
 
@@ -14,7 +13,7 @@ import pandas as pd
 from materials_quality.common import numeric
 from materials_quality.units import _unit
 
-from .contracts import NodeResult, artifact_path, numeric_matrix, require_table
+from .contracts import NodeResult, artifact_path, export_filename, numeric_matrix, require_table
 from .plot_style import PALETTE as _COLORS
 from .plot_style import figure as _figure
 from .plot_style import finish as _finish
@@ -766,9 +765,7 @@ def export_table(table=None, *, config=None, data=None, tables=None):
                     "use CSV or convert these values to text before export"
                 )
     extension = "csv" if format == "csv" else "xlsx"
-    filename = c.get("filename", f"results.{extension}")
-    if Path(filename).suffix.lower() != f".{extension}":
-        raise ValueError(f"filename must end in .{extension}")
+    filename = export_filename(c.get("filename", f"results.{extension}"), extension)
     # Export never overwrites a possibly raw file, even if a caller passes the
     # generic artifact overwrite option.
     path = artifact_path({**c, "overwrite": False}, filename)

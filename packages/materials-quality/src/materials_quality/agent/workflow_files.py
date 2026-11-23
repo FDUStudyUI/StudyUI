@@ -23,6 +23,18 @@ class WorkflowConflictError(ValueError):
     """The workflow was changed after the caller read it."""
 
 
+def _history_directory(path):
+    """Keep full revision hashes on Windows without the legacy MAX_PATH limit."""
+    if os.name != "nt":
+        return path
+    value = str(path.resolve())
+    if value.startswith("\\\\?\\"):
+        return Path(value)
+    if value.startswith("\\\\"):
+        return Path("\\\\?\\UNC\\" + value[2:])
+    return Path("\\\\?\\" + value)
+
+
 class WorkflowFileStore:
     def __init__(self, root: str | Path):
         self.root = Path(root).resolve()
@@ -97,7 +109,7 @@ class WorkflowFileStore:
 
     def _save_history(self, flow_id: str, raw: bytes):
         revision = self._revision(raw)
-        directory = self.root / ".history" / flow_id
+        directory = _history_directory(self.root / ".history" / flow_id)
         directory.mkdir(parents=True, exist_ok=True)
         if any(directory.glob(revision + "-*.json")):
             return
@@ -109,7 +121,7 @@ class WorkflowFileStore:
             os.fsync(out.fileno())
 
     def history(self, flow_id: str):
-        directory = self.root / ".history" / str(uuid.UUID(str(flow_id)))
+        directory = _history_directory(self.root / ".history" / str(uuid.UUID(str(flow_id))))
         if not directory.is_dir():
             return []
         rows = []
@@ -137,7 +149,7 @@ class WorkflowFileStore:
         if not isinstance(revision, str) or not re.fullmatch(r"[a-f0-9]{64}", revision):
             raise ValueError("Invalid workflow revision")
         flow_path = self._path(flow_id)
-        directory = self.root / ".history" / flow_path.stem
+        directory = _history_directory(self.root / ".history" / flow_path.stem)
         candidates = list(directory.glob(str(revision) + "-*.json")) if directory.is_dir() else []
         if len(candidates) != 1:
             raise FileNotFoundError("Workflow revision not found")

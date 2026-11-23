@@ -63,6 +63,17 @@ def read_path(config, data=None):
     return resolved
 
 
+def export_filename(filename, extension):
+    """Complete an omitted export suffix; keep explicit format conflicts visible."""
+    if not isinstance(filename, str) or Path(filename).name != filename or filename in {"", ".", ".."}:
+        raise ValueError("artifact filename must be a simple file name")
+    if not Path(filename).suffix:
+        return f"{filename}.{extension}"
+    if Path(filename).suffix.lower() != f".{extension}":
+        raise ValueError(f"filename must end in .{extension}")
+    return filename
+
+
 def artifact_path(config, filename):
     config = config or {}
     if not isinstance(filename, str) or Path(filename).name != filename or filename in {"", ".", ".."}:

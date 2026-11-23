@@ -300,7 +300,7 @@ def test_missing_inspect_path_names_the_actionable_fix(tmp_path):
         agent._dispatch(session, "inspect_research_file", {}, "读取数据文件")
 
 
-def test_executor_include_all_nodes_requests_debug_and_keeps_legacy_default(monkeypatch):
+def test_executor_include_all_nodes_requests_debug_and_keeps_legacy_default(monkeypatch, tmp_path):
     import lfx.load
 
     captured = {}
@@ -311,6 +311,7 @@ def test_executor_include_all_nodes_requests_debug_and_keeps_legacy_default(monk
 
     monkeypatch.setattr(lfx.load, "run_flow_from_json", fake_run_flow_from_json)
     store = _FlowStore({"id": "flow-1", "data": {"nodes": [], "edges": []}})
+    store.root = tmp_path
     executor = FileWorkflowExecutor(store)
 
     executor.run("flow-1", include_all_nodes=True)

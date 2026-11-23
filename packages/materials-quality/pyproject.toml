@@ -23,6 +23,7 @@ dev = ["pytest>=8,<10", "ruff==0.17.3", "build>=1.2"]
 ui-test = ["langflow-base==1.13.0", "playwright==1.64.1"]
 instruments = ["h5py>=3.10,<4", "netCDF4>=1.6,<2", "zarr>=2.18,<3"]
 science = [
+  "pyarrow>=19,<26",
   "scipy>=1.15,<1.16",
   "scikit-learn>=1.7,<1.8",
   "scikit-image>=0.25,<0.26",
