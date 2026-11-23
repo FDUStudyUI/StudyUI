@@ -190,6 +190,38 @@ def test_reference_error_keeps_picker_and_allows_retry(demo_browser):
     playwright.expect(picker).to_be_visible()
 
 
+def test_returning_to_same_workflow_keeps_canvas_document_and_pending_run(demo_browser):
+    page, _, _ = demo_browser
+    page.route(
+        "**/canvas/flow/**",
+        lambda route: route.fulfill(
+            status=200, content_type="text/html", body="<body>Pending canvas computation</body>"
+        ),
+    )
+    page.locator('#feed [data-demo-id="ti64_tensile"]').get_by_role("button", name="打开参考工作流").click()
+    playwright.expect(page.frame_locator("#flow-frame").locator("body")).to_contain_text(
+        "Pending canvas computation"
+    )
+    # A delayed sidebar refresh must not navigate the current iframe and destroy
+    # its pending task poller. Observe src writes, even if the URL is unchanged.
+    writes = page.evaluate(
+        """async () => {
+          const frame = document.querySelector('#flow-frame');
+          const writes = [];
+          const observer = new MutationObserver(items => writes.push(...items.map(i => i.attributeName)));
+          observer.observe(frame, {attributes:true, attributeFilter:['src']});
+          await openSession(active, {preserveCanvas:true});
+          showView('chat');
+          showView('flow');
+          await loadWorkflowList({autoSelect:true});
+          await new Promise(resolve => setTimeout(resolve, 0));
+          observer.disconnect();
+          return writes;
+        }"""
+    )
+    assert writes == []
+
+
 def test_fresh_start_reference_creates_project_and_preserves_ungrouped_chat(demo_browser):
     page, app, _ = demo_browser
     store = app.state.harness.store

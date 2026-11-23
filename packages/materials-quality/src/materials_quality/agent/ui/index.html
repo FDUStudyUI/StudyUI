@@ -5476,7 +5476,11 @@
             ),
           )[0];
         renderWorkflowList();
-        if (flow) openWorkflow(flow, { associate: !!active && !sessionWorkflowIds.includes(flow.id) });
+        if (flow)
+          openWorkflow(flow, {
+            associate: !!active && !sessionWorkflowIds.includes(flow.id),
+            reload: false,
+          });
       }
       async function loadWorkflowList({ autoSelect = false } = {}) {
         const generation = ++workflowLoadGeneration;
@@ -5528,7 +5532,7 @@
           }
         }
       }
-      function openWorkflow(flow, { associate = true } = {}) {
+      function openWorkflow(flow, { associate = true, reload = true } = {}) {
         if (!flow || !workflowAllowedInContext(flow)) {
           toast('只能打开与当前项目和对话关联的工作流');
           return;
@@ -5544,7 +5548,7 @@
           (flow.folder_id ? `/folder/${encodeURIComponent(flow.folder_id)}` : '');
         if (active) url.searchParams.set('studyui_session_id', active);
         else url.searchParams.delete('studyui_session_id');
-        frame.src = url.href;
+        if (reload || frame.src !== url.href) frame.src = url.href;
         area.classList.add('has-flow');
         updateStudyUrl({ workflowId: flow.id });
         renderWorkflowList();
@@ -6519,8 +6523,8 @@
         void loadWorkflowList({ autoSelect: isWorkflowViewVisible() });
       };
       const originalOpenSession = openSession;
-      openSession = async function (sessionId) {
-        const result = await originalOpenSession(sessionId);
+      openSession = async function (sessionId, options) {
+        const result = await originalOpenSession(sessionId, options);
         await syncQuickControls();
         return result;
       };

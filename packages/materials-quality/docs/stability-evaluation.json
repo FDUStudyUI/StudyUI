@@ -485,19 +485,19 @@
     "cases": [
       {
         "id": "tensile_aluminum_2",
-        "flow_id": "aaad54df-fdf3-4123-af74-b680558def41",
+        "flow_id": "fb45e6e2-4ebb-4727-b1ab-7689a1d18967",
         "artifacts": 3,
         "passed": true
       },
       {
         "id": "raman_pet_1",
-        "flow_id": "d0b0d94e-b518-4473-8713-9f5ca177b3f7",
+        "flow_id": "2b3dfa43-6e89-4bcc-b130-5f8706a0a1b4",
         "artifacts": 4,
         "passed": true
       },
       {
         "id": "xrd_graphite",
-        "flow_id": "8d53f3a8-5cd6-41e3-b1d9-a034392676df",
+        "flow_id": "311e9740-5222-4a36-9335-5487865bc65b",
         "artifacts": 4,
         "passed": true
       }
@@ -510,8 +510,8 @@
     "cases": {
       "ti64_tensile": {
         "passed": true,
-        "flow_id": "c0c985a4-773c-4481-ab4f-913121517014",
-        "session_id": "76c244e8-c305-4216-9c03-51b47af0b200",
+        "flow_id": "9075732e-1baa-40e6-b19a-1613c7701bc4",
+        "session_id": "a08ef6cf-103d-4c6c-89f8-05caed495cb9",
         "artifacts": 3,
         "plots": 1,
         "reports": 1,
@@ -519,8 +519,8 @@
       },
       "raman_spectra": {
         "passed": true,
-        "flow_id": "cf210615-6bbe-4a52-b250-1380442b0822",
-        "session_id": "76c244e8-c305-4216-9c03-51b47af0b200",
+        "flow_id": "334cf92f-6f89-4b02-9c53-66966cb040ac",
+        "session_id": "a08ef6cf-103d-4c6c-89f8-05caed495cb9",
         "artifacts": 4,
         "plots": 1,
         "reports": 1,
@@ -528,8 +528,8 @@
       },
       "material_contrast": {
         "passed": true,
-        "flow_id": "6f8a7fe1-fc64-4a37-8282-1d226dae7d3c",
-        "session_id": "76c244e8-c305-4216-9c03-51b47af0b200",
+        "flow_id": "27dead62-343d-4327-bb56-a4e405e19b31",
+        "session_id": "a08ef6cf-103d-4c6c-89f8-05caed495cb9",
         "artifacts": 5,
         "plots": 1,
         "reports": 1,
@@ -537,8 +537,8 @@
       },
       "zirconia_xrd": {
         "passed": true,
-        "flow_id": "4b4b6d22-e220-43fa-bc64-c3a3ea48456a",
-        "session_id": "76c244e8-c305-4216-9c03-51b47af0b200",
+        "flow_id": "9651bb4b-e3dc-42de-96ce-0b3a29c2b5e8",
+        "session_id": "a08ef6cf-103d-4c6c-89f8-05caed495cb9",
         "artifacts": 3,
         "plots": 1,
         "reports": 1,
@@ -546,8 +546,8 @@
       },
       "battery_cycle": {
         "passed": true,
-        "flow_id": "f2ed4de9-b028-4e14-aa07-5a6e52204000",
-        "session_id": "76c244e8-c305-4216-9c03-51b47af0b200",
+        "flow_id": "b0a4828a-4a17-4c78-aae0-9b49a51d4127",
+        "session_id": "a08ef6cf-103d-4c6c-89f8-05caed495cb9",
         "artifacts": 5,
         "plots": 2,
         "reports": 1,
@@ -1295,5 +1295,23 @@
     "src/materials_quality/skills/spectral_study.py": "113ba9265653618bed2cb14c7073460b2078f755771970f3ea126bfd40bcf545",
     "src/materials_quality/skills/tasks.py": "7d2774e35913dd07adb2c5dc9f93ad07de553177cddc524884968d6b433aad02",
     "src/materials_quality/units.py": "c4c918296a98bdfb5fd8d4ab01bcca1d671e3e6506e9fd4d7073b6abed7c5ab5"
+  },
+  "canvas_followup": {
+    "regression_reproduced_before_fix": true,
+    "related_browser_tests_passed": 14,
+    "issues": [
+      "The openSession wrapper dropped preserveCanvas options.",
+      "Returning to the same workflow reloaded the iframe and interrupted its pending task poller."
+    ],
+    "ci_first_attempt": {
+      "url": "https://github.com/FDUStudyUI/StudyUI/actions/runs/45158723187",
+      "test_job": "success",
+      "tests_passed": 1754,
+      "tests_skipped": 8,
+      "ui_job": "failed at second-run completion notification; retained as regression evidence"
+    },
+    "ui_html_sha256": "ac3919193ff58042f939b55ad5f352ca131449885d8b79ae38e0a6924f0d288c",
+    "wheel_includes_current_ui": true,
+    "wheel_sha256": "e74891ecb98c1d84e4bfe70d0bd77f0ef84ec7995a78ab7d85af9a2463ab65be"
   }
 }
