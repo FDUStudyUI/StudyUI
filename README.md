@@ -14,8 +14,8 @@ StudyUI 让研究者用自然语言描述研究目标、检查本地数据、检
 
 StudyUI 由三层组成：
 
-- **StudyUI Agent Harness**：项目会话、持久任务、流式进度、权限档位、一次性审批、调用审计、Skills 预检和受控工具调用。
-- **工作流画布与执行器**：基于 Langflow/LFX 的本地画布，保存为可恢复的 JSON 工作流；节点代码来自仓库登记的 StudyUI 组件。
+- **StudyUI Agent Harness**：项目会话、持久任务、流式进度、权限档位、一次性审批、调用审计、Skills 预检和受控工具调用。默认由 **DeepSeek Harness（DSH）官方 Python SDK** 引擎执行 agent 循环，支持会话恢复与原生工具审批；DSH 不可用时回退到内置 harness。
+- **工作流画布与执行器**：基于 LFX/LFX 的本地画布，保存为可恢复的 JSON 工作流；节点代码来自仓库登记的 StudyUI 组件。
 - **材料科学节点库**：覆盖数据接入、提取、预处理、质量检查、材料分析、统计建模、可视化和文献证据的 70 个组件。
 
 它面向“从原始数据到可复核结果”的完整链路：导入仪器或表格数据，检查单位、缺失值、重复和异常，执行确定性科学计算，生成图件与报告，并保留来源、哈希、参数和运行记录。
@@ -39,19 +39,19 @@ StudyUI 由三层组成：
 
 ### 工作流画布
 
-![StudyUI 工作流画布](packages/materials-quality/docs/science-mechanics-canvas.png)
+![StudyUI 工作流画布](materials-quality/docs/science-mechanics-canvas.png)
 
 参考工作流由已登记的导入、分析、绘图和报告节点组成。画布展示真实端口和连线；运行结果可回到会话，并附带表格、图件和报告。
 
 ### 原生节点表单
 
-![材料科学节点表单](packages/materials-quality/docs/node-ui-mechanics-form.png)
+![材料科学节点表单](materials-quality/docs/node-ui-mechanics-form.png)
 
 科学节点以原生表单暴露列映射、单位、拟合区间、分组、阈值和输出格式等参数。高级 JSON 仍然可用，但普通使用不要求手写 JSON。
 
 ### 质量规则与证据
 
-![质量规则与证据](packages/materials-quality/docs/node-ui-shared-rule-table.png)
+![质量规则与证据](materials-quality/docs/node-ui-shared-rule-table.png)
 
 质量检查节点把规则、发现、严重级别、来源和修复建议分开记录；报告区分数值观察、文献依据和待验证推测。
 
@@ -314,8 +314,7 @@ XRD、光谱、热分析、力学、SEM/EDS、显微结构和电学。
 
 | 项目 | 关系 |
 |---|---|
-| [Langflow](https://github.com/langflow-ai/langflow) | 工作流画布和组件运行时；StudyUI 复用其原生表单、端口和 LFX 执行模型。 |
-| [LFX](https://pypi.org/project/lfx/) | Langflow 的轻量执行运行时；StudyUI 的工作流执行器和画布依赖它。 |
+| [LFX](https://pypi.org/project/lfx/) | 工作流画布和组件运行时；StudyUI 复用其原生表单、端口和执行模型。 |
 | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | 对话呈现参考：紧凑工具行、逐轮 token 用量、上下文占用和增量渲染；许可见第三方说明。 |
 
 ### 核心依赖
@@ -328,16 +327,16 @@ XRD、光谱、热分析、力学、SEM/EDS、显微结构和电学。
 | 前端渲染 | [Markdown-It](https://github.com/markdown-it/markdown-it)、[KaTeX](https://github.com/KaTeX/KaTeX)、[DOMPurify](https://github.com/cure53/DOMPurify) |
 | 测试与工程 | [pytest](https://github.com/pytest-dev/pytest)、[Ruff](https://github.com/astral-sh/ruff)、[Playwright](https://github.com/microsoft/playwright) |
 
-学术检索连接到 Crossref、OpenAlex、Semantic Scholar、Europe PMC、DataCite 和 arXiv 的元数据接口；这些服务提供检索数据，不构成对论文全文或实验结论的获取。完整第三方许可见 [`THIRD_PARTY_NOTICES.md`](packages/materials-quality/THIRD_PARTY_NOTICES.md) 和 `agent/ui/assets/vendor/manifest.json`。
+学术检索连接到 Crossref、OpenAlex、Semantic Scholar、Europe PMC、DataCite 和 arXiv 的元数据接口；这些服务提供检索数据，不构成对论文全文或实验结论的获取。完整第三方许可见 [`THIRD_PARTY_NOTICES.md`](materials-quality/THIRD_PARTY_NOTICES.md) 和 `agent/ui/assets/vendor/manifest.json`。
 
 ## 开发与验证
 
 代码格式、检查命令和生成文件约定见[代码风格指南](docs/code-style.md)。
 
 ```powershell
-cd packages/materials-quality
+cd materials-quality
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[langflow,science,instruments,dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[canvas,science,instruments,dev]"
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
@@ -358,8 +357,9 @@ StudyUI/
 ├─ start_demo.bat / start_demo.sh       # 启动器
 ├─ scripts/                             # 启动、便携包构建和验收
 ├─ docs/                                # 产品、Harness、安全和演示文档
+│  └─ history/                          # 历史计划、参赛材料与修复日志
 ├─ demo_datasets/                       # 五个演示的原始数据
-├─ packages/materials-quality/
+├─ materials-quality/
 │  ├─ components/                       # 70 个登记节点
 │  ├─ src/materials_quality/
 │  │  ├─ agent/                         # Agent、任务、权限、API、UI
@@ -377,10 +377,20 @@ StudyUI/
 
 - [安装、运行与排障](docs/demo-launcher.md)
 - [Agent Harness：权限、审批、Skills 与数据边界](docs/agent-harness.md)
+- [Agent 引擎：DeepSeek Harness 与可靠性设计](docs/agent-reliability-dsh.md)
 - [Agent 可靠性与任务恢复](docs/agent-reliability.md)
 - [五个演示案例](docs/demo-five-cases.md)
 - [证据引导分析](docs/evidence-guided-analysis.md)
-- [材料节点包说明](packages/materials-quality/README.md)
-- [科学节点输入输出](packages/materials-quality/docs/science-io.md)
-- [科研可靠性指南](packages/materials-quality/docs/research-reliability.md)
-- [示例工作流索引](packages/materials-quality/examples/science_flows/README.md)
+- [材料节点包说明](materials-quality/README.md)
+- [科学节点输入输出](materials-quality/docs/science-io.md)
+- [科研可靠性指南](materials-quality/docs/research-reliability.md)
+- [示例工作流索引](materials-quality/examples/science_flows/README.md)
+
+## 许可证
+
+StudyUI 自有代码与文档采用 [PolyForm Noncommercial License 1.0.0](LICENSE)：允许个人研究、教学与非商业组织使用，**禁止商业使用**。商业授权请联系项目维护者。
+
+第三方组件保留各自许可（LFX/LFX、DeepSeek Harness 等），详见 [`THIRD_PARTY_NOTICES.md`](materials-quality/THIRD_PARTY_NOTICES.md) 与 `agent/ui/assets/vendor/manifest.json`。
+
+> 说明：`beta-demo` 及更早的发布版本按发布时的 MIT 许可分发，已获得的副本继续适用 MIT；本次变更适用于本仓库当前及后续版本。
+
