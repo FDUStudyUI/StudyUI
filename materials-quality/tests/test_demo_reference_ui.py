@@ -46,6 +46,8 @@ def demo_browser(demo_app):
                 errors = []
                 page.on("pageerror", lambda error: errors.append(str(error)))
                 page.goto(f"{base}/?session_id={session}")
+                # Wait for the page boot async init to finish populating session data
+                page.wait_for_function("() => allSessions.length > 0", timeout=5000)
                 yield page, app, session
                 assert errors == []
                 browser.close()
@@ -179,10 +181,10 @@ def test_reference_error_keeps_picker_and_allows_retry(demo_browser):
     page.locator("#demo-quick-btn").click()
     picker = page.get_by_role("dialog", name="选择演示案例")
     button = picker.locator('[data-demo-id="ti64_tensile"]').get_by_role("button", name="打开参考工作流")
+    # Intercept the reference API call to simulate a session-busy error
     page.route(
         "**/api/demo-datasets/reference",
         lambda route: route.fulfill(status=409, json={"error": "会话正在运行，请稍后重试"}),
-        times=1,
     )
     button.click()
     playwright.expect(picker.locator('[role="status"]')).to_contain_text("会话正在运行")
