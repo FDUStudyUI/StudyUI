@@ -17,7 +17,7 @@ from pathlib import Path
 def load_branding():
     """Import the sibling branding.py by file path (see scripts/start_demo.py).
 
-    "from scripts.branding" resolves to packages/materials-quality/scripts
+    "from scripts.branding" resolves to materials-quality/scripts
     whenever that package shadows the repository root on sys.path, so neither
     it nor a bare "from branding" import is reliable.
     """
@@ -30,7 +30,7 @@ def load_branding():
     return module
 
 
-strip_langflow_branding = load_branding().strip_langflow_branding
+strip_vendor_branding = load_branding().strip_vendor_branding
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "beta-demo"
@@ -48,23 +48,24 @@ INCLUDE_FILES = (
     "start_demo.sh",
     "scripts/start_demo.py",
     "scripts/branding.py",
-    "packages/materials-quality/README.md",
-    "packages/materials-quality/pyproject.toml",
-    "packages/materials-quality/requirements.lock",
-    "packages/materials-quality/requirements-tested-py310.txt",
-    "packages/materials-quality/requirements-ui-tested-py310.txt",
-    "packages/materials-quality/THIRD_PARTY_NOTICES.md",
+    "scripts/setup_dsh.py",
+    "materials-quality/README.md",
+    "materials-quality/pyproject.toml",
+    "materials-quality/requirements.lock",
+    "materials-quality/requirements-tested-py310.txt",
+    "materials-quality/requirements-ui-tested-py310.txt",
+    "materials-quality/THIRD_PARTY_NOTICES.md",
 )
 INCLUDE_DIRS = (
     "docs",
     "demo_datasets",
     "scripts/assets",
-    "packages/materials-quality/components",
-    "packages/materials-quality/docs",
-    "packages/materials-quality/src",
-    "packages/materials-quality/examples/science_flows",
-    "packages/materials-quality/examples/skill_flows",
-    "packages/materials-quality/examples/research_flows",
+    "materials-quality/components",
+    "materials-quality/docs",
+    "materials-quality/src",
+    "materials-quality/examples/science_flows",
+    "materials-quality/examples/skill_flows",
+    "materials-quality/examples/research_flows",
 )
 SKIP_DIRS = {
     ".git",
@@ -252,10 +253,10 @@ def stage_runtime(stage: Path) -> Path:
         exclude_dirs=("__pycache__",),
         exclude_files=("*.pyc", "*.pyo", "*.whl", "PyWin32.chm"),
     )
-    (site_packages / "_editable_impl_langflow_materials_quality.pth").unlink(missing_ok=True)
-    langflow_frontend = site_packages / "langflow" / "frontend"
-    if langflow_frontend.is_dir():
-        strip_langflow_branding(langflow_frontend)
+    (site_packages / "_editable_impl_studyui_materials_quality.pth").unlink(missing_ok=True)
+    vendor_frontend = site_packages / "langflow" / "frontend"
+    if vendor_frontend.is_dir():
+        strip_vendor_branding(vendor_frontend)
     if not (python_dir / "python.exe").is_file():
         raise FileNotFoundError("Portable runtime does not contain python.exe")
     return python_dir
