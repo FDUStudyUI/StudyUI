@@ -6,6 +6,7 @@ set PYTHONDONTWRITEBYTECODE=1
 set "_ROOT=%~dp0"
 if exist "%_ROOT%runtime\python\python.exe" (
   set "PATH=%_ROOT%runtime\python;%_ROOT%runtime\python\Library\bin;%_ROOT%runtime\python\DLLs;%PATH%"
+  if exist "%_ROOT%runtime\dsh\node\node.exe" set "PATH=%_ROOT%runtime\dsh\node;%PATH%"
   "%_ROOT%runtime\python\python.exe" -B "%_ROOT%scripts\start_demo.py" --python "%_ROOT%runtime\python\python.exe" %*
   goto runtime_finish
 )

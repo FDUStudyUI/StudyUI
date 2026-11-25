@@ -6,10 +6,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.util
+import io
+import json
 import os
 import shutil
 import subprocess
 import tempfile
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -39,6 +42,12 @@ ZIP_TIMESTAMP = (2026, 11, 8, 0, 0, 0)
 DEFAULT_FULL_OUTPUT = ROOT / "dist" / f"StudyUI-{VERSION}-windows-x64-portable.zip"
 DEFAULT_SOURCE_OUTPUT = ROOT / "dist" / f"StudyUI-{VERSION}-source.zip"
 VENV = ROOT / ".demo-venv"
+
+# Node 24 LTS Windows x64 — pinned for reproducibility
+NODE_VERSION = "24.22.1"
+NODE_DOWNLOAD_URL = (
+    f"https://nodejs.org/dist/v{NODE_VERSION}/node-v{NODE_VERSION}-win-x64.zip"
+)
 
 INCLUDE_FILES = (
     "README.md",
@@ -121,9 +130,10 @@ No installation is required.
 2. Run start_demo.bat.
 3. Open http://127.0.0.1:7880
 
-This bundle includes Python 3.10.22 and all runtime dependencies. The five
-home-page demo cases work without network access or a model API key. Configure
-a model in StudyUI only when you want natural-language Agent exploration.
+This bundle includes Python 3.10.22, Node.js {NODE_VERSION}, and all runtime
+dependencies. The five home-page demo cases work without network access or a model
+API key. Configure a model in StudyUI only when you want natural-language Agent
+exploration.
 
 Keep credentials, .demo-runtime/, workflows/, uploads/, and StudyUI_outputs/
 out of this directory when sharing it. See README.md and docs/ for details.
@@ -262,6 +272,102 @@ def stage_runtime(stage: Path) -> Path:
     return python_dir
 
 
+def _download_node() -> Path:
+    """Download Node.js Windows x64 zip and extract to a temp directory.
+
+    Returns the path to the extracted node.exe.
+    """
+    url = NODE_DOWNLOAD_URL
+    archive_name = f"node-v{NODE_VERSION}-win-x64.zip"
+    extract_dir = Path(tempfile.mkdtemp(prefix="studyui-node-"))
+    zip_path = extract_dir / archive_name
+    print(f"Downloading Node.js v{NODE_VERSION} from {url}…", flush=True)
+    try:
+        urllib.request.urlretrieve(url, zip_path)
+    except urllib.error.URLError as exc:
+        shutil.rmtree(extract_dir, ignore_errors=True)
+        raise RuntimeError(f"Failed to download Node.js: {exc}") from exc
+    with zipfile.ZipFile(zip_path) as zf:
+        if zf.testzip() is not None:
+            shutil.rmtree(extract_dir, ignore_errors=True)
+            raise ValueError("Node.js archive failed integrity check")
+        zf.extractall(extract_dir)
+    zip_path.unlink()
+    node_dir = extract_dir / f"node-v{NODE_VERSION}-win-x64"
+    node_exe = node_dir / "node.exe"
+    if not node_exe.is_file():
+        shutil.rmtree(extract_dir, ignore_errors=True)
+        raise FileNotFoundError(f"node.exe not found in extracted Node.js archive at {node_exe}")
+    return node_dir
+
+
+def _install_dsh(target_dir: Path) -> None:
+    """Install the pinned DSH package via npm into target_dir.
+
+    Creates a minimal package.json and runs npm install.
+    """
+    package_json = target_dir / "package.json"
+    package_json.write_text(
+        json.dumps({"name": "studyui-dsh", "private": True}, indent=2), encoding="utf-8"
+    )
+    npm = shutil.which("npm")
+    if not npm:
+        raise FileNotFoundError("npm is required to install DSH; ensure Node.js is available on PATH")
+    subprocess.run(
+        [npm, "install", "--no-audit", "--no-fund", "--ignore-scripts", "@deepseek-ai/dsh@0.2.2-rc.5"],
+        cwd=target_dir,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=300,
+    )
+
+
+def stage_dsh(stage: Path) -> Path:
+    """Download Node 24 and pre-install DSH into the portable staging directory.
+
+    Layout (matching _bundled_node / _bundled_dsh_bin expectations):
+        stage/runtime/dsh/node/node.exe   (and supporting DLLs)
+        stage/runtime/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+    """
+    dsh_dir = stage / "runtime" / "dsh"
+    node_dir = dsh_dir / "node"
+    node_dir.mkdir(parents=True, exist_ok=True)
+
+    downloaded_node = _download_node()
+    # Copy node.exe and supporting files (DLLs, etc.) — not npm or other tools
+    for item in downloaded_node.iterdir():
+        if item.suffix.lower() in (".exe", ".dll") or item.name == "nodevars.bat":
+            shutil.copy2(item, node_dir / item.name)
+    shutil.rmtree(downloaded_node.parent, ignore_errors=True)
+
+    node_exe = node_dir / "node.exe"
+    if not node_exe.is_file():
+        raise FileNotFoundError("node.exe was not copied to the staging directory")
+
+    # Pre-install DSH
+    _install_dsh(dsh_dir)
+
+    # Verify the bundled DSH bin exists
+    bin_js = dsh_dir / "node_modules" / "@deepseek-ai" / "dsh" / "lib" / "bin.js"
+    if not bin_js.is_file():
+        raise FileNotFoundError(f"DSH entrypoint missing after install: {bin_js}")
+
+    # Smoke-test the bundled DSH
+    result = subprocess.run(
+        [str(node_exe), str(bin_js), "--version"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+    )
+    version = (result.stdout or result.stderr or "").strip()
+    print(f"DSH bundled: {version}", flush=True)
+
+    return dsh_dir
+
+
 def _add(zf: zipfile.ZipFile, archive_name: str, data: bytes, mode: int) -> None:
     info = zipfile.ZipInfo(archive_name, ZIP_TIMESTAMP)
     info.compress_type = zipfile.ZIP_DEFLATED
@@ -275,7 +381,9 @@ def build(output: Path, *, full: bool) -> tuple[int, str]:
     output.parent.mkdir(parents=True, exist_ok=True)
     stage_root = Path(tempfile.mkdtemp(prefix="studyui-portable-", dir=output.parent))
     runtime_dir = stage_runtime(stage_root) if full else None
+    dsh_dir = stage_dsh(stage_root) if full else None
     runtime_files = [path for path in sorted(runtime_dir.rglob("*")) if path.is_file()] if runtime_dir else []
+    dsh_files = [path for path in sorted(dsh_dir.rglob("*")) if path.is_file()] if dsh_dir else []
     temporary = output.with_name(output.name + ".tmp")
     try:
         with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=1) as zf:
@@ -288,6 +396,9 @@ def build(output: Path, *, full: bool) -> tuple[int, str]:
             for path in runtime_files:
                 relative = path.relative_to(stage_root).as_posix()
                 _add(zf, f"{ARCHIVE_ROOT}/{relative}", path.read_bytes(), 0o644)
+            for path in dsh_files:
+                relative = path.relative_to(stage_root).as_posix()
+                _add(zf, f"{ARCHIVE_ROOT}/{relative}", path.read_bytes(), 0o644)
         with zipfile.ZipFile(temporary) as check:
             if check.testzip() is not None:
                 raise ValueError("Portable archive failed its ZIP integrity check")
@@ -298,7 +409,7 @@ def build(output: Path, *, full: bool) -> tuple[int, str]:
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
     checksum = output.with_name(output.name + ".sha256")
     checksum.write_text(f"{digest}  {output.name}\n", encoding="ascii", newline="\n")
-    return len(files) + len(runtime_files) + 1, digest
+    return len(files) + len(runtime_files) + len(dsh_files) + 1, digest
 
 
 def main() -> None:
