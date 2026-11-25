@@ -120,8 +120,8 @@
       };
     }
     const syncStudyUIChrome = () => {
-      if (document.title.includes('Langflow'))
-        document.title = document.title.replaceAll('Langflow', 'StudyUI');
+      if (document.title.includes('LFX'))
+        document.title = document.title.replaceAll('LFX', 'StudyUI');
       if (!document.body) return;
       let bar = document.getElementById('studyui-canvas-bar');
       if (!bar) {
@@ -150,7 +150,7 @@
         let task = null;
         let sessionId = new URLSearchParams(location.search).get('studyui_session_id');
         const taskApi = async (path, body) => {
-          // Langflow's locale wrapper attaches Accept-Language to init.headers.
+          // LFX's locale wrapper attaches Accept-Language to init.headers.
           const options = { headers: { Accept: 'application/json' } };
           if (body)
             Object.assign(options, {

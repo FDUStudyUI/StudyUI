@@ -46,12 +46,12 @@ Markdown 与数学公式使用随应用安装的本地资源，普通使用不�
 
 ## 可复现验收
 
-在 `packages/materials-quality` 中，安装开发依赖后执行：
+在 `materials-quality` 中，安装开发依赖后执行：
 
 ```sh
 python -m pytest -q
 ruff check src components tests scripts examples
-ruff check ../../scripts --config pyproject.toml
+ruff check ../scripts --config pyproject.toml
 python -m scripts.evaluate_agent_boundaries
 python -m scripts.verify_install
 ```

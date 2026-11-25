@@ -69,10 +69,10 @@ AI 节点向已配置模型发送上游数据，所以 Agent 发起包含该节�
 
 ## 相关实现
 
-- Agent、工具和对话：[harness.py](../packages/materials-quality/src/materials_quality/agent/harness.py)
-- 权限档位：[permissions.py](../packages/materials-quality/src/materials_quality/agent/permissions.py)
-- Skills 导入和版本：[skill_registry.py](../packages/materials-quality/src/materials_quality/agent/skill_registry.py)
-- 离线沙箱：[skill_sandbox.py](../packages/materials-quality/src/materials_quality/agent/skill_sandbox.py)
-- AI 分析节点：[ai_analysis.py](../packages/materials-quality/components/materials_skills/ai_analysis.py)
-- JSON 工作流存储：[workflow_files.py](../packages/materials-quality/src/materials_quality/agent/workflow_files.py)
+- Agent、工具和对话：[harness.py](../materials-quality/src/materials_quality/agent/harness.py)
+- 权限档位：[permissions.py](../materials-quality/src/materials_quality/agent/permissions.py)
+- Skills 导入和版本：[skill_registry.py](../materials-quality/src/materials_quality/agent/skill_registry.py)
+- 离线沙箱：[skill_sandbox.py](../materials-quality/src/materials_quality/agent/skill_sandbox.py)
+- AI 分析节点：[ai_analysis.py](../materials-quality/components/materials_skills/ai_analysis.py)
+- JSON 工作流存储：[workflow_files.py](../materials-quality/src/materials_quality/agent/workflow_files.py)
 - 运行与验收命令：[demo-launcher.md](demo-launcher.md)
