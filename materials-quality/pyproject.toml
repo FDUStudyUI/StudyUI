@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "studyui-materials-quality"
+version = "0.8.0"
+description = "StudyUI materials-science research components, workflow engine and agent harness"
+readme = "README.md"
+license = "PolyForm-Noncommercial-1.0.0"
+requires-python = ">=3.10,<3.15"
+dependencies = [
+  "pandas>=2.0,<3.0",
+  "pint==0.24.4",
+  "jsonschema>=4.23,<5",
+  "filelock>=3.16,<4",
+  "keyring>=25,<27",
+  "requests>=2.32,<3",
+]
+
+[project.optional-dependencies]
+canvas = ["lfx==1.13.0", "langchain-community>=0.4,<0.5"]
+dev = ["pytest>=8,<10", "ruff==0.17.3", "build>=1.2"]
+ui-test = ["langflow-base==1.13.0", "playwright==1.64.1"]
+dsh-sdk = ["deepseek-harness-sdk==0.2.2rc2"]
+instruments = ["h5py>=3.10,<4", "netCDF4>=1.6,<2", "zarr>=2.18,<3"]
+science = [
+  "pyarrow>=19,<26",
+  "scipy>=1.15,<1.16",
+  "scikit-learn>=1.7,<1.8",
+  "scikit-image>=0.25,<0.26",
+  "statsmodels>=0.14,<0.15",
+  "matplotlib>=3.10,<3.11",
+  "skops>=0.13,<0.14",
+  "PyMuPDF>=1.26,<1.27",
+  "pdfplumber>=0.11,<0.12",
+  "rapidocr-onnxruntime==1.4.4",
+  "reportlab>=4.4,<5",
+  "openpyxl>=3.1,<4",
+  "xlrd>=2,<3",
+  "SQLAlchemy>=2,<3",
+  "requests>=2.32,<3",
+  "charset-normalizer>=3,<4",
+  "jcamp>=1.3,<2",
+  "regex>=2024.11",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/materials_quality"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"components" = "materials_quality/component_sources"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "C4", "PIE", "RUF"]
+# Chinese punctuation in user-facing strings and comments is intentional.
+# Nested guards (SIM102), literal concatenation (RUF005), pairwise rewrites
+# (RUF007) and int-cast removal (RUF046) are kept where they read more clearly.
+ignore = ["RUF001", "RUF002", "RUF003", "SIM102", "RUF005", "RUF007", "RUF046"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests keep fixtures with mutable class attributes and regex literals as-is.
+"tests/**" = ["RUF012", "RUF043", "SIM115"]
+# Langflow component classes declare mutable class-level inputs by design.
+"components/**" = ["RUF012"]
+"examples/**" = ["RUF012"]

@@ -1,0 +1,457 @@
+import io
+import json
+from urllib.error import HTTPError, URLError
+
+import pytest
+
+from materials_quality.agent import model as model_module
+from materials_quality.agent.harness import StudyUIAgent
+from materials_quality.agent.model import ChatModel
+
+
+class Reply(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+
+def test_transient_network_failure_is_retried(monkeypatch):
+    attempts = []
+
+    class Opener:
+        def open(self, request, timeout):
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise URLError("temporary")
+            return Reply(json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode())
+
+    monkeypatch.setattr(model_module, "build_opener", lambda *_: Opener())
+    monkeypatch.setattr(model_module.time, "sleep", lambda _: None)
+    assert ChatModel(base_url="https://example.com", model="test").complete([], []) == {"content": "ok"}
+    assert len(attempts) == 2
+
+
+def test_authentication_error_is_not_retried(monkeypatch):
+    attempts = []
+
+    class Opener:
+        def open(self, request, timeout):
+            attempts.append(1)
+            raise HTTPError(request.full_url, 401, "unauthorized", {}, None)
+
+    monkeypatch.setattr(model_module, "build_opener", lambda *_: Opener())
+    with pytest.raises(ValueError, match="HTTP 401"):
+        ChatModel(base_url="https://example.com", model="test").complete([], [])
+    assert len(attempts) == 1
+
+
+def test_empty_model_reply_continues_current_turn_without_user_reprompt(tmp_path):
+    class Model:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages, tools, *, max_tokens=3000):
+            self.calls += 1
+            return {"content": "" if self.calls == 1 else "继续完成当前任务。"}
+
+    model = Model()
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=object(), model=model)
+    project = agent.store.create_project("test")
+    session = agent.new_session(project_id=project)
+    result = agent.run_turn(session, "请分析数据")
+    assert result["message"] == "继续完成当前任务。"
+    assert model.calls == 2
+
+
+def test_model_output_limit_defaults_to_32k_and_is_configurable(monkeypatch):
+    requests = []
+
+    class Opener:
+        def open(self, request, timeout):
+            requests.append(json.loads(request.data))
+            return Reply(json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode())
+
+    monkeypatch.setattr(model_module, "build_opener", lambda *_: Opener())
+    ChatModel(base_url="https://example.com", model="test").complete([], [])
+    assert requests[0]["max_tokens"] == 32768
+    assert (
+        ChatModel(base_url="https://example.com", model="test", max_output_tokens=65536).max_output_tokens
+        == 65536
+    )
+    with pytest.raises(ValueError, match="max output"):
+        ChatModel(base_url="https://example.com", model="test", max_output_tokens=100_000_001)
+
+
+@pytest.mark.parametrize("level", ["default", "none", "low", "high", "max"])
+def test_deepseek_level_is_sent_and_old_history_is_compatible(monkeypatch, level):
+    requests = []
+
+    class Opener:
+        def open(self, request, timeout):
+            requests.append(json.loads(request.data))
+            return Reply(json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode())
+
+    monkeypatch.setattr(model_module, "build_opener", lambda *_: Opener())
+    model = ChatModel(base_url="https://api.deepseek.com", model="deepseek-flash", reasoning_effort=level)
+    model.complete(
+        [
+            {"role": "assistant", "content": "old"},
+            {"role": "assistant", "content": "", "reasoning_content": "prior reasoning"},
+        ],
+        [{"type": "function"}],
+        max_tokens=16,
+    )
+    payload = requests[0]
+    assert payload["messages"][0]["reasoning_content"] == ""
+    assert payload["messages"][1]["reasoning_content"] == "prior reasoning"
+    if level == "default":
+        assert "thinking" not in payload and "reasoning_effort" not in payload
+    elif level == "none":
+        assert payload["thinking"] == {"type": "disabled"}
+        assert "reasoning_effort" not in payload
+    else:
+        assert payload["thinking"] == {"type": "enabled"}
+        assert payload["reasoning_effort"] == level
+        assert payload["max_tokens"] >= 32768
+
+
+def test_reasoning_is_preserved_between_agent_tool_rounds(tmp_path):
+    class Model:
+        def __init__(self):
+            self.calls = []
+
+        def complete(self, messages, tools, *, max_tokens=3000):
+            self.calls.append([dict(item) for item in messages])
+            if len(self.calls) == 1:
+                return {
+                    "content": "",
+                    "reasoning_content": "private test reasoning",
+                    "tool_calls": [
+                        {"id": "a", "function": {"name": "list_research_skills", "arguments": "{}"}}
+                    ],
+                }
+            return {"content": "done", "reasoning_content": "final test reasoning"}
+
+    model = Model()
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=object(), model=model)
+    session = agent.new_session(project_id=agent.store.create_project("test"))
+    assert agent.run_turn(session, "列出技能")["message"] == "done"
+    assert any(m.get("reasoning_content") == "private test reasoning" for m in model.calls[1])
+    assert agent.store.messages(session)[-1]["reasoning_content"] == "final test reasoning"
+
+
+def test_reasoning_model_can_batch_five_read_only_tools(tmp_path):
+    class Model:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages, tools, *, max_tokens=3000):
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "content": "",
+                    "reasoning_content": "reasoning",
+                    "tool_calls": [
+                        {"id": str(i), "function": {"name": "list_research_skills", "arguments": "{}"}}
+                        for i in range(5)
+                    ],
+                }
+            assert len([m for m in messages if m.get("role") == "tool"]) == 5
+            return {"content": "done"}
+
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=object(), model=Model())
+    session = agent.new_session(project_id=agent.store.create_project("test"))
+    assert agent.run_turn(session, "列出技能")["message"] == "done"
+
+
+def test_harness_keeps_repeated_reasoning_out_of_stored_assistant_content(tmp_path):
+    class Model:
+        def complete(self, messages, tools, *, max_tokens=3000, on_chunk=None):
+            if on_chunk:
+                on_chunk("reasoning", "private reasoning")
+            return {
+                "content": "private reasoning\n\npublic answer",
+                "reasoning_content": "private reasoning",
+            }
+
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=object(), model=Model())
+    session = agent.new_session(project_id=agent.store.create_project("reasoning isolation"))
+
+    result = agent.run_turn(session, "请完成此任务")
+    stored = [message for message in agent.store.messages(session) if message.get("role") == "assistant"][-1]
+
+    assert result["message"] == "public answer"
+    assert result["reasoning_content"] == "private reasoning"
+    assert stored["content"] == "public answer"
+    assert stored["reasoning_content"] == "private reasoning"
+
+
+def test_high_effort_turn_has_a_total_tool_budget(tmp_path):
+    class Model:
+        def complete(self, messages, tools, *, max_tokens=3000):
+            if not tools:
+                return {"content": "已根据当前结果完成总结。"}
+            return {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": f"{len(messages)}-{i}",
+                        "function": {"name": "list_research_skills", "arguments": "{}"},
+                    }
+                    for i in range(12)
+                ],
+            }
+
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=object(), model=Model())
+    session = agent.new_session(project_id=agent.store.create_project("test"))
+    result = agent.run_turn(session, "列出科研技能")
+    events = agent.store.events(session, limit=200)
+    successful = [event for event in events if event["kind"] == "tool_call" and event["detail"].get("ok")]
+    assert result["message"].startswith("本轮工具调用总量已达上限")
+    assert len(successful) == 64
+
+
+def test_turn_limits_workflow_retries(tmp_path):
+    class Model:
+        def complete(self, messages, tools, *, max_tokens=3000):
+            if any(message.get("role") == "tool" for message in messages):
+                return {"content": "根据运行结果完成总结。"}
+            return {
+                "content": "",
+                "tool_calls": [
+                    {"id": str(i), "function": {"name": "run_workflow", "arguments": '{"flow_id":"known"}'}}
+                    for i in range(9)
+                ],
+            }
+
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=object(), model=Model())
+    session = agent.new_session(project_id=agent.store.create_project("test"))
+    dispatched = []
+    agent._authorize_tool = lambda *_: {"allowed": True, "action": "workflow.run"}
+    agent._dispatch = lambda *_: dispatched.append(True) or {"status": "completed"}
+    agent.run_turn(session, "运行工作流")
+    assert len(dispatched) == 8
+
+
+def test_pending_approval_stops_later_tool_calls_in_the_same_model_round(tmp_path):
+    class Model:
+        calls = 0
+
+        def complete(self, messages, tools, *, max_tokens=3000):
+            self.calls += 1
+            return {
+                "content": "",
+                "tool_calls": [
+                    {"id": "run", "function": {"name": "run_workflow", "arguments": '{"flow_id":"flow-a"}'}},
+                    {"id": "later", "function": {"name": "list_research_skills", "arguments": "{}"}},
+                ],
+            }
+
+    class Workflows:
+        def get_flow(self, flow_id):
+            return {"id": flow_id, "folder_id": project, "data": {"nodes": [], "edges": []}}
+
+    model = Model()
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=Workflows(), model=model)
+    project = agent.store.create_project("approval gate")
+    session = agent.new_session(project_id=project)
+    dispatched = []
+
+    def authorize(_session, name, _args, _text):
+        if name == "run_workflow":
+            return {"allowed": False, "action": "workflow.run", "reason": "需要逐项审批"}
+        return {"allowed": True, "action": agent._tool_action(name)}
+
+    agent._authorize_tool = authorize
+    agent._dispatch = lambda *_: dispatched.append(True) or {"status": "completed"}
+    result = agent.run_turn(session, "请运行工作流 flow-a")
+
+    assert model.calls == 1
+    assert dispatched == []
+    assert result["task_status"] == "waiting_approval"
+    assert len(result["task_pending_approvals"]) == 1
+    deferred = [
+        message
+        for message in agent.store.messages(session)
+        if message.get("role") == "tool" and message.get("tool_call_id") == "later"
+    ]
+    assert len(deferred) == 1
+    assert json.loads(deferred[0]["content"])["status"] == "not_run"
+
+
+def test_long_session_keeps_original_research_goal(tmp_path):
+    class Model:
+        def complete(self, messages, tools, *, max_tokens=3000):
+            assert any("研究原始光谱数据" in m.get("content", "") for m in messages if m["role"] == "system")
+            return {"content": "done"}
+
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=object(), model=Model())
+    session = agent.new_session(project_id=agent.store.create_project("test"))
+    agent.store.append_message(session, {"role": "user", "content": "研究原始光谱数据"})
+    for i in range(70):
+        agent.store.append_message(session, {"role": "tool", "name": "example", "content": str(i)})
+    assert agent.run_turn(session, "继续完成工作流")["message"] == "done"
+
+
+def test_other_session_workflow_needs_explicit_reference(tmp_path):
+    class Workflows:
+        def get_flow(self, flow_id):
+            return {"id": flow_id, "name": "其他研究流程", "folder_id": project, "data": {"nodes": []}}
+
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=Workflows(), model=object())
+    project = agent.store.create_project("test")
+    session = agent.new_session(project_id=project)
+    agent.store.append_event(session, "workflow_created", {"flow_id": "own-flow"})
+    agent.store.append_message(session, {"role": "user", "content": "请研究光谱数据"})
+    agent._turn_state.value = {"skill_preflight_complete": True}
+    with pytest.raises(PermissionError, match="其他会话"):
+        agent._authorize_tool(session, "run_workflow", {"flow_id": "other-flow"}, "请运行工作流")
+    agent.store.append_message(session, {"role": "user", "content": "请运行 other-flow 工作流"})
+    assert agent._authorize_tool(
+        session, "run_workflow", {"flow_id": "other-flow"}, "请运行 other-flow 工作流"
+    )["allowed"]
+
+
+def test_workflow_first_recovery_intent_respects_negation():
+    from materials_quality.agent.harness import (
+        _explicit_build_intent,
+        _explicit_report_intent,
+        _explicit_run_intent,
+    )
+
+    assert _explicit_build_intent("请完成工作流的调整、运行和实验报告")
+    assert _explicit_run_intent("请完成工作流的调整、运行和实验报告")
+    assert not _explicit_build_intent("不要完成工作流的调整、运行")
+    assert not _explicit_run_intent("不要完成工作流的调整、运行")
+    assert _explicit_report_intent("确保无需数据外传审批即可运行，交付实验报告；不要发送原始数据")
+    assert not _explicit_report_intent("不要生成实验报告，只解释方法")
+
+
+def test_natural_workflow_completion_request_authorizes_build():
+    from materials_quality.agent.harness import _explicit_build_intent, _explicit_run_intent
+
+    request = "根据原始数据自行确定分析和图表，完成并运行工作流，交付实验报告。"
+    assert _explicit_build_intent(request)
+    assert _explicit_run_intent(request)
+    assert not _explicit_build_intent("不要完成并运行工作流，只介绍方法。")
+
+
+def test_agent_prompt_uses_repository_metadata_and_stops_duplicate_runs(tmp_path):
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=object(), model=object())
+    prompt = agent._system_prompt()
+    assert "不要求用户另说‘建流/运行’" in prompt
+    assert "本地路径和目录名只是数据定位信息" in prompt
+    assert "直接将该目录作为 path" in prompt
+    assert "只暂停该分支，继续完成其他数据类型中独立可行的分析" in prompt
+    assert "不要为查看原始文本或重复探测同类文件而搭建、运行诊断工作流" in prompt
+    assert "每轮最多运行工作流八次" in prompt
+    assert "以 DOI/记录号向 DataCite 定点核对一次" in prompt
+    assert "不能说记录没有元数据" in prompt
+    assert "不得为重新生成相同附件而重跑" in prompt
+    assert "严禁全局全列 dropna" in prompt
+    assert "主干保留 + 派生分支" in prompt
+    assert "单调递增" in prompt
+
+
+def test_pinned_dataset_schema_injected_into_messages(tmp_path):
+    csv_file = tmp_path / "tensile.csv"
+    csv_file.write_text("Time,Stress,Strain\n0,0,0\n1,10,0.001\n2,20,0.002\n", encoding="utf-8")
+
+    captured_messages = []
+
+    class CapturingModel:
+        def complete(self, messages, tools, *, max_tokens=3000):
+            captured_messages.append(list(messages))
+            return {"content": "已分析。"}
+
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=object(), model=CapturingModel())
+    project = agent.store.create_project("test")
+    agent.store.add_project_directory(project, tmp_path)
+    session = agent.new_session(project_id=project)
+
+    # 模拟首轮 inspect 文件
+    res = agent._dispatch(session, "inspect_research_file", {"path": str(csv_file)}, f"分析 {csv_file}")
+    assert "recommended_import_config" in res
+
+    # 次轮用户发起自然分析请求
+    agent.run_turn(session, "继续分析这份拉伸数据")
+
+    # 验证系统消息中动态注入了活动数据集看板
+    schema_msgs = [
+        m
+        for m in captured_messages[0]
+        if m.get("role") == "system" and "当前会话数据结构检查记录" in m.get("content", "")
+    ]
+    assert len(schema_msgs) == 1
+    content = schema_msgs[0]["content"]
+    assert "tensile.csv" in content
+    assert "Stress" in content
+    assert "Strain" in content
+    assert "文件之后可能发生变化" in content
+    assert "不证明物理量含义、单位或标准合规" in content
+
+
+def test_runtime_error_self_healing_guidance(tmp_path):
+    captured_tool_contents = []
+
+    class FailingModel:
+        def __init__(self):
+            self.turn = 0
+
+        def complete(self, messages, tools, *, max_tokens=3000):
+            self.turn += 1
+            if self.turn == 1:
+                return {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call_1",
+                            "function": {"name": "run_workflow", "arguments": '{"flow_id":"f1"}'},
+                        }
+                    ],
+                }
+            tool_msgs = [m for m in messages if m.get("role") == "tool"]
+            if tool_msgs:
+                captured_tool_contents.append(tool_msgs[-1]["content"])
+            return {"content": "诊断完成"}
+
+    class ErrorWorkflows:
+        def get_flow(self, flow_id):
+            return {"id": flow_id, "name": "f1", "folder_id": "p1", "data": {"nodes": []}}
+
+        def run_flow(self, flow_id, **_kwargs):
+            raise KeyError("'stress'")
+
+    agent = StudyUIAgent(tmp_path / "state.sqlite3", canvas=ErrorWorkflows(), model=FailingModel())
+    project_id = agent.store.create_project("p1")
+    flow_obj = {"id": "f1", "name": "f1", "folder_id": project_id, "data": {"nodes": []}}
+    ErrorWorkflows.get_flow = lambda self, flow_id: flow_obj
+    session = agent.new_session(project_id=project_id)
+    agent.store.append_event(session, "workflow_created", {"flow_id": "f1"})
+    agent._turn_state.value = {"skill_preflight_complete": True}
+    agent.run_turn(session, "请运行工作流 f1")
+    assert len(captured_tool_contents) == 1
+    err_json = json.loads(captured_tool_contents[0])
+    assert "error" in err_json
+    assert "self_healing_guidance" in err_json
+    assert "列名错误" in err_json["self_healing_guidance"]
+
+
+def test_monotonicity_warning_and_gbk_encoding(tmp_path):
+    from materials_quality.agent.data_inspection import inspect_file
+
+    # 测试递减数据与 GBK 中文编码
+    gbk_file = tmp_path / "decreasing_raman.txt"
+    content = "波长 强度\n800 10\n750 20\n700 35\n650 50\n"
+    gbk_file.write_bytes(content.encode("gbk"))
+
+    res = inspect_file(gbk_file)
+    assert res["encoding"] in ("gb18030", "gbk")
+    assert len(res["numeric_blocks"]) >= 1
+    order_info = res["numeric_blocks"][0]["first_column_order"]
+    assert order_info["strictly_decreasing"] is True
+    assert "warning" in order_info
+    assert "严格递减" in order_info["warning"]
+    assert "确认列含义" in order_info["warning"]

@@ -1,0 +1,279 @@
+"""Schema, missingness, type/format and duplicate checks."""
+
+from __future__ import annotations
+
+from collections import Counter
+from datetime import datetime
+
+import numpy as np
+
+from materials_quality.common import ReportBuilder, groups, missing, numeric, select_columns
+from materials_quality.common import missing_tokens as normalize_missing_tokens
+
+
+def check_schema(table, *, required_columns, aliases=None, finding_limit=500, schema_template=None):
+    report = ReportBuilder(
+        table, "schema", {"required_columns": required_columns, "aliases": aliases or {}}, finding_limit
+    )
+    if not isinstance(required_columns, list) or not required_columns:
+        raise ValueError("required_columns must be a non-empty list")
+    if any(not isinstance(c, str) or not c.strip() for c in required_columns):
+        raise ValueError("required column names must be non-empty strings")
+    if len(set(required_columns)) != len(required_columns):
+        raise ValueError("required_columns must be unique")
+    aliases = aliases or {}
+    if not isinstance(aliases, dict):
+        raise ValueError("aliases must be an object mapping canonical names to lists")
+    for name, values in aliases.items():
+        if name not in required_columns or not isinstance(values, list):
+            raise ValueError("alias keys must be required columns and values must be lists")
+        if any(not isinstance(v, str) or not v.strip() for v in values):
+            raise ValueError("aliases must be non-empty strings")
+    alias_owner = {}
+    for canonical in required_columns:
+        for candidate in [canonical, *aliases.get(canonical, [])]:
+            if candidate in alias_owner and alias_owner[candidate] != canonical:
+                raise ValueError(f"alias {candidate!r} is assigned to multiple required fields")
+            alias_owner[candidate] = canonical
+    resolved = {}
+    for canonical in required_columns:
+        candidates = list(dict.fromkeys([canonical, *aliases.get(canonical, [])]))
+        found = [c for c in candidates if c in table.columns]
+        if not found:
+            report.add(
+                "MISSING_COLUMN",
+                "error",
+                column=canonical,
+                reason=f"Required field {canonical!r} is missing.",
+            )
+        elif len(found) > 1:
+            report.add(
+                "AMBIGUOUS_COLUMN", "error", column=canonical, reason=f"Multiple matching fields: {found!r}."
+            )
+        else:
+            resolved[canonical] = found[0]
+    if schema_template is not None:
+        from materials_quality.quality_extensions import template_errors
+
+        report.parameters["schema_template"] = schema_template
+        for position, column, reason in template_errors(table, schema_template):
+            report.add("SCHEMA_TEMPLATE", "error", column=column, position=position, reason=reason)
+    return report.finish({"resolved_columns": resolved, "template_checked": schema_template is not None})
+
+
+def check_missing(table, *, columns=None, missing_tokens=None, group_by=None, finding_limit=500):
+    tokens = [""] if missing_tokens is None else missing_tokens
+    report = ReportBuilder(
+        table, "missing", {"columns": columns, "missing_tokens": tokens, "group_by": group_by}, finding_limit
+    )
+    selected = select_columns(table, columns)
+    if not isinstance(tokens, list) or any(not isinstance(t, str) for t in tokens):
+        raise ValueError("missing_tokens must be a list of strings")
+    tokens = tuple(t.strip() for t in tokens)
+    mask = np.array([[missing(v, tokens) for v in table[c]] for c in selected], dtype=bool).T
+    if len(table) == 0:
+        mask = np.empty((0, len(selected)), dtype=bool)
+    by_column = {}
+    for j, column in enumerate(selected):
+        count = int(mask[:, j].sum())
+        by_column[column] = {
+            "missing_count": count,
+            "missing_ratio": count / len(table) if len(table) else None,
+        }
+    patterns = Counter()
+    per_row = []
+    for i in range(len(table)):
+        fields = [c for j, c in enumerate(selected) if mask[i, j]]
+        if fields:
+            patterns[tuple(fields)] += 1
+            per_row.append({"row_position": i, "missing_count": len(fields)})
+            for column in fields:
+                report.add(
+                    "MISSING_VALUE",
+                    column=column,
+                    position=i,
+                    reason="Null or explicitly configured missing token.",
+                )
+    grouped = []
+    if group_by:
+        for key, positions in groups(table, group_by):
+            grouped.append(
+                {
+                    "group": key,
+                    "row_count": len(positions),
+                    "columns": {
+                        column: {
+                            "missing_count": int(mask[positions, j].sum()),
+                            "missing_ratio": int(mask[positions, j].sum()) / len(positions),
+                        }
+                        for j, column in enumerate(selected)
+                    },
+                }
+            )
+    return report.finish(
+        {
+            "columns": by_column,
+            "affected_rows": len(per_row),
+            "rows": per_row,
+            "patterns": [{"columns": list(k), "row_count": v} for k, v in patterns.items()],
+            "groups": grouped,
+        }
+    )
+
+
+def _type_rule(spec):
+    rule = {"type": spec} if isinstance(spec, str) else spec
+    if not isinstance(rule, dict) or rule.get("type") not in {
+        "number",
+        "integer",
+        "string",
+        "boolean",
+        "datetime",
+        "category",
+    }:
+        raise ValueError(f"unsupported type rule: {spec!r}")
+    kind = rule["type"]
+    if kind == "datetime" and (not isinstance(rule.get("format"), str) or not rule["format"]):
+        raise ValueError("datetime rules require an explicit format")
+    if kind == "category" and (not isinstance(rule.get("allowed"), list) or not rule["allowed"]):
+        raise ValueError("category rules require a non-empty allowed list")
+    return rule
+
+
+def _matches(value, rule):
+    kind = rule["type"]
+    if kind in {"number", "integer"}:
+        try:
+            number = numeric(value)
+        except (ValueError, ArithmeticError):
+            return False
+        return kind == "number" or number == number.to_integral_value()
+    if kind == "string":
+        return isinstance(value, str)
+    if kind == "boolean":
+        return isinstance(value, (bool, np.bool_)) or (
+            isinstance(value, str) and value.strip().lower() in {"true", "false"}
+        )
+    if kind == "datetime":
+        if isinstance(value, (datetime, np.datetime64)):
+            return not missing(value)
+        if not isinstance(value, str):
+            return False
+        try:
+            parsed = datetime.strptime(value, rule["format"])
+            return parsed.strftime(rule["format"]) == value
+        except ValueError:
+            return False
+    try:
+        return bool(value in rule["allowed"])
+    except (TypeError, ValueError):
+        return False
+
+
+def check_types(
+    table, *, expectations=None, finding_limit=500, missing_tokens=None, infer=False, date_formats=None
+):
+    tokens = normalize_missing_tokens(missing_tokens)
+    parameters = {"expectations": expectations}
+    if missing_tokens is not None:
+        parameters["missing_tokens"] = list(tokens)
+    report = ReportBuilder(table, "types", parameters, finding_limit)
+    inferred = {}
+    if infer:
+        from materials_quality.quality_extensions import infer_expectations
+
+        inferred, unknown = infer_expectations(table, tokens, date_formats)
+        expectations = {**inferred, **(expectations or {})}
+        parameters.update(expectations=expectations, infer=True, date_formats=date_formats)
+        for column in unknown:
+            if column not in expectations:
+                report.add(
+                    "TYPE_INFERENCE_INSUFFICIENT",
+                    column=column,
+                    reason="No coherent type can be inferred; provide an explicit field rule.",
+                )
+        if not expectations:
+            return report.finish({"columns": {}, "inferred_rules": {}, "inference_is_suggestion": True})
+    if not isinstance(expectations, dict) or not expectations:
+        raise ValueError("expectations must be a non-empty object")
+    selected = select_columns(table, list(expectations))
+    rules = {column: _type_rule(expectations[column]) for column in selected}
+    metrics = {}
+    for column in selected:
+        checked = invalid = 0
+        for position, value in enumerate(table[column]):
+            if missing(value, tokens):
+                continue
+            checked += 1
+            if not _matches(value, rules[column]):
+                invalid += 1
+                report.add(
+                    "TYPE_OR_FORMAT",
+                    "error",
+                    column=column,
+                    position=position,
+                    reason=f"Value does not satisfy {rules[column]!r}.",
+                )
+        metrics[column] = {
+            "expected_type": rules[column]["type"],
+            "checked_count": checked,
+            "invalid_count": invalid,
+            "missing_count": len(table) - checked,
+            "observed_python_types": sorted(
+                {type(v).__name__ for v in table[column] if not missing(v, tokens)}
+            ),
+        }
+    metadata = {"columns": metrics}
+    if infer:
+        metadata.update(inferred_rules=inferred, inference_is_suggestion=True)
+    return report.finish(metadata)
+
+
+def check_duplicates(
+    table,
+    *,
+    columns=None,
+    finding_limit=500,
+    similarity_threshold=None,
+    numeric_tolerances=None,
+    max_pairs=100000,
+):
+    report = ReportBuilder(table, "duplicates", {"columns": columns}, finding_limit)
+    selected = select_columns(table, columns)
+    try:
+        mask = table.duplicated(subset=selected, keep=False).to_numpy()
+        duplicate_groups = len(table.loc[mask, selected].drop_duplicates())
+    except TypeError as exc:
+        raise ValueError("duplicate checking requires scalar/hashable cell values") from exc
+    for position in np.flatnonzero(mask):
+        report.add(
+            "DUPLICATE_RECORD",
+            position=position,
+            reason=f"Repeated combination of {selected!r}; review whether this is a valid replicate.",
+        )
+    metrics = {
+        "duplicate_rows": int(mask.sum()),
+        "duplicate_groups": duplicate_groups,
+        "key_columns": selected,
+        "duplicate_ratio": float(mask.mean()) if len(mask) else None,
+    }
+    if similarity_threshold is not None:
+        from materials_quality.quality_extensions import similar_pairs
+
+        report.parameters.update(
+            similarity_threshold=similarity_threshold,
+            numeric_tolerances=numeric_tolerances,
+            max_pairs=max_pairs,
+        )
+        pairs = list(similar_pairs(table, selected, similarity_threshold, numeric_tolerances, max_pairs))
+        metrics["similar_pairs"] = pairs[:finding_limit]
+        metrics["similar_pair_count"] = len(pairs)
+        for pair in pairs:
+            report.add(
+                "SIMILAR_RECORD",
+                position=pair["positions"][0],
+                reason=(
+                    f"Similar candidate records at positions {pair['positions']}; score={pair['score']:.6g}."
+                ),
+            )
+    return report.finish(metrics)
