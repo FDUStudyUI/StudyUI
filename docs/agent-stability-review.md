@@ -8,7 +8,7 @@
 
 表单建流和这些流程的画布运行直接调用本地计算；聊天保留自由规划、改流和诊断。结果包含完整表格、图片、HTML 报告与可下载的复现包。
 
-操作指南：[材料任务](../packages/materials-quality/docs/material-tasks.md)。数据与许可：[来源清单](../packages/materials-quality/src/materials_quality/material_examples/SOURCES.md)。
+操作指南：[材料任务](../materials-quality/docs/material-tasks.md)。数据与许可：[来源清单](../materials-quality/src/materials_quality/material_examples/SOURCES.md)。
 
 ## 更改条目
 
@@ -51,7 +51,7 @@
 
 | 设计参考 | StudyUI 实现 |
 |---|---|
-| 声明任务与执行分离 | 已确认协议编译为现有 Langflow 节点 |
+| 声明任务与执行分离 | 已确认协议编译为现有 LFX 节点 |
 | 方法条件进入流程 | 版本化检查与下一步建议进入协议、复现包 |
 | 恢复已完成步骤 | 项目级 Parquet/JSON 检查点，输入或参数改变后重算 |
 | 构建、执行、科学评价分开 | 真实建流、冻结流程冷启动、独立数值对照、专家评分字段 |
@@ -60,7 +60,7 @@
 
 ## 验证入口与记录
 
-在 `packages/materials-quality` 运行：
+在 `materials-quality` 运行：
 
 ```sh
 python -m pytest -q
@@ -72,7 +72,7 @@ python -m scripts.ui_demo_reference_acceptance
 
 真实模型测试增加 `--live`，用环境变量提供地址、模型名和密钥。本次使用用户的临时 DeepSeek 凭据；凭据未写入代码、文档、项目设置或提交。
 
-最终验收摘要与失败基线见 [验收记录](../packages/materials-quality/docs/stability-evaluation.json)。详细本地记录保留在开发目录 `packages/materials-quality/artifacts/`；CI 归档测试产物。真实仪器 live 模式先按固定公开步骤准备测量表，建流分数不包含原始仪器格式转换。
+最终验收摘要与失败基线见 [验收记录](../materials-quality/docs/stability-evaluation.json)。详细本地记录保留在开发目录 `materials-quality/artifacts/`；CI 归档测试产物。真实仪器 live 模式先按固定公开步骤准备测量表，建流分数不包含原始仪器格式转换。
 
 | 实测项目 | 结果 |
 |---|---|
