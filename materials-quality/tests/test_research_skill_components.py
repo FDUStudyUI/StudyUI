@@ -68,6 +68,36 @@ def test_executor_cache_invalidation_pending_plans_and_native_outputs(tmp_path):
         asyncio.run(node.resolve_output("table"))
 
 
+@pytest.mark.parametrize(
+    ("field_name", "field_value"),
+    [
+        ("prominence_mode", "参考噪声窗口"),
+        ("request", "比较两组候选峰"),
+        ("input_table", DataFrame({"wavelength": [650, 700], "counts": [1, 3]})),
+    ],
+)
+def test_live_planner_refresh_preserves_pinned_optional_controls(field_name, field_value):
+    node = planner().set(task="spectra")
+    template = node.to_frontend_node()["data"]["node"]["template"]
+    assert template["window_low"]["advanced"] is True
+    assert template["x_column"]["advanced"] is False
+    # Native Parameters/Add and Remove save their preference in advanced.
+    template["window_low"]["advanced"] = False
+    template["window_high"]["advanced"] = True
+    template = json.loads(json.dumps(template))
+
+    updated = node.update_build_config(template, field_value, field_name)
+
+    assert updated["window_low"]["show"] is True
+    assert updated["window_low"]["advanced"] is False
+    assert updated["window_high"]["advanced"] is True
+    assert updated["fit_confirmed"]["show"] is False
+    if field_name == "prominence_mode":
+        assert updated["noise_confirmed"]["show"] is True
+    if field_name == "input_table":
+        assert updated["x_column"]["options"] == ["", "wavelength", "counts"]
+
+
 def test_real_runtime_output_cache_rechecks_changed_planner_inputs():
     f = DataFrame({"curve_id": ["a"] * 3, "x": [650, 700, 750], "y": [1, 3, 1]})
     n = planner().set(input_table=f, task="spectra", x_unit="nm", y_unit="counts")

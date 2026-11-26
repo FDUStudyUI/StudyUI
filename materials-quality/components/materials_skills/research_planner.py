@@ -104,7 +104,10 @@ class ResearchSkillPlanner(Component):
         core = {"input_table", "task", "request"} | CORE_VISIBLE.get(task, set())
         for name in set().union(*VISIBLE.values()):
             build_config[name]["show"] = name in allowed
-            build_config[name]["advanced"] = name not in core
+            # Initial forms are compact. A later data/method refresh must keep
+            # optional fields the user has pinned through the Parameters panel.
+            if field_name is None or name in core:
+                build_config[name]["advanced"] = name not in core
         if task == "mechanics":
             build_config["x_column"]["display_name"] = "应变列"
             build_config["y_column"]["display_name"] = "应力列"

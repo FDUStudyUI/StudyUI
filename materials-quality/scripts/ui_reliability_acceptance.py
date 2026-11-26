@@ -24,6 +24,7 @@ def _reopen(page, writes, expected):
     page.reload(wait_until="domcontentloaded")
     expect(page.locator(".react-flow__node")).to_have_count(3)
     expect(page.locator(".react-flow__edge")).to_have_count(3)
+    page.wait_for_load_state("networkidle")
     if expected.get("task") == "spectra":
         _show_controls(
             page,
@@ -194,4 +195,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, default=Path("artifacts/ui-reliability-acceptance"))
     parser.add_argument("--executable")
     args = parser.parse_args()
-    accept_ui(args.base_url, args.output.resolve(), args.executable)
+    try:
+        accept_ui(args.base_url, args.output.resolve(), args.executable)
+    except Exception as error:
+        raise SystemExit(str(error).split("Aria snapshot:", 1)[0]) from None

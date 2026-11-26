@@ -133,6 +133,7 @@ def _saved_reopen(page, writes, expected_window):
     page.reload(wait_until="domcontentloaded")
     expect(page.locator(".react-flow__node")).to_have_count(3)
     expect(page.locator(".react-flow__edge")).to_have_count(3)
+    page.wait_for_load_state("networkidle")
     planner = _node(page, "ResearchSkillPlanner")
     _show_controls(page, planner, ("window_confirmed", "window_low", "window_high"))
     expect(planner.get_by_test_id("toggle_bool_window_confirmed")).to_have_attribute("aria-checked", "true")
@@ -270,4 +271,9 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, default=Path("artifacts/ui-skill-acceptance"))
     parser.add_argument("--executable")
     args = parser.parse_args()
-    accept_ui(args.base_url, args.output.resolve(), args.executable)
+    try:
+        accept_ui(args.base_url, args.output.resolve(), args.executable)
+    except Exception as error:
+        # Full page evidence is saved in the artifacts; embedded data in an ARIA
+        # snapshot can flood CI logs with megabytes and delay failure reporting.
+        raise SystemExit(str(error).split("Aria snapshot:", 1)[0]) from None

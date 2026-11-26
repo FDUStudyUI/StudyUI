@@ -93,6 +93,10 @@ jobs:
   ui:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [web, forms, research]
     env:
       PYTHONUTF8: '1'
       LANGFLOW_AUTO_LOGIN: 'true'
@@ -108,15 +112,21 @@ jobs:
       - run: python -m pip install -e '.[canvas,science,instruments,dev,ui-test]'
       - run: python -m playwright install --with-deps chromium
       - run: python -m pytest tests/test_ui_selectors.py tests/test_ui_form_selectors.py -q
+        if: matrix.suite == 'web'
       - name: Verify StudyUI chat, task recovery and Markdown rendering
+        if: matrix.suite == 'web'
         run: python -m pytest tests/test_agent_ui_browser.py tests/test_agent_rich_rendering.py tests/test_material_workbench_ui.py tests/test_canvas_host_browser.py -q
       - name: Verify five demonstration entries and fresh-start navigation
+        if: matrix.suite == 'web'
         run: python -m pytest tests/test_demo_reference_ui.py -q
       - name: Run five StudyUI reference workflows without a model
+        if: matrix.suite == 'web'
         run: python -m scripts.ui_demo_reference_acceptance
       - name: Run three material task entries on real instruments without a model
+        if: matrix.suite == 'web'
         run: python -m scripts.ui_material_task_acceptance
       - name: Start isolated canvas runtime (vendor UI)
+        if: matrix.suite != 'web'
         run: |
           mkdir -p artifacts/ui-runtime
           export LANGFLOW_COMPONENTS_PATH="$PWD/components"
@@ -139,18 +149,27 @@ jobs:
               raise SystemExit('Canvas server did not become healthy')
           PY
       - run: python -m scripts.ui_acceptance
+        if: matrix.suite == 'forms'
       - run: python -m scripts.ui_science_acceptance
+        if: matrix.suite == 'forms'
       - run: python -m scripts.ui_forms_acceptance --base-url http://127.0.0.1:7867
+        if: matrix.suite == 'forms'
       - run: python -m scripts.ui_batch_acceptance --base-url http://127.0.0.1:7867
+        if: matrix.suite == 'forms'
       - run: python -m scripts.ui_research_acceptance --base-url http://127.0.0.1:7867
+        if: matrix.suite == 'forms'
       - run: python -m scripts.ui_skill_acceptance --base-url http://127.0.0.1:7867
+        if: matrix.suite == 'research'
       - run: python -m scripts.ui_reliability_acceptance --base-url http://127.0.0.1:7867
+        if: matrix.suite == 'research'
       - run: python -m scripts.ui_expansion_acceptance --base-url http://127.0.0.1:7867
+        if: matrix.suite == 'research'
       - run: python -m scripts.ui_paper_acceptance --base-url http://127.0.0.1:7867
+        if: matrix.suite == 'research'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: materials-quality-real-ui
+          name: materials-quality-real-ui-${{ matrix.suite }}
           path: |
             materials-quality/artifacts/ui-acceptance/
             materials-quality/artifacts/ui-science-acceptance/

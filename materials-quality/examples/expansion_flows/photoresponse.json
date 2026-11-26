@@ -1512,23 +1512,23 @@
         }
       },
       {
-        "source": "ScienceExportTable-photoresponse-export",
-        "target": "ScienceExportReport-photoresponse-report",
+        "source": "ScienceFixtureBundle-photoresponse-raw",
+        "target": "ElectricalAnalysis-photoresponse-analysis",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceExportTable",
-            "id": "ScienceExportTable-photoresponse-export",
-            "name": "report",
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-photoresponse-raw",
+            "name": "table",
             "output_types": [
-              "JSON"
+              "Table"
             ]
           },
           "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-photoresponse-report",
+            "fieldName": "input_table",
+            "id": "ElectricalAnalysis-photoresponse-analysis",
             "inputTypes": [
-              "Data",
-              "JSON"
+              "DataFrame",
+              "Table"
             ],
             "type": "other"
           }
@@ -1558,23 +1558,23 @@
         }
       },
       {
-        "source": "ScienceFixtureBundle-photoresponse-raw",
-        "target": "ElectricalAnalysis-photoresponse-analysis",
+        "source": "ScienceExportTable-photoresponse-export",
+        "target": "ScienceExportReport-photoresponse-report",
         "data": {
           "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-photoresponse-raw",
-            "name": "table",
+            "dataType": "ScienceExportTable",
+            "id": "ScienceExportTable-photoresponse-export",
+            "name": "report",
             "output_types": [
-              "Table"
+              "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_table",
-            "id": "ElectricalAnalysis-photoresponse-analysis",
+            "fieldName": "reports",
+            "id": "ScienceExportReport-photoresponse-report",
             "inputTypes": [
-              "DataFrame",
-              "Table"
+              "Data",
+              "JSON"
             ],
             "type": "other"
           }

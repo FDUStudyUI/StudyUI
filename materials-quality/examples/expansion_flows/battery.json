@@ -1822,52 +1822,6 @@
     ],
     "edges": [
       {
-        "source": "ScienceFixtureBundle-battery-capacity",
-        "target": "BatteryCycles-battery-analysis",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceFixtureBundle",
-            "id": "ScienceFixtureBundle-battery-capacity",
-            "name": "table",
-            "output_types": [
-              "Table"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_table",
-            "id": "BatteryCycles-battery-analysis",
-            "inputTypes": [
-              "DataFrame",
-              "Table"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
-        "source": "ScienceVizPerformance-battery-plot",
-        "target": "ScienceExportReport-battery-report",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ScienceVizPerformance",
-            "id": "ScienceVizPerformance-battery-plot",
-            "name": "report",
-            "output_types": [
-              "JSON"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "reports",
-            "id": "ScienceExportReport-battery-report",
-            "inputTypes": [
-              "Data",
-              "JSON"
-            ],
-            "type": "other"
-          }
-        }
-      },
-      {
         "source": "BatteryCycles-battery-analysis",
         "target": "ScienceExportReport-battery-report",
         "data": {
@@ -1905,6 +1859,52 @@
           "targetHandle": {
             "fieldName": "input_table",
             "id": "ScienceVizPerformance-battery-plot",
+            "inputTypes": [
+              "DataFrame",
+              "Table"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceVizPerformance-battery-plot",
+        "target": "ScienceExportReport-battery-report",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceVizPerformance",
+            "id": "ScienceVizPerformance-battery-plot",
+            "name": "report",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "reports",
+            "id": "ScienceExportReport-battery-report",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "source": "ScienceFixtureBundle-battery-capacity",
+        "target": "BatteryCycles-battery-analysis",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ScienceFixtureBundle",
+            "id": "ScienceFixtureBundle-battery-capacity",
+            "name": "table",
+            "output_types": [
+              "Table"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_table",
+            "id": "BatteryCycles-battery-analysis",
             "inputTypes": [
               "DataFrame",
               "Table"
