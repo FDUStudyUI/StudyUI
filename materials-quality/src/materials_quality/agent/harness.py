@@ -682,17 +682,12 @@ TOOLS = [
     ),
     _tool(
         "run_science_operation",
-        "Run one allowlisted deterministic StudyUI science operation on an authorized table and return "
-        "its computed data. Use this for numeric analysis instead of guessing: preprocessing, unit "
-        "conversion, XRD/spectra/thermal/mechanics, grouped statistics, correlation, significance and "
-        "regression. Supply exact column names in config. Examples: materials.mechanics with x, y, "
-        "strain_unit, stress_unit, fit_range; materials.xrd with x, y, prominence, peak_distance_x; "
-        "materials.thermal with kind='tg', x, y, x_unit='degC', y_unit='%'; stats.regression with "
-        "features, target, method. The result's data holds the computed fields "
-        "(for example elastic_modulus_MPa, ultimate_strength_MPa, model_summary, metrics, peaks, "
-        "stages). If config is wrong, the error lists available_columns and the required field; "
-        "correct it once and retry. This is a local read-only computation; raw measurement rows are "
-        "not returned, only computed data and aggregate summaries.",
+        "Run one deterministic StudyUI science operation on an authorized table (allowlisted: "
+        "preprocessing, materials.xrd/spectra/thermal/mechanics, stats.*). config supplies exact "
+        "columns/units/parameters; examples: materials.mechanics {x,y,strain_unit,stress_unit,"
+        "fit_range}, materials.thermal {kind:'tg',x,y,x_unit:'degC',y_unit:'%'}, stats.regression "
+        "{features,target,method}. Returns computed data, warnings and aggregate summaries, no raw "
+        "measurement rows. Errors list available_columns.",
         {
             "operation": {
                 "type": "string",
@@ -707,10 +702,10 @@ TOOLS = [
     ),
     _tool(
         "analyze_battery_cycles",
-        "Summarize battery cycle data deterministically: per-cycle discharge/charge capacity, capacity "
-        "retention relative to the first valid cycle, and Coulombic efficiency. Supply the exact column "
-        "names and capacity unit in config. The returned summary includes first_cycle, last_cycle, "
-        "retention_pct_at_last_cycle and mean_coulombic_efficiency_pct_cycles_2_to_last.",
+        "Summarize battery cycle capacity, retention and Coulombic efficiency. Discharge/charge "
+        "capacity columns are auto-detected when omitted; config may override capacity_unit and exact "
+        "column names. Returns first/last cycle, retention_pct_at_last_cycle and "
+        "mean_coulombic_efficiency_pct_cycles_2_to_last.",
         {
             "table_path": {"type": "string", "minLength": 1, "maxLength": 1200},
             "table_csv": {"type": "string", "maxLength": 2000000},
@@ -723,8 +718,6 @@ TOOLS = [
                     "cycle": {"type": "string"},
                     "discharge_capacity": {"type": "string"},
                     "charge_capacity": {"type": "string"},
-                    "baseline_cycle": {"type": "integer", "minimum": 0},
-                    "calculate_efficiency": {"type": "boolean"},
                 },
             },
         },
@@ -732,10 +725,8 @@ TOOLS = [
     ),
     _tool(
         "audit_table_quality",
-        "Audit an authorized table without modifying it: count missing cells, exact duplicate rows, "
-        "negative numeric values in named columns, and values outside named [minimum, maximum] ranges. "
-        "Pass negative_columns and ranges in config. Use this for data-quality questions instead of "
-        "guessing from file structure.",
+        "Audit an authorized table without modifying it: missing cells, exact duplicate rows, negative "
+        "values in config.negative_columns, and values outside config.ranges. Returns counts only.",
         {
             "table_path": {"type": "string", "minLength": 1, "maxLength": 1200},
             "table_csv": {"type": "string", "maxLength": 2000000},
@@ -743,8 +734,10 @@ TOOLS = [
                 "type": "object",
                 "additionalProperties": True,
                 "properties": {
-                    "missing_tokens": {"type": "array", "items": {"type": "string"}},
-                    "negative_columns": {"type": "array", "items": {"type": "string"}},
+                    "negative_columns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
                     "ranges": {
                         "type": "object",
                         "additionalProperties": {
@@ -760,6 +753,38 @@ TOOLS = [
         [],
     ),
 ]
+
+DIRECT_ANALYSIS_TOOL_NAMES = frozenset(
+    {"run_science_operation", "analyze_battery_cycles", "audit_table_quality"}
+)
+DIRECT_ANALYSIS_TOOLS = [
+    tool for tool in TOOLS if tool["function"]["name"] in DIRECT_ANALYSIS_TOOL_NAMES
+]
+_DIRECT_PATH_RE = re.compile(
+    r"(?:[A-Za-z]:[\\/][^\s,;\"']+|(?:^|\s)/[^\s,;\"']+)",
+    re.IGNORECASE,
+)
+_DIRECT_COMPUTE_RE = re.compile(
+    r"(?:compute|calculate|fit|audit|convert|report|identify|highest|lowest|mean|median|"
+    r"retention|efficiency|mass\s*loss|d[-_ ]?spacing|activation\s*energy|count|"
+    r"计算|拟合|审计|换算|报告|识别|最高|均值|中位|保持率|效率|失重|晶面间距|活化能|计数)",
+    re.IGNORECASE,
+)
+_DIRECT_WORKFLOW_RE = re.compile(
+    r"(?:build|create|run|modify|delete|propose).{0,24}(?:workflow|flow)|"
+    r"工作流|建流|运行流程|画布|技能脚本|skill\s*script",
+    re.IGNORECASE,
+)
+
+
+def _direct_analysis_intent(user_text: str) -> bool:
+    """Detect a single-file deterministic analysis request without workflow intent."""
+    text = str(user_text or "")
+    if not text or len(text) > 12_000:
+        return False
+    if _DIRECT_WORKFLOW_RE.search(text):
+        return False
+    return bool(_DIRECT_PATH_RE.search(text) and _DIRECT_COMPUTE_RE.search(text))
 
 
 class StudyUIAgent:
@@ -1068,6 +1093,18 @@ class StudyUIAgent:
             "严格遵守，JSON 放在回复末尾且不要用 null 代替已要求的值。"
         )
 
+    def _direct_analysis_system_prompt(self):
+        """Compact prompt for one-file deterministic analysis (no workflow/canvas context)."""
+        return (
+            "你是 StudyUI 的确定性材料数据分析 Agent。仅分析用户明确给出的已授权数据文件。\n"
+            "使用 run_science_operation、analyze_battery_cycles 或 audit_table_quality；"
+            "不要建流、运行工作流、检索文献或先 inspect。只调用完成任务所需的最少工具，"
+            "不要为同一结果追加无关的分布/诊断调用。\n"
+            "传入真实列名、单位和参数；工具报错含 available_columns，修正一次后重试。\n"
+            "工具只返回派生结果与聚合统计，不返回原始测量行；不得编造数值、单位、样本量或引用。\n"
+            "报告给出方法、参数、单位、范围和限制；严格按用户要求输出末尾 JSON，不用 null 代替已要求的值。"
+        )
+
     def run_turn(
         self, session_id, user_text, *, canvas_run=None, internal_context=None, on_progress=None, role=None
     ):
@@ -1279,10 +1316,18 @@ class StudyUIAgent:
             self.store.append_message(session_id, {"role": "user", "content": user_text.strip()})
             self.store.append_event(session_id, "user_message", {"characters": len(user_text)})
         preflight_started = time.perf_counter()
+        fast_path = _direct_analysis_intent(user_text.strip() if not internal else "")
         skill_context, blocked = self._prepare_skill_context(
-            session_id, user_text.strip() if not internal else ""
+            session_id, user_text.strip() if not internal else "", compact=fast_path
         )
         state = getattr(self._turn_state, "value", {})
+        if fast_path:
+            state["direct_analysis_fast_path"] = True
+            self.store.append_event(
+                session_id,
+                "direct_analysis_fast_path",
+                {"tools": sorted(DIRECT_ANALYSIS_TOOL_NAMES), "compact_skills": True},
+            )
         loaded_list = state.get("skill_selection", {}).get("loaded", [])
         if loaded_list:
             loaded_titles = [s.get("title") or s.get("name") for s in loaded_list]
@@ -1309,24 +1354,40 @@ class StudyUIAgent:
             emit("done", {"result": turn_res})
             return turn_res
         self._refresh_model()
-        messages = [{"role": "system", "content": self._system_prompt()}]
-        context = self.store.session_context(session_id) or {}
-        local_directories = self.store.project_directories(context.get("project_id"))
-        messages.append(
+        messages = [
             {
                 "role": "system",
-                "content": (
-                    "【本项目本地文件夹授权】\n"
-                    "本项目仅可访问以下用户明确授权的本机目录；不要尝试访问其他本地路径。"
-                    "用户上传到当前会话的文件也可用于本会话分析。需要引用已授权目录中的数据时，"
-                    "使用目录内的实际路径，并在建流前核对其属于授权范围。\n"
-                    + ("\n".join(local_directories) if local_directories else "（尚未添加本地文件夹）")
-                ),
+                "content": self._direct_analysis_system_prompt()
+                if fast_path
+                else self._system_prompt(),
             }
-        )
+        ]
+        context = self.store.session_context(session_id) or {}
+        local_directories = self.store.project_directories(context.get("project_id"))
+        if fast_path:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": "【授权目录】仅可访问："
+                    + ("；".join(local_directories) if local_directories else "（尚未添加本地文件夹）"),
+                }
+            )
+        else:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "【本项目本地文件夹授权】\n"
+                        "本项目仅可访问以下用户明确授权的本机目录；不要尝试访问其他本地路径。"
+                        "用户上传到当前会话的文件也可用于本会话分析。需要引用已授权目录中的数据时，"
+                        "使用目录内的实际路径，并在建流前核对其属于授权范围。\n"
+                        + ("\n".join(local_directories) if local_directories else "（尚未添加本地文件夹）")
+                    ),
+                }
+            )
         schema_started = time.perf_counter()
         pinned_schema = self._get_pinned_dataset_schema(session_id)
-        if pinned_schema:
+        if pinned_schema and not fast_path:
             messages.append(
                 {
                     "role": "system",
@@ -1362,9 +1423,10 @@ class StudyUIAgent:
         state["role_selection"] = role_selection
         role_routing_active = bool(self.enable_role_routing or state.get("role"))
         if role_routing_active:
-            role_note = build_role_context_note(role_selection, graph=self.asset_graph)
-            if role_note:
-                messages.append({"role": "system", "content": role_note})
+            if not fast_path:
+                role_note = build_role_context_note(role_selection, graph=self.asset_graph)
+                if role_note:
+                    messages.append({"role": "system", "content": role_note})
             self.store.append_event(
                 session_id,
                 "role_selected",
@@ -1530,7 +1592,11 @@ class StudyUIAgent:
                     for parameter in signature.parameters.values()
                 )
                 output_limit = getattr(self.model, "max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
-                active_tools = route_tools(TOOLS, role_selection, enabled=role_routing_active)
+                active_tools = (
+                    DIRECT_ANALYSIS_TOOLS
+                    if fast_path
+                    else route_tools(TOOLS, role_selection, enabled=role_routing_active)
+                )
                 if supports_stream:
                     response = self.model.complete(
                         messages, active_tools, max_tokens=output_limit, on_chunk=chunk_cb
@@ -1899,7 +1965,7 @@ class StudyUIAgent:
                         "title": title,
                         "icon": icon,
                         "ok": False,
-                        "summary": f"执行异常: {type(exc).__name__}",
+                        "summary": f"执行异常: {type(exc).__name__}: {str(exc)[:240]}",
                         "duration_ms": duration_ms,
                     }
                     state.setdefault("tool_steps", []).append(step_item)
@@ -2030,7 +2096,7 @@ class StudyUIAgent:
         emit("done", {"result": turn_res})
         return turn_res
 
-    def _prepare_skill_context(self, session_id, user_text):
+    def _prepare_skill_context(self, session_id, user_text, *, compact=False):
         """Run and audit the required skill-selection step before any model planning."""
         state = getattr(self._turn_state, "value", None)
         task_texts = [
@@ -2147,6 +2213,13 @@ class StudyUIAgent:
                 None,
                 "科研 Skill 预检未能完整加载；为避免在缺少已选方法规则时误建或运行工作流，本轮已停止。"
                 "请检查 Skills 设置或审计记录后重试。",
+            )
+        if compact:
+            names = ", ".join(item["name"] for item in loaded) or "none"
+            return (
+                "【Skill 预检】已审计：" + names + "。快路径不注入 Skill 全文；"
+                "确定性工具校验列名、单位和参数，只返回派生结果与聚合统计；不得编造数值、单位或引用。",
+                None,
             )
         sections = []
         for item, body in zip(loaded, instructions, strict=False):
@@ -2303,21 +2376,34 @@ class StudyUIAgent:
             else:
                 raise ValueError("提供 table_path 或 table_csv 之一。")
             config = args.get("config") or {}
+            if isinstance(config, str):
+                try:
+                    config = json.loads(config)
+                except json.JSONDecodeError:
+                    raise ValueError("config 必须是 JSON 对象。") from None
             if not isinstance(config, dict):
                 raise ValueError("config 必须是 JSON 对象。")
+            compact = bool(
+                (getattr(self._turn_state, "value", {}) or {}).get("direct_analysis_fast_path")
+            )
             if name == "run_science_operation":
                 operation = str(args.get("operation") or "").strip()
                 if not operation:
                     raise ValueError("operation 不能为空。")
                 data = args.get("data") or {}
+                if isinstance(data, str):
+                    try:
+                        data = json.loads(data)
+                    except json.JSONDecodeError:
+                        raise ValueError("data 必须是 JSON 对象。") from None
                 if not isinstance(data, dict):
                     raise ValueError("data 必须是 JSON 对象。")
                 return direct_tools.execute_operation(
-                    operation, table=table, config=config, data=data
+                    operation, table=table, config=config, data=data, compact=compact
                 )
             if name == "analyze_battery_cycles":
-                return direct_tools.battery_summary(table, config)
-            return direct_tools.audit_table_quality(table, config)
+                return direct_tools.battery_summary(table, config, compact=compact)
+            return direct_tools.audit_table_quality(table, config, compact=compact)
         if name == "inspect_research_file":
             requested_path = args.get("path")
             if not isinstance(requested_path, str) or not requested_path.strip():
@@ -4257,6 +4343,7 @@ class StudyUIAgent:
             "verification": {
                 "unresolved_tools": sorted({name for name, _ in state.get("operation_failures", {})}),
                 "scope": "tool_execution_status",
+                "direct_analysis_fast_path": bool(state.get("direct_analysis_fast_path")),
             },
         }
         response["task_pending_approvals"] = [
