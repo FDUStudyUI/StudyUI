@@ -17,14 +17,14 @@ StudyUI 将方法检索、条件核对、确定性计算和结果追溯连接起
 
 ## 四条教学工作流
 
-在 `packages/materials-quality/examples/paper_flows/` 导入以下 JSON。示例内嵌合成数据，导入后直接运行最右侧的“分析报告生成”，无需绝对文件路径或模型密钥。
+在 `materials-quality/examples/paper_flows/` 导入以下 JSON。示例内嵌合成数据，导入后直接运行最右侧的“分析报告生成”，无需绝对文件路径或模型密钥。
 
 1. **01_spectrum_evidence.json**：文献建议与实际计算分别接入报告。AsLS 扣除背景后提取约 720 nm 的合成峰，结论卡保留峰位、FWHM 和面积对应的结果单元格。
 2. **02_pls_holdout.json**：40 个合成样品，30 个训练、10 个测试；训练集内部三折选择成分数。查看化学计量学节点的“结果与追溯”中的 `metrics.test`，以及“结果表格”中的 prediction/residual。
 3. **03_local_repair.json**：原始分组统计与标准化分支独立。修改标准化方法只影响标准化及下游；查看步骤指纹和 `intermediate_results` 比较原始、处理后的结果。
 4. **04_incompatible_method.json**：任务为比较暗场绝对强度，明确不允许丢失强度信息；SNV 显示 blocked，不产生执行映射。
 
-同一个原生组件实例会保留受完整性校验的执行记录。若 Langflow 重新创建组件实例、服务重启或重新导入图，则安全地重新计算；不保证跨服务器重启复用。可运行 `python examples/analysis_plan_demo.py` 精确观察三步初算、两步修订、零步重复的过程。
+同一个原生组件实例会保留受完整性校验的执行记录。若 LFX 重新创建组件实例、服务重启或重新导入图，则安全地重新计算；不保证跨服务器重启复用。可运行 `python examples/analysis_plan_demo.py` 精确观察三步初算、两步修订、零步重复的过程。
 
 ## 论文方法如何转化为功能
 
@@ -35,7 +35,7 @@ StudyUI 将方法检索、条件核对、确定性计算和结果追溯连接起
 | [SciLink](https://arxiv.org/abs/2508.06569) | 定量观察与文献解释关联 | 结果引用、方法来源、解释及推测分开；未实现自动新颖性评分或 DFT 理论闭环 |
 | [BLADE](https://aclanthology.org/2024.findings-emnlp.815/) | 检查中间分析决策 | 预先指定期望的条件选择、数据隔离及失败修订用例；不宣称运行了 BLADE 官方基准 |
 
-11 张初始方法/任务卡包括 SG 平滑、一阶/二阶导数、AsLS、SNV、PCA、PLS、峰检测和积分，以及尚未开放执行的 MSC/NMF。证据主要是原始算法资料及官方科学库文档，包含来源版本、位置、短摘录和核查范围。它们是可用方法依据，**不是 11 份已验证适用于当前材料的实验配方**。详见 [方法卡来源](../packages/materials-quality/docs/method-card-evidence.md)。
+11 张初始方法/任务卡包括 SG 平滑、一阶/二阶导数、AsLS、SNV、PCA、PLS、峰检测和积分，以及尚未开放执行的 MSC/NMF。证据主要是原始算法资料及官方科学库文档，包含来源版本、位置、短摘录和核查范围。它们是可用方法依据，**不是 11 份已验证适用于当前材料的实验配方**。详见 [方法卡来源](../materials-quality/docs/method-card-evidence.md)。
 
 ## 科学与执行约束
 
@@ -43,7 +43,7 @@ StudyUI 将方法检索、条件核对、确定性计算和结果追溯连接起
 - AsLS 保留估计基线与原始信号，使用索引二阶差分惩罚；宽峰是否被过度扣除仍需检查参数敏感性。
 - SNV 要求确认允许去除绝对强度；零方差光谱拒绝执行。其处理值不能用作原始绝对强度或面积。
 - PCA/PLS 的中心化、缩放和模型只在训练集拟合，交叉验证每折重新拟合。同一样品或重复组不得跨训练/测试两侧。PLS 当前为单目标，要求输入有限数值；未提供独立测试集时不报告测试性能。
-- 任务图只允许预登记的无副作用运算；文件写出、网络、LLM、任意 Python 以及通用 Langflow 图均不纳入结果复用。预算限制步骤和调用次数，不会强制中断正在运行的单个科学函数。
+- 任务图只允许预登记的无副作用运算；文件写出、网络、LLM、任意 Python 以及通用 LFX 图均不纳入结果复用。预算限制步骤和调用次数，不会强制中断正在运行的单个科学函数。
 - 复用校验包括输入值、单位及元数据、参数、依赖结果、实现源码及库版本。结果被修改后不能继续当作有效缓存。
 - 结论卡的 `cell_verified` 仅表示与上游表单元格一致，不代表仪器准确、物理模型正确或文献解释已证实。缺失测量不会转成零。
 
@@ -51,7 +51,7 @@ StudyUI 将方法检索、条件核对、确定性计算和结果追溯连接起
 
 验收范围、公开数据对照及本机环境限制见 [验证记录](evidence-guided-validation.md)。
 
-在 `packages/materials-quality` 中安装 `.[langflow,science,dev]` 后运行：
+在 `materials-quality` 中安装 `.[canvas,science,dev]` 后运行：
 
 ```powershell
 python -m scripts.build_science_components
@@ -61,7 +61,7 @@ python -m scripts.evaluate_paper_methods --output artifacts/paper-evaluation/syn
 python examples/analysis_plan_demo.py
 ```
 
-四条示例测试会重新加载序列化后的图、执行节点连接、核对数值及导出文件。真实浏览器验收脚本为 `scripts.ui_paper_acceptance`，在隔离的本机 Langflow 服务上执行上传、下拉操作、运行和查看结果。
+四条示例测试会重新加载序列化后的图、执行节点连接、核对数值及导出文件。真实浏览器验收脚本为 `scripts.ui_paper_acceptance`，在隔离的本机 LFX 服务上执行上传、下拉操作、运行和查看结果。
 
 公开数据评测可额外指定一个含 `corn/` 和 `tecator/` 的数据目录：
 

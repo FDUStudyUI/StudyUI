@@ -1,0 +1,450 @@
+"""StudyUI's local file-backed canvas service. No LFX backend is imported."""
+
+from __future__ import annotations
+
+import argparse
+import copy
+import json
+import math
+import os
+import re
+import sys
+import tempfile
+import threading
+import uuid
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+from types import SimpleNamespace
+from urllib.parse import urlsplit
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from filelock import FileLock
+
+if __package__ is None or __package__ == "":
+    import sys
+
+    _pkg_dir = Path(__file__).resolve().parent
+    _src_dir = _pkg_dir.parents[1]
+    if str(_src_dir) not in sys.path:
+        sys.path.insert(0, str(_src_dir))
+    __package__ = "materials_quality.agent"
+
+import contextlib
+
+from .file_workflow_client import FileWorkflowClient
+from .permissions import PermissionStore
+from .store import validate_workspace_catalog
+from .workflow_api import create_workflow_router
+from .workflow_files import WorkflowFileStore
+from .workflow_host import create_file_execution_router
+
+
+def _batch_spectrum_form_class():
+    """Load one fixed trusted module from an installed wheel or source checkout."""
+    relative = Path("materials_batch") / "batch_spectrum_analyzer.py"
+    packaged = Path(__file__).resolve().parents[1] / "component_sources"
+    # An installed package must not fall back to an unrelated neighboring directory.
+    root = packaged if packaged.is_dir() else Path(__file__).resolve().parents[3] / "components"
+    path = root / relative
+    name = "materials_quality._native_batch_spectrum_form"
+    spec = spec_from_file_location(name, path)
+    module = module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module.BatchSpectrumAnalyzer
+
+
+def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_handler=None) -> FastAPI:
+    root, components, frontend = root.resolve(), components.resolve(), frontend.resolve()
+    store = WorkflowFileStore(root)
+    client = FileWorkflowClient(root, components)
+    permissions = PermissionStore(components.parent / "studyui-settings.json")
+
+    # The first canvas open pays the LFX component-catalog build; warm it while
+    # the sidecar is starting so opening a workflow is not an 8-second blank.
+    def _warm_catalog() -> None:
+        with contextlib.suppress(Exception):
+            client.component_catalog()
+
+    threading.Thread(target=_warm_catalog, name="canvas-catalog-warm", daemon=True).start()
+    workspace_file = root.parent / "workspace.json"
+    lock = FileLock(str(workspace_file) + ".lock")
+
+    def read_workspace():
+        if workspace_file.exists():
+            try:
+                workspace = json.loads(workspace_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                raise HTTPException(
+                    500,
+                    f"工作区目录文件已损坏：{workspace_file}（{exc}）；请备份后修复或删除该文件。",
+                ) from exc
+            return validate_workspace_catalog(workspace, workspace_file)
+        flows = store.list()
+        groups = sorted({flow.get("folder_id") for flow in flows if flow.get("folder_id")})
+        owned = [
+            group
+            for group in groups
+            if any(flow.get("folder_id") == group and flow.get("user_id") for flow in flows)
+        ]
+        groups = owned or groups or [str(uuid.uuid4())]
+        return {
+            "projects": [
+                {
+                    "id": group,
+                    "name": "Research Project" if i == 0 else "Project " + str(i + 1),
+                    "description": "",
+                    "parent_id": None,
+                }
+                for i, group in enumerate(groups)
+            ],
+            "variables": [],
+        }
+
+    def write_workspace(data):
+        workspace_file.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=workspace_file.parent, suffix=".tmp", delete=False) as out:
+            temp = out.name
+            out.write((json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+            out.flush()
+            os.fsync(out.fileno())
+        try:
+            os.replace(temp, workspace_file)
+        finally:
+            if os.path.exists(temp):
+                with contextlib.suppress(OSError):
+                    os.unlink(temp)
+
+    # The legacy owner field is used only once to identify the imported project.
+    # Persist its identity before editing workflows removes that field.
+    with lock:
+        if not workspace_file.exists():
+            write_workspace(read_workspace())
+
+    app = FastAPI(title="StudyUI Workbench")
+    app.state.store = store
+    app.state.permissions = permissions
+
+    @app.middleware("http")
+    async def local_only(request: Request, call_next):
+        host = urlsplit("http://" + request.headers.get("host", ""))
+        if host.hostname not in {"127.0.0.1", "localhost", "::1", "testserver"}:
+            return JSONResponse({"detail": "Local workbench only"}, status_code=403)
+        origin = request.headers.get("origin")
+        if origin:
+            source = urlsplit(origin)
+            if source.scheme != "http" or source.hostname != host.hostname or source.port != host.port:
+                return JSONResponse({"detail": "Cross-origin requests are not accepted"}, status_code=403)
+        return await call_next(request)
+
+    @app.get("/health")
+    @app.get("/health_check")
+    async def health():
+        return {"status": "ok"}
+
+    @app.get("/api/v1/version")
+    async def version():
+        return {"version": "1.13.0", "main_version": "1.13.0", "package": "StudyUI"}
+
+    @app.get("/api/v1/config")
+    async def config():
+        return {
+            "type": "full",
+            "feature_flags": {},
+            "event_delivery": "streaming",
+            "max_file_size_upload": 100,
+            "serialization_max_items_length": 1000,
+            "serialization_max_text_length": 6000,
+            "auto_saving": True,
+            "auto_saving_interval": 1000,
+            "health_check_max_retries": 5,
+            "authz_enabled": False,
+            "allow_custom_components": False,
+            "catalog_governance_enabled": True,
+            "substitute_outdated_component_code": False,
+            "blocked_component_types": [],
+            "default_folder_name": "Research Project",
+            "hide_starter_projects": True,
+            "embedded_mode": True,
+            "hide_logout_button": True,
+            "hide_new_project_button": True,
+            "hide_getting_started_progress": True,
+            "a2a_enabled": False,
+            "agentic_experience": False,
+            "enable_extension_reload": False,
+            "frontend_timeout": 120,
+        }
+
+    @app.get("/api/v1/all")
+    async def catalog():
+        # The canvas catalog contains only explicitly installed StudyUI components.
+        # LFX remains the graph/runtime engine; its stock node library is not exposed.
+        from .node_layout import compact_component_catalog
+
+        return compact_component_catalog(client.component_catalog())
+
+    @app.get("/api/v1/projects/")
+    async def projects():
+        return [{**p, "is_owner": True} for p in read_workspace()["projects"]]
+
+    @app.get("/api/v1/projects/{project_id}")
+    async def project(
+        project_id: str,
+        page: int = 1,
+        size: int = 10,
+        components_only: bool = False,
+        is_component: bool | None = None,
+        is_flow: bool | None = None,
+        search: str = "",
+    ):
+        p = next((p for p in read_workspace()["projects"] if p["id"] == project_id), None)
+        if p is None:
+            raise HTTPException(404, "Project not found")
+        want_components = is_component if is_component is not None else components_only
+        rows = [
+            {**f, "user_id": None}
+            for f in store.list()
+            if f.get("folder_id") == project_id
+            and bool(f.get("is_component")) == want_components
+            and (not search or search.casefold() in str(f.get("name", "")).casefold())
+        ]
+        rows.sort(key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""), reverse=True)
+        page, size = max(1, page), max(1, min(size, 100))
+        return {
+            **p,
+            "flows": {
+                "items": rows[(page - 1) * size : page * size],
+                "total": len(rows),
+                "page": page,
+                "size": size,
+                "pages": math.ceil(len(rows) / size),
+            },
+            "components": [],
+        }
+
+    @app.post("/api/v1/projects/", status_code=201)
+    async def add_project(request: Request):
+        data = await request.json()
+        p = {
+            "id": str(uuid.uuid4()),
+            "name": str(data.get("name", "Research Project")),
+            "description": str(data.get("description", "")),
+            "parent_id": None,
+        }
+        with lock:
+            workspace = read_workspace()
+            workspace["projects"].append(p)
+            write_workspace(workspace)
+        return p
+
+    @app.patch("/api/v1/projects/{project_id}")
+    async def edit_project(project_id: str, request: Request):
+        data = await request.json()
+        with lock:
+            workspace = read_workspace()
+            p = next((p for p in workspace["projects"] if p["id"] == project_id), None)
+            if p is None:
+                raise HTTPException(404, "Project not found")
+            for key in ("name", "description"):
+                if key in data:
+                    p[key] = str(data[key])
+            write_workspace(workspace)
+        return p
+
+    @app.delete("/api/v1/projects/{project_id}")
+    async def delete_project(project_id: str):
+        raise HTTPException(403, "Project deletion requires a one-shot approval in the StudyUI conversation.")
+
+    @app.get("/api/v1/variables/")
+    async def variables():
+        return read_workspace()["variables"]
+
+    @app.get("/api/v1/builds")
+    async def builds():
+        return []
+
+    @app.get("/api/v1/flows/{flow_id}/note_translations")
+    async def note_translations(flow_id: str):
+        return {}
+
+    @app.get("/api/v1/store/check/")
+    async def store_check():
+        return {"enabled": False}
+
+    @app.get("/api/v1/models")
+    async def models():
+        return []
+
+    @app.get("/api/v1/models/enabled_models")
+    async def enabled_models():
+        return {"enabled_models": {}}
+
+    @app.get("/api/v1/monitor/messages/sessions")
+    @app.get("/api/v2/mcp/servers")
+    @app.get("/api/v2/workflows/pending")
+    @app.get("/api/v2/files")
+    async def empty_collection():
+        return []
+
+    @app.get("/api/v1/flows/{flow_id}/events")
+    async def flow_events(flow_id: str):
+        return {"events": [], "settled": True}
+
+    @app.get("/api/v1/monitor/builds")
+    async def monitor_builds():
+        return {"vertex_builds": {}}
+
+    @app.post("/api/v1/custom_component/update")
+    async def update_component(request: Request):
+        payload = await request.json()
+        if not isinstance(payload, dict) or len(json.dumps(payload, ensure_ascii=False)) > 256_000:
+            raise HTTPException(422, "组件配置无效或过大。")
+        frontend_node = payload.get("frontend_node")
+        metadata = frontend_node.get("metadata", {}) if isinstance(frontend_node, dict) else {}
+        name = metadata.get("component_class_name") if isinstance(metadata, dict) else None
+        if not isinstance(name, str):
+            raise HTTPException(403, "仅允许更新已安装的 StudyUI 科研组件。")
+        catalog = client.component_catalog()
+        component = next(
+            (group[name] for group in catalog.values() if isinstance(group, dict) and name in group), None
+        )
+        trusted_template = component.get("template", {}) if isinstance(component, dict) else {}
+        trusted_code = trusted_template.get("code", {}).get("value")
+        if not isinstance(trusted_code, str) or payload.get("code") != trusted_code:
+            raise HTTPException(403, "仅允许更新已安装的 StudyUI 科研组件。")
+        operation = re.search(r'ui_operation_key\s*=\s*["\']([^"\']+)["\']', trusted_code)
+        native_update = None
+        if not operation:
+            # Explicitly allow a packaged, metadata-only form updater. Do not execute
+            # catalog/request source or dynamically import a client-selected class.
+            # Other native updaters may read local files and need separate authorization.
+            if name != "BatchSpectrumAnalyzer":
+                raise HTTPException(403, "此组件不支持动态更新。")
+            native_update = _batch_spectrum_form_class()().update_build_config
+        template = copy.deepcopy(trusted_template)
+        supplied = payload.get("template")
+        if not isinstance(supplied, dict):
+            raise HTTPException(422, "组件配置缺失。")
+        for key, value in supplied.items():
+            if key != "code" and key in template and isinstance(value, dict) and "value" in value:
+                template[key]["value"] = value["value"]
+                if value.get("advanced") is False:
+                    template[key]["advanced"] = False
+        field = payload.get("field")
+        if not isinstance(field, str) or field == "code" or not isinstance(template.get(field), dict):
+            raise HTTPException(422, "未知或不可更新的组件字段。")
+        from materials_quality.science.ui_schema import refresh_config
+
+        try:
+            if native_update is not None:
+                template[field]["value"] = payload.get("field_value")
+                native_update(template, payload.get("field_value"), field)
+                for config in template.values():
+                    if not isinstance(config, dict):
+                        continue
+                    selected = config.get("value")
+                    options = config.get("options")
+                    if (
+                        config.get("_input_type") == "DropdownInput"
+                        and config.get("combobox") is True
+                        and isinstance(selected, str)
+                        and isinstance(options, list)
+                        and selected not in options
+                    ):
+                        # Preserve a configured column until upstream data supplies its schema.
+                        options.append(selected)
+            else:
+                refresh_config(
+                    SimpleNamespace(input_table=None),
+                    operation.group(1),
+                    template,
+                    payload.get("field_value"),
+                    field,
+                )
+        except (TypeError, ValueError, KeyError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return {"template": template, "outputs": component.get("outputs", [])}
+
+    @app.post("/api/v1/files/upload/{flow_id}", status_code=201)
+    async def upload_flow_file(flow_id: uuid.UUID, request: Request):
+        try:
+            flow, _ = store.read(str(flow_id))
+        except FileNotFoundError:
+            raise HTTPException(404, "Workflow not found") from None
+        decision = permissions.authorize(
+            project_id=flow.get("folder_id"), action="workflow.edit", task_authorized=True
+        )
+        if not decision["allowed"]:
+            raise HTTPException(403, decision.get("reason") or "当前权限档位不允许上传项目文件。")
+        form = await request.form()
+        uploaded = form.get("file")
+        if uploaded is None or not getattr(uploaded, "filename", None):
+            raise HTTPException(422, "File required")
+        name = Path(uploaded.filename).name
+        if name in {"", ".", ".."} or len(name) > 180 or re.search(r'[\x00-\x1f<>:"|?*]', name):
+            raise HTTPException(422, "Invalid file name")
+        directory = root.parent / "data" / str(flow_id)
+        directory.mkdir(parents=True, exist_ok=True)
+        target = directory / (str(uuid.uuid4()) + "_" + name)
+        if not target.resolve().is_relative_to(directory.resolve()):
+            raise HTTPException(422, "Invalid file path")
+        total = 0
+        try:
+            with target.open("xb") as out:
+                while chunk := await uploaded.read(1024 * 1024):
+                    total += len(chunk)
+                    if total > 100 * 1024 * 1024:
+                        raise HTTPException(413, "File exceeds 100 MB")
+                    out.write(chunk)
+        except Exception:
+            target.unlink(missing_ok=True)
+            raise
+        return {"flowId": str(flow_id), "file_path": str(target.resolve())}
+
+    app.include_router(
+        create_workflow_router(
+            store,
+            # The browser canvas is the human surface: explicit user actions
+            # (create/edit/copy) are not agent tool calls and must not be
+            # blocked by the agent's per_action/read_only preset.
+            permission_store=None,
+            component_catalog=client.component_catalog,
+            run_handler=workflow_run_handler,
+        )
+    )
+    app.include_router(
+        create_file_execution_router(
+            store, permission_store=permissions, component_catalog=client.component_catalog
+        ),
+        prefix="/api/v2",
+    )
+    app.mount("/assets", StaticFiles(directory=frontend / "assets"), name="assets")
+
+    @app.get("/{path:path}")
+    async def static(path: str):
+        if path.startswith("api/"):
+            raise HTTPException(404, "Not found")
+        target = (frontend / path).resolve()
+        if target.is_relative_to(frontend) and target.is_file():
+            return FileResponse(target)
+        return FileResponse(frontend / "index.html", headers={"Cache-Control": "no-cache"})
+
+    return app
+
+
+def main():
+    import uvicorn
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", type=int, default=7880)
+    parser.add_argument("--workflows", type=Path, required=True)
+    parser.add_argument("--components", type=Path, required=True)
+    parser.add_argument("--frontend", type=Path, required=True)
+    args = parser.parse_args()
+    uvicorn.run(create_app(args.workflows, args.components, args.frontend), host="127.0.0.1", port=args.port)
+
+
+if __name__ == "__main__":
+    main()

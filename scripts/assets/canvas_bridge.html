@@ -26,6 +26,11 @@
         root.append(link);
       }
     };
+    window.addEventListener('message', (event) => {
+      if (event.origin !== location.origin) return;
+      const data = event.data;
+      if (data && data.type === 'studyui-run-status') show(String(data.text || ''));
+    });
     const bodyWithSession = (body) => {
       if (typeof body !== 'string') return body;
       try {
@@ -120,8 +125,7 @@
       };
     }
     const syncStudyUIChrome = () => {
-      if (document.title.includes('Langflow'))
-        document.title = document.title.replaceAll('Langflow', 'StudyUI');
+      if (document.title.includes('LFX')) document.title = document.title.replaceAll('LFX', 'StudyUI');
       if (!document.body) return;
       let bar = document.getElementById('studyui-canvas-bar');
       if (!bar) {
@@ -150,7 +154,7 @@
         let task = null;
         let sessionId = new URLSearchParams(location.search).get('studyui_session_id');
         const taskApi = async (path, body) => {
-          // Langflow's locale wrapper attaches Accept-Language to init.headers.
+          // LFX's locale wrapper attaches Accept-Language to init.headers.
           const options = { headers: { Accept: 'application/json' } };
           if (body)
             Object.assign(options, {
@@ -218,6 +222,14 @@
         runBtn.onclick = async () => {
           const match = location.pathname.match(/\/canvas\/flow\/([^/]+)/);
           if (!match || runBtn.disabled) return;
+          if (
+            window.parent !== window &&
+            new URLSearchParams(location.search).get('studyui_host') === 'dsh'
+          ) {
+            window.parent.postMessage({ type: 'studyui-run-workflow', flowId: match[1] }, location.origin);
+            show('已将运行请求发送到 StudyUI 会话；请在对话中确认审批并查看结果。');
+            return;
+          }
           runBtn.disabled = true;
           try {
             if (!sessionId) {

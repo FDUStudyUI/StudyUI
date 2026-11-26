@@ -1,11 +1,11 @@
 # Third-party assets and generated/source data are byte-sensitive.
-packages/materials-quality/src/materials_quality/agent/ui/assets/vendor/
-packages/materials-quality/components/
-packages/materials-quality/examples/
-packages/materials-quality/testfixtures/
-packages/materials-quality/src/materials_quality/science/catalog.json
-packages/materials-quality/src/materials_quality/demos/catalog.json
-packages/materials-quality/docs/requirements-matrix.json
+materials-quality/src/materials_quality/agent/ui/assets/vendor/
+materials-quality/components/
+materials-quality/examples/
+materials-quality/testfixtures/
+materials-quality/src/materials_quality/science/catalog.json
+materials-quality/src/materials_quality/demos/catalog.json
+materials-quality/docs/requirements-matrix.json
 demo_datasets/
 workflows/
 StudyUI_outputs/

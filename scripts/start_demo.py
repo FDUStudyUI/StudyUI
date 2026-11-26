@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import hashlib
 import importlib.util
 import json
@@ -16,8 +17,10 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 import uuid
+import webbrowser
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import ProxyHandler, build_opener
@@ -27,7 +30,7 @@ def load_branding():
     """Import the sibling branding.py by file path.
 
     The repository-root scripts/ directory is shadowed whenever pytest runs
-    from packages/materials-quality (that package ships its own scripts
+    from materials-quality (that package ships its own scripts
     package), so neither "from scripts.branding" nor "from branding" is
     reliable. Loading the file explicitly works for every entry point:
     direct execution, "python -m scripts.start_demo" and importlib tests.
@@ -41,10 +44,10 @@ def load_branding():
     return module
 
 
-strip_langflow_branding = load_branding().strip_langflow_branding
+strip_vendor_branding = load_branding().strip_vendor_branding
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / "packages" / "materials-quality"
+PACKAGE = ROOT / "materials-quality"
 FLOW_FILES = ("spectra.json", "mechanics.json", "contrast.json")
 PAPER_FLOW_FILES = ("03-dna-origami-nanogaps.json",)
 
@@ -104,7 +107,7 @@ def requirements(package: Path, *, optional: bool = False) -> list[str]:
     """Read the project's dependency arrays without importing project dependencies."""
     text = (package / "pyproject.toml").read_text(encoding="utf-8")
     result = [] if optional else ["langflow-base==1.13.0", "lfx==1.13.0"]
-    keys = ("instruments",) if optional else ("dependencies", "langflow", "science")
+    keys = ("instruments",) if optional else ("dependencies", "canvas", "science")
     for key in keys:
         value = _dependency_array(text, key)
         if value is None:
@@ -114,7 +117,7 @@ def requirements(package: Path, *, optional: bool = False) -> list[str]:
 
 
 def probe_environment(python: Path, package: Path = PACKAGE) -> dict:
-    # Metadata inspection avoids importing Langflow, creating config, or initializing its database.
+    # Metadata inspection avoids importing the vendor runtime, creating config, or initializing its database.
     code = r"""
 import importlib.metadata as metadata
 import json, platform, sys
@@ -157,7 +160,7 @@ print(json.dumps(report))
 
 
 def runtime_environment(runtime: Path) -> dict[str, str]:
-    # Discard inherited Langflow settings so another workspace's DB/.env cannot leak into this demo.
+    # Discard inherited vendor runtime settings so another workspace's DB/.env cannot leak into this demo.
     env = {
         key: value
         for key, value in os.environ.items()
@@ -251,7 +254,7 @@ def setup_environment(venv: Path, package: Path, env: dict[str, str]) -> None:
             "--cache-dir",
             env["PIP_CACHE_DIR"],
             "-e",
-            str(package) + "[langflow,science,instruments]",
+            str(package) + "[canvas,science,instruments,dsh-sdk]",
             "langflow-base==1.13.0",
         ],
         env=env,
@@ -277,7 +280,7 @@ def _flow_paths(flow_dir: Path, extra_flow_dir: Path | None = None) -> list[Path
 
 def import_instructions(flow_dir: Path, extra_flow_dir: Path | None = None) -> None:
     print(
-        "Manual import: Langflow -> New flow / Upload flow; choose these JSON files:",
+        "Manual import: canvas -> New flow / Upload flow; choose these JSON files:",
         flush=True,
     )
     for path in _flow_paths(flow_dir, extra_flow_dir):
@@ -293,6 +296,34 @@ def prepare_runtime(runtime: Path) -> None:
         dirs_exist_ok=True,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
+    provision_dsh(runtime)
+
+
+def provision_dsh(runtime: Path) -> None:
+    """Best-effort DeepSeek Harness provisioning (Node 24 + pinned dsh)."""
+    if os.environ.get("STUDYUI_SKIP_DSH_SETUP"):
+        return
+    script = ROOT / "scripts" / "setup_dsh.py"
+    if not script.is_file():
+        return
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script), "--runtime-root", str(runtime)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=900,
+            cwd=str(ROOT),
+        )
+        tail = (result.stdout or result.stderr or "").strip().splitlines()[-3:]
+        print("DSH provisioning:", " / ".join(tail) if tail else "ok")
+    except (OSError, subprocess.SubprocessError) as exc:
+        print(
+            "DSH provisioning skipped:",
+            str(exc)[:200],
+            "— the agent falls back to the legacy harness.",
+        )
 
 
 def initialize_file_workflows(root: Path) -> None:
@@ -313,8 +344,8 @@ def initialize_file_workflows(root: Path) -> None:
             target.write("\n")
 
 
-def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> None:
-    """Rebuild the bundled Langflow UI entry points for StudyUI's workflow-only shell."""
+def apply_studyui_canvas_theme(python: Path, runtime: Path | None = None) -> None:
+    """Rebuild the bundled canvas UI entry points for StudyUI's workflow-only shell."""
     # The child prints an install path; force UTF-8 on both sides so a Chinese
     # or otherwise non-ASCII installation directory survives the round trip
     # even when the OS locale is not UTF-8 (cp936, LANG=C, ...).
@@ -345,10 +376,10 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         dirs_exist_ok=True,
         ignore=shutil.ignore_patterns("studyui-*"),
     )
-    strip_langflow_branding(frontend)
+    strip_vendor_branding(frontend)
     index_path = frontend / "index.html"
     if not index_path.is_file():
-        raise RuntimeError(f"Langflow frontend entry was not found: {index_path}")
+        raise RuntimeError(f"canvas frontend entry was not found: {index_path}")
     index = index_path.read_text(encoding="utf-8").replace(
         "<title>Langflow</title>", "<title>StudyUI Workbench</title>"
     )
@@ -372,13 +403,23 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         }
       } catch (_) {}
     </script>
+    <script id="studyui-title-guard">
+      (function () {
+        function fix() {
+          if (document.title.indexOf("StudyUI") !== 0) document.title = "StudyUI Workbench";
+        }
+        document.addEventListener("DOMContentLoaded", fix);
+        new MutationObserver(fix).observe(document.head, { childList: true, subtree: true });
+        fix();
+      })();
+    </script>
     <link rel="stylesheet" href="./studyui-theme.css" />"""
         if "</head>" not in index:
-            raise RuntimeError(f"Unexpected Langflow frontend entry format: {index_path}")
+            raise RuntimeError(f"Unexpected canvas frontend entry format: {index_path}")
         index = index.replace("</head>", theme_bootstrap + "\n  </head>", 1)
     if 'href="./studyui-theme.css"' not in index:
         if "</head>" not in index:
-            raise RuntimeError(f"Unexpected Langflow frontend entry format: {index_path}")
+            raise RuntimeError(f"Unexpected canvas frontend entry format: {index_path}")
         index = index.replace(
             "</head>",
             '    <link rel="stylesheet" href="./studyui-theme.css" />\n  </head>',
@@ -387,7 +428,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
 
     bundle_match = re.search(r'<script[^>]+src="([^"]+\.js(?:\?[^"]*)?)"', index)
     if bundle_match is None:
-        raise RuntimeError(f"Langflow frontend bundle was not found in {index_path}")
+        raise RuntimeError(f"canvas frontend bundle was not found in {index_path}")
     bundle_url = bundle_match.group(1)
     assets_root = (frontend / "assets").resolve()
     bundle_name = bundle_url.split("?", 1)[0].rsplit("/", 1)[-1]
@@ -395,9 +436,9 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
     try:
         bundle_path.relative_to(assets_root)
     except ValueError as exc:
-        raise RuntimeError("Langflow frontend bundle path escaped its package") from exc
+        raise RuntimeError("Vendor frontend bundle path escaped its package") from exc
     if not bundle_path.is_file():
-        raise RuntimeError(f"Langflow frontend bundle was not found: {bundle_path}")
+        raise RuntimeError(f"canvas frontend bundle was not found: {bundle_path}")
 
     if "studyui-agent-run-bridge" not in index:
         bridge = (ROOT / "scripts" / "assets" / "canvas_bridge.html").read_text(encoding="utf-8")
@@ -415,14 +456,14 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
 
     def replace_region(source: str, start: str, end: str, replacement: str, label: str) -> str:
         if source.count(start) != 1 or source.count(end) != 1:
-            raise RuntimeError(f"Langflow UI changed; cannot remove its {label} component safely")
+            raise RuntimeError(f"canvas UI changed; cannot remove its {label} component safely")
         start_at = source.index(start)
         end_at = source.index(end, start_at + len(start))
         return source[:start_at] + replacement + source[end_at:]
 
     def replace_component(source: str, old: str, new: str, label: str) -> str:
         if source.count(old) != 1:
-            raise RuntimeError(f"Langflow UI changed; cannot remove its {label} component safely")
+            raise RuntimeError(f"canvas UI changed; cannot remove its {label} component safely")
         return source.replace(old, new, 1)
 
     def save_bundle() -> None:
@@ -432,7 +473,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         try:
             versioned_assets.resolve().relative_to(assets_root)
         except ValueError as exc:
-            raise RuntimeError("StudyUI frontend asset path escaped the Langflow package") from exc
+            raise RuntimeError("StudyUI frontend asset path escaped the vendor package") from exc
         for source in assets_root.iterdir():
             if not source.is_file() or source.name == bundle_name:
                 continue
@@ -465,7 +506,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
             count=1,
         )
         if replacements != 1:
-            raise RuntimeError("Langflow frontend entry changed while saving the StudyUI bundle")
+            raise RuntimeError("canvas frontend entry changed while saving the StudyUI bundle")
         index_path.write_text(updated_index, encoding="utf-8")
 
     # Remove account/profile renderers and their components from the compiled bundle.
@@ -540,7 +581,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         'dark:bg-background","data-testid":"app-header",children:b.jsx(gt,{unstyled:!0,onClick:()=>n("/"),'
         'className:"mr-1 flex h-8 w-8 items-center justify-center rounded-md bg-primary font-semibold '
         'text-white","data-testid":"icon-ChevronLeft","aria-label":"StudyUI 首页",children:"S"})})}',
-        "Langflow header",
+        "vendor header",
     )
     bundle = replace_component(
         bundle,
@@ -554,7 +595,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
         "b.jsxs(UHn,{open:V,modal:!1,children:[",
         "b.jsx(kSo,{selectedNode:t})",
         "",
-        "Langflow Assistant canvas control",
+        "vendor assistant canvas control",
     )
     bundle = replace_region(
         bundle,
@@ -684,7 +725,7 @@ def apply_studyui_langflow_theme(python: Path, runtime: Path | None = None) -> N
             shutil.copy2(chunk_path, removed_copy)
         chunk_path.unlink()
 
-    # Keep Langflow's package files pristine; StudyUI serves its own built asset tree.
+    # Keep the vendor package files pristine; StudyUI serves its own built asset tree.
     bundle_path.write_text(bundle, encoding="utf-8")
     save_bundle()
     (frontend / "studyui-theme.css").write_text(
@@ -805,9 +846,106 @@ def start_system(python: Path, runtime: Path, port: int, ready_timeout: float) -
 def stop_server(process: subprocess.Popen) -> None:
     if process.poll() is not None:
         return
+    if os.name == "nt":
+        pid = getattr(process, "pid", None)
+        if pid is None:
+            with contextlib.suppress(Exception):
+                process.send_signal(signal.CTRL_C_EVENT)
+            process.wait(timeout=15)
+            return
+        # The venv launcher can spawn the real interpreter as a child. Kill the
+        # whole tree so the sidecar cannot keep the loopback port after its
+        # launcher exits; uvicorn needs no graceful shutdown here.
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            capture_output=True,
+            timeout=20,
+            check=False,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        process.wait(timeout=15)
+        return
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+        process.wait(timeout=15)
+        return
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    with contextlib.suppress(OSError):
+        os.killpg(process.pid, signal.SIGKILL)
+    process.wait(timeout=15)
+
+
+def _import_dsh_web():
+    src = PACKAGE / "src"
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
+    from materials_quality.agent import dsh_engine, dsh_web
+
+    return dsh_engine, dsh_web
+
+
+def prepare_canvas(runtime: Path, python: Path) -> None:
+    """Copy components and rebuild the themed Langflow canvas for the sidecar."""
+    components = runtime / "components"
+    components.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        PACKAGE / "components",
+        components,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    apply_studyui_canvas_theme(python, runtime)
+
+
+def check_web(runtime: Path, port: int, backend_port: int) -> int:
+    """Read-only DSH Web prerequisite check."""
+    dsh_engine, dsh_web = _import_dsh_web()
+    settings_path = runtime / "studyui-settings.json"
+    problems = []
+    if not settings_path.is_file():
+        problems.append(f"settings file is missing: {settings_path}")
+    try:
+        profile, notice = dsh_web.resolve_model(settings_path)
+        dsh_web.validate_official_model(profile, available=dsh_web.official_models(settings_path))
+        if notice:
+            print(f"check: {notice}", flush=True)
+        if not dsh_web.resolve_api_key(profile):
+            problems.append("DeepSeek API key is not configured")
+    except dsh_web.DshWebError as exc:
+        problems.append(str(exc))
+    if dsh_engine.resolve_command(settings_path) is None:
+        problems.append("DSH is not provisioned; run start_demo.bat --setup first")
+    profile_dir = dsh_web.web_profile_dir(settings_path)
+    if not profile_dir.is_dir():
+        problems.append(f"DSH Web profile is missing: {profile_dir}")
+    elif not (profile_dir / "node_modules" / "studyui-dsh").is_dir():
+        print("check: StudyUI brand plugin will be installed on first start.", flush=True)
+    if not port_available(port):
+        problems.append(f"port {port} is already in use")
+    if port == backend_port:
+        problems.append("--port and --backend-port must differ")
+    elif not port_available(backend_port):
+        problems.append(f"backend port {backend_port} is already in use")
+    canvas_index = runtime / "workbench-ui" / "index.html"
+    if not canvas_index.is_file():
+        print("check: canvas frontend will be prepared on first start.", flush=True)
+    if not (PACKAGE / "components").is_dir():
+        problems.append(f"canvas components are missing: {PACKAGE / 'components'}")
+    if problems:
+        for problem in problems:
+            print(f"check: {problem}", file=sys.stderr, flush=True)
+        return 2
+    print("DSH Web prerequisites OK.", flush=True)
+    return 0
+
+
+def stop_web(process: subprocess.Popen) -> None:
+    if process.poll() is not None:
+        return
     try:
         if os.name == "nt":
-            process.send_signal(signal.CTRL_BREAK_EVENT)
+            process.send_signal(signal.CTRL_C_EVENT)
         else:
             os.killpg(process.pid, signal.SIGTERM)
         process.wait(timeout=15)
@@ -815,8 +953,6 @@ def stop_server(process: subprocess.Popen) -> None:
     except (OSError, subprocess.TimeoutExpired):
         pass
     if os.name == "nt":
-        # A venv executable may launch the real interpreter as a descendant.
-        # Restrict fallback termination to the process tree we just created.
         subprocess.run(
             ["taskkill", "/PID", str(process.pid), "/T", "/F"],
             capture_output=True,
@@ -827,6 +963,164 @@ def stop_server(process: subprocess.Popen) -> None:
     else:
         os.killpg(process.pid, signal.SIGKILL)
     process.wait(timeout=15)
+
+
+def start_web(
+    runtime: Path,
+    python: Path,
+    port: int,
+    ready_timeout: float,
+    *,
+    backend_port: int = 7881,
+    check: bool = False,
+    open_browser: bool = True,
+) -> int:
+    """Start the StudyUI DSH Web surface and block until it exits."""
+    if not python.is_file():
+        print(
+            "Python environment missing. First run: start_demo.bat --setup",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 2
+    if Path(sys.executable).resolve() != python.resolve():
+        child = [
+            str(python),
+            "-B",
+            str(Path(__file__).resolve()),
+            "--web",
+            "--port",
+            str(port),
+            "--runtime",
+            str(runtime),
+            "--backend-port",
+            str(backend_port),
+        ]
+        if check:
+            child.append("--check")
+        if not open_browser:
+            child.append("--no-open")
+        try:
+            return subprocess.call(child)
+        except KeyboardInterrupt:
+            return 0
+    dsh_engine, dsh_web = _import_dsh_web()
+    if check:
+        return check_web(runtime, port, backend_port)
+    if port == backend_port:
+        print("--port and --backend-port must differ.", file=sys.stderr, flush=True)
+        return 2
+    for label, candidate in (("DSH Web", port), ("StudyUI backend", backend_port)):
+        if not port_available(candidate):
+            print(f"{label} port {candidate} is already in use.", file=sys.stderr, flush=True)
+            return 2
+    settings_path = runtime / "studyui-settings.json"
+    try:
+        profile_dir = dsh_web.ensure_web_profile(settings_path)
+        try:
+            dsh_web.install_studyui_plugin(
+                settings_path,
+                source=ROOT / "dsh-plugins" / "studyui-dsh",
+            )
+        except (dsh_web.DshWebError, OSError) as exc:
+            print(f"warning: {exc}", file=sys.stderr, flush=True)
+        command = dsh_engine.resolve_command(settings_path)
+        if command is None:
+            print(
+                "DSH is not provisioned. Run start_demo.bat --setup first.",
+                file=sys.stderr,
+                flush=True,
+            )
+            return 2
+        env = dsh_web.build_web_environment(settings_path)
+    except dsh_web.DshWebError as exc:
+        print(str(exc), file=sys.stderr, flush=True)
+        return 2
+    if env.get("STUDYUI_WEB_MODEL_NOTICE"):
+        print(f"note: {env['STUDYUI_WEB_MODEL_NOTICE']}", flush=True)
+    env["STUDYUI_PYTHON"] = sys.executable
+    env["STUDYUI_WORKFLOWS_DIR"] = str(ROOT / "workflows")
+    env["STUDYUI_COMPONENTS_DIR"] = str(runtime / "components")
+    env["STUDYUI_RUNTIME_ROOT"] = str(runtime)
+    env["STUDYUI_CANVAS_DIR"] = str(runtime / "workbench-ui")
+    env["STUDYUI_BACKEND_URL"] = f"http://127.0.0.1:{backend_port}"
+
+    argv = dsh_web.web_argv(command, port=port)
+    workspace = Path(env["STUDYUI_WEB_WORKSPACE"])
+    logs = runtime / "logs"
+    logs.mkdir(parents=True, exist_ok=True)
+    log_path = logs / "dsh-web.log"
+    backend = None
+    try:
+        prepare_canvas(runtime, python)
+        backend = start_studyui_service(python, runtime, backend_port, ready_timeout)
+    except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
+        print(f"StudyUI canvas backend failed to start: {exc}", file=sys.stderr, flush=True)
+        if backend is not None:
+            stop_server(backend)
+        return 1
+    print(f"Canvas backend ready: http://127.0.0.1:{backend_port}", flush=True)
+    print(
+        f"Starting StudyUI (DSH Web): http://127.0.0.1:{port}\n"
+        f"Profile: {profile_dir}\nLogs: {log_path}\n"
+        "Press Ctrl+C here to stop.",
+        flush=True,
+    )
+    options = (
+        {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+        if os.name == "nt"
+        else {"start_new_session": True}
+    )
+    process = subprocess.Popen(
+        argv,
+        cwd=workspace,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+        **options,
+    )
+    ready = threading.Event()
+    ready_url: dict[str, str] = {}
+
+    def pump() -> None:
+        with log_path.open("a", encoding="utf-8") as log:
+            for line in process.stdout or []:
+                log.write(dsh_web.redact_line(line))
+                log.flush()
+                url = dsh_web.parse_ready_url(line.rstrip("\n"))
+                if url and not ready.is_set():
+                    ready_url["url"] = url
+                    ready.set()
+
+    reader = threading.Thread(target=pump, name="dsh-web-output", daemon=True)
+    reader.start()
+    try:
+        if not ready.wait(ready_timeout):
+            stop_web(process)
+            print(
+                f"DSH Web did not report a ready URL; read {log_path}",
+                file=sys.stderr,
+                flush=True,
+            )
+            return 1
+        url = ready_url["url"]
+        print(f"DSH Web ready: {dsh_web.redact_token(url)}", flush=True)
+        if open_browser:
+            webbrowser.open(url)
+        while process.poll() is None:
+            time.sleep(0.5)
+        return process.returncode or 0
+    except KeyboardInterrupt:
+        print("Stopping DSH Web...", flush=True)
+        return 0
+    finally:
+        stop_web(process)
+        if backend is not None:
+            stop_server(backend)
 
 
 def valid_port(value: str) -> int:
@@ -850,6 +1144,47 @@ def positive_timeout(value: str) -> float:
     return number
 
 
+def appdata_runtime_root() -> Path:
+    """Per-user application data directory outside the project workspace."""
+    base = os.environ.get("LOCALAPPDATA")
+    if base:
+        return Path(base) / "StudyUI" / "runtime"
+    return Path.home() / ".local" / "state" / "studyui" / "runtime"
+
+
+def default_runtime_root() -> Path:
+    configured = os.environ.get("STUDYUI_RUNTIME_ROOT", "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    appdata = appdata_runtime_root()
+    if appdata.exists():
+        return appdata
+    legacy = ROOT / ".demo-runtime"
+    if (ROOT / "runtime" / "python").is_dir():
+        # Portable installs keep their data inside the portable directory.
+        return legacy
+    if legacy.exists():
+        return legacy
+    return appdata
+
+
+def migrate_runtime() -> int:
+    """Move the legacy in-repository runtime to per-user application data."""
+    legacy = (ROOT / ".demo-runtime").resolve()
+    target = appdata_runtime_root().resolve()
+    if not legacy.exists():
+        print("No legacy runtime directory to migrate.")
+        return 0
+    if target.exists():
+        print(f"Target runtime already exists: {target}")
+        return 2
+    target.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Moving runtime {legacy} -> {target} (this may take a few minutes)…", flush=True)
+    shutil.move(str(legacy), str(target))
+    print(f"Runtime migrated to {target}. Start StudyUI normally; the launcher now uses it.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -860,7 +1195,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Inspect prerequisites only; never create/install/start/import",
+        help="Inspect prerequisites only; never create/install/start",
     )
     parser.add_argument(
         "--python",
@@ -868,7 +1203,33 @@ def main(argv: list[str] | None = None) -> int:
         help="Use an existing Python 3.10 environment read-only; incompatible with --setup",
     )
     parser.add_argument("--port", type=valid_port, default=7880, help="StudyUI main application port")
-    parser.add_argument("--runtime", type=runtime_path, default=ROOT / ".demo-runtime")
+    parser.add_argument(
+        "--backend-port",
+        type=valid_port,
+        default=7881,
+        help="StudyUI canvas/API sidecar port for --web",
+    )
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="Start the DSH Web UI instead of the legacy StudyUI page",
+    )
+    parser.add_argument(
+        "--no-open",
+        action="store_true",
+        help="With --web, print the authenticated URL without opening a browser",
+    )
+    parser.add_argument(
+        "--runtime",
+        type=runtime_path,
+        default=None,
+        help="Runtime directory (default: per-user app data, or the portable/local legacy directory)",
+    )
+    parser.add_argument(
+        "--migrate-runtime",
+        action="store_true",
+        help="Move the legacy .demo-runtime into per-user application data, then exit",
+    )
     parser.add_argument(
         "--ready-timeout",
         type=positive_timeout,
@@ -876,8 +1237,24 @@ def main(argv: list[str] | None = None) -> int:
         help="Startup deadline in seconds (default: 240)",
     )
     args = parser.parse_args(argv)
-    runtime = args.runtime.expanduser().resolve()
+    if args.migrate_runtime:
+        return migrate_runtime()
+    runtime = (args.runtime or default_runtime_root()).expanduser().resolve()
     python = args.python.expanduser().resolve() if args.python else venv_python(ROOT / ".demo-venv")
+    if args.web and not args.setup:
+        return start_web(
+            runtime,
+            python,
+            args.port,
+            args.ready_timeout,
+            backend_port=args.backend_port,
+            check=args.check,
+            open_browser=not args.no_open,
+        )
+    if args.web:
+        # --setup installs the Python environment first; start the legacy surface
+        # for this run, then the next launch uses DSH Web.
+        args.web = False
     print(
         f"Python: {python}\nRuntime: {runtime}\nStudyUI URL: http://127.0.0.1:{args.port}",
         flush=True,
@@ -897,7 +1274,7 @@ def main(argv: list[str] | None = None) -> int:
                 print("Existing dedicated environment is complete; reusing it without network installation.")
             else:
                 print(
-                    "SETUP: installing the current package [langflow,science,instruments] "
+                    "SETUP: installing the current package [canvas,science,instruments,dsh-sdk] "
                     "+ langflow-base==1.13.0"
                 )
                 print("Installation target: " + str(ROOT / ".demo-venv"), flush=True)
@@ -936,7 +1313,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         prepare_runtime(runtime)
         initialize_file_workflows(ROOT)
-        apply_studyui_langflow_theme(python, runtime)
+        apply_studyui_canvas_theme(python, runtime)
         return start_system(python, runtime, args.port, args.ready_timeout)
     except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
         print(f"Demo launcher failed: {exc}")

@@ -6,10 +6,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.util
+import json
 import os
 import shutil
 import subprocess
 import tempfile
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -17,7 +19,7 @@ from pathlib import Path
 def load_branding():
     """Import the sibling branding.py by file path (see scripts/start_demo.py).
 
-    "from scripts.branding" resolves to packages/materials-quality/scripts
+    "from scripts.branding" resolves to materials-quality/scripts
     whenever that package shadows the repository root on sys.path, so neither
     it nor a bare "from branding" import is reliable.
     """
@@ -30,7 +32,7 @@ def load_branding():
     return module
 
 
-strip_langflow_branding = load_branding().strip_langflow_branding
+strip_vendor_branding = load_branding().strip_vendor_branding
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "beta-demo"
@@ -40,6 +42,11 @@ DEFAULT_FULL_OUTPUT = ROOT / "dist" / f"StudyUI-{VERSION}-windows-x64-portable.z
 DEFAULT_SOURCE_OUTPUT = ROOT / "dist" / f"StudyUI-{VERSION}-source.zip"
 VENV = ROOT / ".demo-venv"
 
+# Node 24 LTS Windows x64 — pinned for reproducibility
+NODE_VERSION = "24.22.1"
+NODE_DOWNLOAD_URL = f"https://nodejs.org/dist/v{NODE_VERSION}/node-v{NODE_VERSION}-win-x64.zip"
+NODE_SHASUMS_URL = f"https://nodejs.org/dist/v{NODE_VERSION}/SHASUMS256.txt"
+
 INCLUDE_FILES = (
     "README.md",
     "LICENSE",
@@ -48,23 +55,25 @@ INCLUDE_FILES = (
     "start_demo.sh",
     "scripts/start_demo.py",
     "scripts/branding.py",
-    "packages/materials-quality/README.md",
-    "packages/materials-quality/pyproject.toml",
-    "packages/materials-quality/requirements.lock",
-    "packages/materials-quality/requirements-tested-py310.txt",
-    "packages/materials-quality/requirements-ui-tested-py310.txt",
-    "packages/materials-quality/THIRD_PARTY_NOTICES.md",
+    "scripts/setup_dsh.py",
+    "materials-quality/README.md",
+    "materials-quality/pyproject.toml",
+    "materials-quality/requirements.lock",
+    "materials-quality/requirements-tested-py310.txt",
+    "materials-quality/requirements-ui-tested-py310.txt",
+    "materials-quality/THIRD_PARTY_NOTICES.md",
 )
 INCLUDE_DIRS = (
     "docs",
     "demo_datasets",
+    "dsh-plugins",
     "scripts/assets",
-    "packages/materials-quality/components",
-    "packages/materials-quality/docs",
-    "packages/materials-quality/src",
-    "packages/materials-quality/examples/science_flows",
-    "packages/materials-quality/examples/skill_flows",
-    "packages/materials-quality/examples/research_flows",
+    "materials-quality/components",
+    "materials-quality/docs",
+    "materials-quality/src",
+    "materials-quality/examples/science_flows",
+    "materials-quality/examples/skill_flows",
+    "materials-quality/examples/research_flows",
 )
 SKIP_DIRS = {
     ".git",
@@ -120,9 +129,10 @@ No installation is required.
 2. Run start_demo.bat.
 3. Open http://127.0.0.1:7880
 
-This bundle includes Python 3.10.22 and all runtime dependencies. The five
-home-page demo cases work without network access or a model API key. Configure
-a model in StudyUI only when you want natural-language Agent exploration.
+This bundle includes Python 3.10.22, Node.js {NODE_VERSION}, and all runtime
+dependencies. The five home-page demo cases work without network access or a model
+API key. Configure a model in StudyUI only when you want natural-language Agent
+exploration.
 
 Keep credentials, .demo-runtime/, workflows/, uploads/, and StudyUI_outputs/
 out of this directory when sharing it. See README.md and docs/ for details.
@@ -252,13 +262,145 @@ def stage_runtime(stage: Path) -> Path:
         exclude_dirs=("__pycache__",),
         exclude_files=("*.pyc", "*.pyo", "*.whl", "PyWin32.chm"),
     )
-    (site_packages / "_editable_impl_langflow_materials_quality.pth").unlink(missing_ok=True)
-    langflow_frontend = site_packages / "langflow" / "frontend"
-    if langflow_frontend.is_dir():
-        strip_langflow_branding(langflow_frontend)
+    (site_packages / "_editable_impl_studyui_materials_quality.pth").unlink(missing_ok=True)
+    vendor_frontend = site_packages / "langflow" / "frontend"
+    if vendor_frontend.is_dir():
+        strip_vendor_branding(vendor_frontend)
     if not (python_dir / "python.exe").is_file():
         raise FileNotFoundError("Portable runtime does not contain python.exe")
     return python_dir
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _expected_node_sha256(archive_name: str) -> str:
+    try:
+        with urllib.request.urlopen(NODE_SHASUMS_URL, timeout=60) as response:
+            text = response.read().decode("utf-8", "replace")
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Failed to download Node checksums: {exc}") from exc
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[1] == archive_name:
+            return parts[0].lower()
+    raise ValueError(f"No checksum for {archive_name} in {NODE_SHASUMS_URL}")
+
+
+def _safe_extract(archive: zipfile.ZipFile, target: Path) -> None:
+    root = target.resolve()
+    for member in archive.infolist():
+        destination = (root / member.filename).resolve()
+        if destination != root and root not in destination.parents:
+            raise ValueError(f"Unsafe path in Node.js archive: {member.filename}")
+    archive.extractall(root)
+
+
+def _download_node() -> Path:
+    """Download the pinned Node.js Windows x64 zip, verify its checksum, extract it."""
+    archive_name = f"node-v{NODE_VERSION}-win-x64.zip"
+    extract_dir = Path(tempfile.mkdtemp(prefix="studyui-node-"))
+    zip_path = extract_dir / archive_name
+    print(f"Downloading Node.js v{NODE_VERSION} from {NODE_DOWNLOAD_URL}…", flush=True)
+    try:
+        urllib.request.urlretrieve(NODE_DOWNLOAD_URL, zip_path)
+        expected = _expected_node_sha256(archive_name)
+        actual = _sha256_file(zip_path)
+        if actual != expected:
+            raise ValueError(f"Node.js checksum mismatch: expected {expected}, got {actual}")
+        with zipfile.ZipFile(zip_path) as archive:
+            if archive.testzip() is not None:
+                raise ValueError("Node.js archive failed integrity check")
+            _safe_extract(archive, extract_dir)
+        zip_path.unlink()
+        node_dir = extract_dir / f"node-v{NODE_VERSION}-win-x64"
+        if not (node_dir / "node.exe").is_file():
+            raise FileNotFoundError(f"node.exe not found in extracted Node.js archive at {node_dir}")
+        return node_dir
+    except Exception:
+        shutil.rmtree(extract_dir, ignore_errors=True)
+        raise
+
+
+def _install_dsh(target_dir: Path, *, node_exe: Path | None = None, node_dir: Path | None = None) -> None:
+    """Install the pinned DSH package with the bundled Node/npm when available."""
+    package_json = target_dir / "package.json"
+    package_json.write_text(json.dumps({"name": "studyui-dsh", "private": True}, indent=2), encoding="utf-8")
+    command: list[str]
+    env = None
+    npm_cli = node_dir / "node_modules" / "npm" / "bin" / "npm-cli.js" if node_dir else None
+    if node_exe is not None and npm_cli is not None and npm_cli.is_file():
+        command = [str(node_exe), str(npm_cli)]
+        env = os.environ.copy()
+        env["PATH"] = str(node_dir) + os.pathsep + env.get("PATH", "")
+    else:
+        npm = shutil.which("npm")
+        if not npm:
+            raise FileNotFoundError("npm is required to install DSH; ensure Node.js is available on PATH")
+        command = [npm]
+    subprocess.run(
+        [
+            *command,
+            "install",
+            "--no-audit",
+            "--no-fund",
+            "--ignore-scripts",
+            "@deepseek-ai/dsh@0.2.2-rc.5",
+        ],
+        cwd=target_dir,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=300,
+        env=env,
+    )
+
+
+def stage_dsh(stage: Path) -> Path:
+    """Download Node 24 and pre-install DSH into the portable staging directory.
+
+    Layout (matching _bundled_node / _bundled_dsh_bin expectations):
+        stage/runtime/dsh/node/node.exe   (and supporting DLLs + LICENSE)
+        stage/runtime/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+    """
+    dsh_dir = stage / "runtime" / "dsh"
+    node_dir = dsh_dir / "node"
+    node_dir.mkdir(parents=True, exist_ok=True)
+
+    downloaded_node = _download_node()
+    try:
+        for item in downloaded_node.iterdir():
+            if item.suffix.lower() in (".exe", ".dll") or item.name in ("nodevars.bat", "LICENSE"):
+                shutil.copy2(item, node_dir / item.name)
+        node_exe = node_dir / "node.exe"
+        if not node_exe.is_file():
+            raise FileNotFoundError("node.exe was not copied to the staging directory")
+        _install_dsh(dsh_dir, node_exe=downloaded_node / "node.exe", node_dir=downloaded_node)
+    finally:
+        shutil.rmtree(downloaded_node.parent, ignore_errors=True)
+
+    bin_js = dsh_dir / "node_modules" / "@deepseek-ai" / "dsh" / "lib" / "bin.js"
+    if not bin_js.is_file():
+        raise FileNotFoundError(f"DSH entrypoint missing after install: {bin_js}")
+
+    result = subprocess.run(
+        [str(node_exe), str(bin_js), "--version"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+    )
+    version = (result.stdout or result.stderr or "").strip()
+    if result.returncode != 0:
+        raise RuntimeError(f"Bundled DSH smoke test failed (exit {result.returncode}): {version}")
+    print(f"DSH bundled: {version}", flush=True)
+    return dsh_dir
 
 
 def _add(zf: zipfile.ZipFile, archive_name: str, data: bytes, mode: int) -> None:
@@ -274,7 +416,9 @@ def build(output: Path, *, full: bool) -> tuple[int, str]:
     output.parent.mkdir(parents=True, exist_ok=True)
     stage_root = Path(tempfile.mkdtemp(prefix="studyui-portable-", dir=output.parent))
     runtime_dir = stage_runtime(stage_root) if full else None
+    dsh_dir = stage_dsh(stage_root) if full else None
     runtime_files = [path for path in sorted(runtime_dir.rglob("*")) if path.is_file()] if runtime_dir else []
+    dsh_files = [path for path in sorted(dsh_dir.rglob("*")) if path.is_file()] if dsh_dir else []
     temporary = output.with_name(output.name + ".tmp")
     try:
         with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=1) as zf:
@@ -287,6 +431,9 @@ def build(output: Path, *, full: bool) -> tuple[int, str]:
             for path in runtime_files:
                 relative = path.relative_to(stage_root).as_posix()
                 _add(zf, f"{ARCHIVE_ROOT}/{relative}", path.read_bytes(), 0o644)
+            for path in dsh_files:
+                relative = path.relative_to(stage_root).as_posix()
+                _add(zf, f"{ARCHIVE_ROOT}/{relative}", path.read_bytes(), 0o644)
         with zipfile.ZipFile(temporary) as check:
             if check.testzip() is not None:
                 raise ValueError("Portable archive failed its ZIP integrity check")
@@ -297,7 +444,7 @@ def build(output: Path, *, full: bool) -> tuple[int, str]:
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
     checksum = output.with_name(output.name + ".sha256")
     checksum.write_text(f"{digest}  {output.name}\n", encoding="ascii", newline="\n")
-    return len(files) + len(runtime_files) + 1, digest
+    return len(files) + len(runtime_files) + len(dsh_files) + 1, digest
 
 
 def main() -> None:

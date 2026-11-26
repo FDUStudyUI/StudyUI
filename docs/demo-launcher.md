@@ -24,7 +24,7 @@ macOS/Linux：
 sh ./start_demo.sh --setup
 ```
 
-启动器只向仓库的 `.demo-venv` 安装 `packages/materials-quality[langflow,science,instruments]` 和 `langflow-base==1.13.0`。没有安装成功时，检查终端中的错误信息，修复网络或系统依赖后重试；服务启动失败时查看 `.demo-runtime/logs/studyui-server.log`。
+启动器只向仓库的 `.demo-venv` 安装 `materials-quality[canvas,science,instruments]` 和 `langflow-base==1.13.0`。没有安装成功时，检查终端中的错误信息，修复网络或系统依赖后重试；服务启动失败时查看 `.demo-runtime/logs/studyui-server.log`。
 
 ## 正常启动与停止
 

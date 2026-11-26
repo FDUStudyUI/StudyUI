@@ -1,4 +1,8 @@
-"""Remove Langflow brand assets from the bundled workflow canvas."""
+"""Remove vendor brand assets from the bundled workflow canvas.
+
+Asset globs below match upstream package filenames and must stay in sync with
+that package; the replacement paths are StudyUI-owned.
+"""
 
 from __future__ import annotations
 
@@ -71,7 +75,7 @@ def _strip_index_branding(frontend: Path) -> None:
     index_path.write_text(index, encoding="utf-8")
 
 
-def strip_langflow_branding(frontend: str | Path) -> None:
+def strip_vendor_branding(frontend: str | Path) -> None:
     """Rename branded assets, remove icon/manifest files, and install StudyUI marks."""
     frontend = Path(frontend)
     assets = frontend / "assets"

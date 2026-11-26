@@ -1,0 +1,973 @@
+"""Local, append-only conversation and approval storage for the harness."""
+
+from __future__ import annotations
+
+import contextlib
+import json
+import os
+import sqlite3
+import tempfile
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+
+from filelock import FileLock
+
+
+def _now():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def validate_workspace_catalog(workspace, path):
+    """Validate the shared workspace catalog loaded from disk.
+
+    A corrupted or hand-edited catalog must surface one actionable ValueError
+    instead of an incidental TypeError/KeyError deep inside project handling.
+    """
+    if not isinstance(workspace, dict):
+        raise ValueError(f"workspace 目录文件格式无效：{path}；请备份后修复或删除该文件。")
+    for key in ("projects", "workspaces", "variables"):
+        value = workspace.setdefault(key, [])
+        if not isinstance(value, list):
+            raise ValueError(f"workspace 目录文件字段 {key} 必须是列表：{path}；请备份后修复或删除该文件。")
+    for row in workspace["projects"]:
+        if (
+            not isinstance(row, dict)
+            or not isinstance(row.get("id"), str)
+            or not row["id"]
+            or not isinstance(row.get("name"), str)
+        ):
+            raise ValueError(f"workspace 目录文件包含无效的项目条目：{path}；请备份后修复或删除该文件。")
+    for row in workspace["workspaces"]:
+        if not isinstance(row, dict) or not isinstance(row.get("id"), str) or not row["id"]:
+            raise ValueError(f"workspace 目录文件包含无效的工作区条目：{path}；请备份后修复或删除该文件。")
+    return workspace
+
+
+def _load_workspace_catalog(path):
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        raise
+    try:
+        workspace = json.loads(raw)
+    except ValueError as exc:
+        raise ValueError(f"workspace 目录文件已损坏：{path}（{exc}）；请备份后修复或删除该文件。") from exc
+    return validate_workspace_catalog(workspace, path)
+
+
+class SessionStore:
+    def __init__(self, path, *, workspace_file=None, workflow_root=None):
+        self.path = Path(path).expanduser().absolute()
+        self.workspace_file = Path(workspace_file).resolve() if workspace_file else None
+        self.workflow_root = Path(workflow_root).resolve() if workflow_root else None
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._initialize()
+
+    def _write_workspace(self, data):
+        path = self.workspace_file
+        with tempfile.NamedTemporaryFile(dir=path.parent, suffix=".tmp", delete=False) as out:
+            temporary = out.name
+            out.write((json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+            out.flush()
+            os.fsync(out.fileno())
+        try:
+            os.replace(temporary, path)
+        finally:
+            if os.path.exists(temporary):
+                with contextlib.suppress(OSError):
+                    os.unlink(temporary)
+
+    def _workspace_operation(self, operation=None):
+        """Use the same project catalog as the canvas and mirror IDs for session foreign keys."""
+        if not self.workspace_file:
+            return None
+        with FileLock(str(self.workspace_file) + ".lock", timeout=30), self._connect() as db:
+            if self.workspace_file.exists():
+                workspace = _load_workspace_catalog(self.workspace_file)
+            else:
+                workspace = {"projects": [], "workspaces": [], "variables": []}
+            projects = workspace["projects"]
+            if not workspace.get("session_projects_migrated"):
+                known = {p["id"] for p in projects}
+                for row in db.execute(
+                    "SELECT id,title,description FROM projects ORDER BY position,created_at"
+                ):
+                    if row["id"] not in known:
+                        projects.append(
+                            {
+                                "id": row["id"],
+                                "name": row["title"],
+                                "description": row["description"],
+                                "parent_id": None,
+                            }
+                        )
+                workspace["session_projects_migrated"] = True
+            result = operation(workspace) if operation else None
+            projects = workspace["projects"]
+            now = _now()
+            for position, p in enumerate(projects):
+                db.execute(
+                    """INSERT INTO projects(id,title,description,position,created_at,updated_at)
+                              VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
+                              title=excluded.title, description=excluded.description,"""
+                    " position=excluded.position",
+                    (p["id"], p["name"], p.get("description", ""), position, now, now),
+                )
+            ids = [p["id"] for p in projects]
+            if ids:
+                db.execute("DELETE FROM projects WHERE id NOT IN (" + ",".join("?" * len(ids)) + ")", ids)
+            else:
+                db.execute("DELETE FROM projects")
+            self._write_workspace(workspace)
+            return result
+
+    def _connect(self):
+        connection = sqlite3.connect(self.path, timeout=10)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys=ON")
+        connection.execute("PRAGMA busy_timeout=20000")
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("PRAGMA synchronous=NORMAL")
+        return connection
+
+    def _initialize(self):
+        with self._connect() as db:
+            db.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+                    workspace_id TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS projects (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    position INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS project_directories (
+                    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                    path TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY(project_id, path)
+                );
+                CREATE TABLE IF NOT EXISTS messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                    message_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS messages_by_session
+                    ON messages(session_id, id);
+                CREATE TABLE IF NOT EXISTS events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                    kind TEXT NOT NULL,
+                    detail_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS proposals (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                    flow_id TEXT NOT NULL,
+                    base_digest TEXT NOT NULL,
+                    candidate_json TEXT NOT NULL,
+                    summary_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS approvals (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                    project_id TEXT,
+                    action TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    request_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS approvals_by_session
+                    ON approvals(session_id, status, created_at);
+                CREATE TABLE IF NOT EXISTS artifacts (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                    project_id TEXT,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    sha256 TEXT NOT NULL,
+                    size INTEGER NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS artifacts_by_session
+                    ON artifacts(session_id, created_at);
+                CREATE TABLE IF NOT EXISTS engine_sessions (
+                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                    engine TEXT NOT NULL,
+                    engine_session_id TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY(session_id, engine)
+                );
+                """
+            )
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(sessions)")}
+            if "project_id" not in columns:
+                db.execute(
+                    "ALTER TABLE sessions ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET "
+                    "NULL"
+                )
+            if "workspace_id" not in columns:
+                db.execute("ALTER TABLE sessions ADD COLUMN workspace_id TEXT")
+
+    def create_project(self, title, description="", workspace_id=None):
+        project_id, now = str(uuid.uuid4()), _now()
+        title = str(title).strip()[:120]
+        if not title:
+            raise ValueError("项目名称不能为空")
+        if self.workspace_file:
+
+            def add(workspace):
+                if workspace_id and not any(row.get("id") == workspace_id for row in workspace["workspaces"]):
+                    raise ValueError("工作区不存在。")
+                workspace["projects"].append(
+                    {
+                        "id": project_id,
+                        "name": title,
+                        "description": str(description).strip()[:1000],
+                        "parent_id": None,
+                        "workspace_id": workspace_id,
+                    }
+                )
+
+            self._workspace_operation(add)
+            return project_id
+        with self._connect() as db:
+            position = db.execute("SELECT COALESCE(MAX(position), -1) + 1 FROM projects").fetchone()[0]
+            db.execute(
+                "INSERT INTO projects(id,title,description,position,created_at,updated_at) VALUES(?,?,?,?,?,"
+                "?)",
+                (project_id, title, str(description).strip()[:1000], position, now, now),
+            )
+        return project_id
+
+    def list_projects(self):
+        self._workspace_operation()
+        with self._connect() as db:
+            rows = db.execute(
+                """SELECT p.id,p.title,p.description,p.position,p.created_at,p.updated_at,
+                          COUNT(s.id) AS session_count
+                   FROM projects p LEFT JOIN sessions s ON s.project_id=p.id
+                   GROUP BY p.id ORDER BY p.position,p.created_at"""
+            ).fetchall()
+        result = [dict(row) for row in rows]
+        if self.workspace_file:
+            try:
+                catalog = json.loads(self.workspace_file.read_text(encoding="utf-8")).get("projects", [])
+                metadata = {item["id"]: item for item in catalog if isinstance(item, dict) and item.get("id")}
+                for row in result:
+                    row["workspace_id"] = metadata.get(row["id"], {}).get("workspace_id")
+                    row["local_directories"] = list(metadata.get(row["id"], {}).get("local_directories", []))
+            except (OSError, ValueError, TypeError):
+                pass
+        return result
+
+    def list_workspaces(self):
+        def list_rows(workspace):
+            return [dict(item) for item in workspace["workspaces"]]
+
+        return self._workspace_operation(list_rows) or []
+
+    def add_workspace(self, path, name=None):
+        selected = Path(path).expanduser().resolve(strict=True)
+        if not selected.is_dir():
+            raise ValueError("所选路径不是目录。")
+        result = {}
+
+        def add(workspace):
+            for item in workspace["workspaces"]:
+                try:
+                    same_path = Path(item.get("path", "")).resolve() == selected
+                except (OSError, ValueError):
+                    same_path = False
+                if same_path:
+                    result.update(item)
+                    return
+            item = {
+                "id": str(uuid.uuid4()),
+                "name": str(name or selected.name or str(selected))[:120],
+                "path": str(selected),
+                "created_at": _now(),
+            }
+            workspace["workspaces"].insert(0, item)
+            if len(workspace["workspaces"]) == 1:
+                for project in workspace["projects"]:
+                    if not project.get("workspace_id"):
+                        project["workspace_id"] = item["id"]
+            result.update(item)
+
+        self._workspace_operation(add)
+        if not result:
+            raise ValueError("无法保存工作目录。")
+        return result
+
+    def rename_workspace(self, workspace_id, name):
+        normalized = str(name).strip()[:120]
+        if not normalized:
+            raise ValueError("工作区名称不能为空。")
+        result = {}
+
+        def rename(workspace):
+            item = next((row for row in workspace["workspaces"] if row.get("id") == workspace_id), None)
+            if item is None:
+                raise ValueError("工作区不存在。")
+            item["name"] = normalized
+            result.update(item)
+
+        self._workspace_operation(rename)
+        return result
+
+    def remove_workspace(self, workspace_id):
+        def remove(workspace):
+            if not any(row.get("id") == workspace_id for row in workspace["workspaces"]):
+                raise ValueError("工作区不存在。")
+            workspace["workspaces"] = [
+                row for row in workspace["workspaces"] if row.get("id") != workspace_id
+            ]
+            for project in workspace["projects"]:
+                if project.get("workspace_id") == workspace_id:
+                    project["workspace_id"] = None
+
+        self._workspace_operation(remove)
+        # Workspace removal unregisters the directory only. Keep its files,
+        # projects, and conversations; detach conversations from the removed
+        # workspace so they remain visible after switching to another one.
+        with self._connect() as db:
+            db.execute(
+                "UPDATE sessions SET workspace_id=NULL,updated_at=? WHERE workspace_id=?",
+                (_now(), workspace_id),
+            )
+
+    def workspace_path_for_project(self, project_id):
+        if not project_id or not self.workspace_file or not self.workspace_file.exists():
+            return None
+        try:
+            data = json.loads(self.workspace_file.read_text(encoding="utf-8"))
+            project = next((row for row in data.get("projects", []) if row.get("id") == project_id), None)
+            workspace_id = project.get("workspace_id") if project else None
+            return self.workspace_path(workspace_id)
+        except (OSError, ValueError, TypeError, KeyError):
+            return None
+
+    def workspace_path(self, workspace_id):
+        if not workspace_id or not self.workspace_file or not self.workspace_file.exists():
+            return None
+        try:
+            data = json.loads(self.workspace_file.read_text(encoding="utf-8"))
+            workspace = next(
+                (row for row in data.get("workspaces", []) if row.get("id") == workspace_id), None
+            )
+            path = (
+                Path(workspace["path"]).expanduser().resolve()
+                if workspace and workspace.get("path")
+                else None
+            )
+            return path if path and path.is_dir() else None
+        except (OSError, ValueError, TypeError, KeyError):
+            return None
+
+    def project_directories(self, project_id):
+        if not project_id:
+            return []
+        if self.workspace_file:
+            self._workspace_operation()
+            try:
+                catalog = json.loads(self.workspace_file.read_text(encoding="utf-8"))
+                project = next(
+                    (item for item in catalog.get("projects", []) if item.get("id") == project_id),
+                    None,
+                )
+                directories = project.get("local_directories", []) if project else []
+                return [str(path) for path in directories if isinstance(path, str) and path.strip()]
+            except (OSError, ValueError, TypeError):
+                return []
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT path FROM project_directories WHERE project_id=? ORDER BY created_at,path",
+                (project_id,),
+            ).fetchall()
+        return [row["path"] for row in rows]
+
+    def add_project_directory(self, project_id, path):
+        directory = Path(path).expanduser().resolve(strict=True)
+        if not directory.is_dir():
+            raise ValueError("所选路径不是本地文件夹。")
+        normalized = str(directory)
+        if self.workspace_file:
+            result = []
+
+            def add(workspace):
+                project = next(
+                    (item for item in workspace["projects"] if item.get("id") == project_id),
+                    None,
+                )
+                if project is None:
+                    raise ValueError("项目不存在。")
+                paths = project.setdefault("local_directories", [])
+                if not any(os.path.normcase(str(item)) == os.path.normcase(normalized) for item in paths):
+                    paths.append(normalized)
+                result.extend(paths)
+
+            self._workspace_operation(add)
+            return result
+        with self._connect() as db:
+            if db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None:
+                raise ValueError("项目不存在。")
+            db.execute(
+                "INSERT OR IGNORE INTO project_directories(project_id,path,created_at) VALUES(?,?,?)",
+                (project_id, normalized, _now()),
+            )
+        return self.project_directories(project_id)
+
+    def remove_project_directory(self, project_id, path):
+        normalized = str(Path(path).expanduser().resolve(strict=False))
+        if self.workspace_file:
+
+            def remove(workspace):
+                project = next(
+                    (item for item in workspace["projects"] if item.get("id") == project_id),
+                    None,
+                )
+                if project is None:
+                    raise ValueError("项目不存在。")
+                project["local_directories"] = [
+                    item
+                    for item in project.get("local_directories", [])
+                    if os.path.normcase(str(Path(item).expanduser().resolve(strict=False)))
+                    != os.path.normcase(normalized)
+                ]
+
+            self._workspace_operation(remove)
+            return
+        with self._connect() as db:
+            db.execute(
+                "DELETE FROM project_directories WHERE project_id=? AND path=?",
+                (project_id, normalized),
+            )
+
+    def update_project(self, project_id, title):
+        title = str(title).strip()[:120]
+        if not title:
+            raise ValueError("项目名称不能为空")
+        if self.workspace_file:
+
+            def rename(workspace):
+                project = next((p for p in workspace["projects"] if p["id"] == project_id), None)
+                if project is None:
+                    raise ValueError("项目不存在")
+                project["name"] = title
+
+            self._workspace_operation(rename)
+            return True
+        with self._connect() as db:
+            cursor = db.execute(
+                "UPDATE projects SET title=?,updated_at=? WHERE id=?", (title, _now(), project_id)
+            )
+            if cursor.rowcount != 1:
+                raise ValueError("项目不存在")
+        return True
+
+    def delete_project(self, project_id):
+        if self.workspace_file and self.workspace_file.exists():
+
+            def remove(workspace):
+                if not any(p["id"] == project_id for p in workspace["projects"]):
+                    raise ValueError("项目不存在")
+                if self.workflow_root:
+                    from .workflow_files import WorkflowFileStore
+
+                    store = WorkflowFileStore(self.workflow_root)
+                    for flow in store.list():
+                        if flow.get("folder_id") == project_id:
+                            store.delete(flow["id"])
+                workspace["projects"] = [p for p in workspace["projects"] if p["id"] != project_id]
+
+            self._workspace_operation(remove)
+            return
+        with self._connect() as db:
+            cursor = db.execute("DELETE FROM projects WHERE id=?", (project_id,))
+            if cursor.rowcount != 1:
+                raise ValueError("项目不存在")
+
+    def has_project(self, project_id):
+        self._workspace_operation()
+        with self._connect() as db:
+            return db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is not None
+
+    def create_session(self, title="科研任务", project_id=None, workspace_id=None):
+        session_id, now = str(uuid.uuid4()), _now()
+        if project_id and not self.has_project(project_id):
+            raise ValueError("目标项目不存在")
+        if workspace_id and not any(row.get("id") == workspace_id for row in self.list_workspaces()):
+            raise ValueError("目标工作区不存在")
+        with self._connect() as db:
+            db.execute(
+                "INSERT INTO sessions(id,title,project_id,workspace_id,created_at,updated_at) "
+                "VALUES(?,?,?,?,?,?)",
+                (session_id, str(title)[:120] or "科研任务", project_id, workspace_id, now, now),
+            )
+        return session_id
+
+    def list_sessions(self, project_id=None):
+        with self._connect() as db:
+            if project_id == "__ungrouped__":
+                query = (
+                    "SELECT id,title,project_id,workspace_id,created_at,updated_at FROM sessions "
+                    "WHERE project_id IS NULL ORDER BY updated_at DESC LIMIT 300"
+                )
+                rows = db.execute(query).fetchall()
+            elif project_id:
+                rows = db.execute(
+                    "SELECT id,title,project_id,workspace_id,created_at,updated_at FROM sessions "
+                    "WHERE project_id=? ORDER BY updated_at DESC LIMIT 300",
+                    (project_id,),
+                ).fetchall()
+            else:
+                rows = db.execute(
+                    "SELECT id,title,project_id,workspace_id,created_at,updated_at FROM sessions "
+                    "ORDER BY updated_at DESC LIMIT 300"
+                ).fetchall()
+        return [dict(row) for row in rows]
+
+    def update_session(self, session_id, *, title=None, project_id=..., workspace_id=...):
+        if project_id is not ... and project_id:
+            self._workspace_operation()
+        with self._connect() as db:
+            if db.execute("SELECT 1 FROM sessions WHERE id=?", (session_id,)).fetchone() is None:
+                raise ValueError("会话不存在")
+            if title is not None:
+                normalized = str(title).strip()[:120]
+                if not normalized:
+                    raise ValueError("会话名称不能为空")
+                db.execute(
+                    "UPDATE sessions SET title=?,updated_at=? WHERE id=?", (normalized, _now(), session_id)
+                )
+            if project_id is not ...:
+                if (
+                    project_id
+                    and db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None
+                ):
+                    raise ValueError("目标项目不存在")
+                db.execute(
+                    "UPDATE sessions SET project_id=?,updated_at=? WHERE id=?",
+                    (project_id, _now(), session_id),
+                )
+            if workspace_id is not ...:
+                db.execute(
+                    "UPDATE sessions SET workspace_id=?,updated_at=? WHERE id=?",
+                    (workspace_id, _now(), session_id),
+                )
+
+    def delete_session(self, session_id):
+        with self._connect() as db:
+            db.execute("PRAGMA foreign_keys = ON")
+            db.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM events WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM proposals WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM approvals WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM artifacts WHERE session_id = ?", (session_id,))
+            cursor = db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+            return cursor.rowcount > 0
+
+    def has_session(self, session_id):
+        with self._connect() as db:
+            return db.execute("SELECT 1 FROM sessions WHERE id=?", (session_id,)).fetchone() is not None
+
+    def session_context(self, session_id):
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT id,title,project_id,workspace_id FROM sessions WHERE id=?", (session_id,)
+            ).fetchone()
+        return dict(row) if row else None
+
+    def append_message(self, session_id, message):
+        now = _now()
+        serialized = json.dumps(message, ensure_ascii=False, separators=(",", ":"))
+        with self._connect() as db:
+            db.execute(
+                "INSERT INTO messages(session_id,message_json,created_at) VALUES(?,?,?)",
+                (session_id, serialized, now),
+            )
+            db.execute("UPDATE sessions SET updated_at=? WHERE id=?", (now, session_id))
+
+    def messages(self, session_id, limit=40):
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT message_json FROM messages WHERE session_id=? ORDER BY id DESC LIMIT ?",
+                (session_id, max(1, min(int(limit), 200))),
+            ).fetchall()
+        return [json.loads(row[0]) for row in reversed(rows)]
+
+    def user_messages(self, session_id):
+        """Keep the initial research request and recent user corrections across long tool histories."""
+        with self._connect() as db:
+            first = db.execute(
+                "SELECT id,message_json FROM messages WHERE session_id=? AND json_extract(message_json,'$."
+                "role')='user' ORDER BY id LIMIT 1",
+                (session_id,),
+            ).fetchall()
+            recent = db.execute(
+                "SELECT id,message_json FROM messages WHERE session_id=? AND json_extract(message_json,'$."
+                "role')='user' ORDER BY id DESC LIMIT 8",
+                (session_id,),
+            ).fetchall()
+        return [
+            json.loads(row[1])
+            for row in sorted({row[0]: row for row in first + recent}.values(), key=lambda row: row[0])
+        ]
+
+    def session_created_flow_ids(self, session_id):
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT detail_json FROM events WHERE session_id=? AND kind='workflow_created'", (session_id,)
+            ).fetchall()
+        return {json.loads(row[0]).get("flow_id") for row in rows} - {None}
+
+    def session_workflow_ids(self, session_id):
+        """Return workflows opened or created in this conversation, most recent first."""
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT detail_json FROM events WHERE session_id=? "
+                "AND kind IN ('workflow_created','workflow_opened') ORDER BY id DESC",
+                (session_id,),
+            ).fetchall()
+        workflow_ids = []
+        seen = set()
+        for row in rows:
+            flow_id = json.loads(row[0]).get("flow_id")
+            if isinstance(flow_id, str) and flow_id and flow_id not in seen:
+                seen.add(flow_id)
+                workflow_ids.append(flow_id)
+        return workflow_ids
+
+    def append_event(self, session_id, kind, detail):
+        with self._connect() as db:
+            db.execute(
+                "INSERT INTO events(session_id,kind,detail_json,created_at) VALUES(?,?,?,?)",
+                (session_id, str(kind)[:80], json.dumps(detail, ensure_ascii=False), _now()),
+            )
+
+    def events(self, session_id, limit=100):
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT kind,detail_json,created_at FROM events WHERE session_id=? ORDER BY id DESC LIMIT ?",
+                (session_id, max(1, min(int(limit), 500))),
+            ).fetchall()
+        return [
+            {"kind": row["kind"], "detail": json.loads(row["detail_json"]), "created_at": row["created_at"]}
+            for row in reversed(rows)
+        ]
+
+    def set_engine_session(self, session_id, engine, engine_session_id):
+        with self._connect() as db:
+            db.execute(
+                """INSERT INTO engine_sessions(session_id,engine,engine_session_id,updated_at)
+                   VALUES(?,?,?,?)
+                   ON CONFLICT(session_id,engine) DO UPDATE SET
+                     engine_session_id=excluded.engine_session_id,
+                     updated_at=excluded.updated_at""",
+                (session_id, str(engine)[:40], str(engine_session_id)[:200], _now()),
+            )
+
+    def get_engine_session(self, session_id, engine):
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT engine_session_id FROM engine_sessions WHERE session_id=? AND engine=?",
+                (session_id, str(engine)[:40]),
+            ).fetchone()
+        return row["engine_session_id"] if row else None
+
+    def clear_engine_session(self, session_id, engine):
+        with self._connect() as db:
+            db.execute(
+                "DELETE FROM engine_sessions WHERE session_id=? AND engine=?",
+                (session_id, str(engine)[:40]),
+            )
+
+    def register_artifact(self, artifact_id, session_id, project_id, name, path, sha256, size):
+        created_at = _now()
+        with self._connect() as db:
+            db.execute(
+                """INSERT INTO artifacts(id,session_id,project_id,name,path,sha256,size,created_at)
+                   VALUES(?,?,?,?,?,?,?,?)""",
+                (artifact_id, session_id, project_id, name, str(path), sha256, int(size), created_at),
+            )
+        self.append_event(
+            session_id,
+            "artifact_created",
+            {"artifact_id": artifact_id, "name": name, "sha256": sha256, "size": int(size)},
+        )
+        return self.get_artifact(artifact_id, session_id)
+
+    @staticmethod
+    def _public_artifact(row):
+        return {
+            "id": row["id"],
+            "session_id": row["session_id"],
+            "project_id": row["project_id"],
+            "name": row["name"],
+            "sha256": row["sha256"],
+            "size": row["size"],
+            "created_at": row["created_at"],
+            "download_url": f"/api/sessions/{row['session_id']}/artifacts/{row['id']}",
+        }
+
+    def list_artifacts(self, session_id, *, since=None):
+        query = "SELECT * FROM artifacts WHERE session_id=?"
+        params = [session_id]
+        if since is not None:
+            query += " AND created_at>=?"
+            params.append(str(since))
+        # rowid preserves insertion order, which is the real tie-breaker for
+        # artifacts registered within the same second.
+        query += " ORDER BY created_at,rowid"
+        with self._connect() as db:
+            rows = db.execute(query, params).fetchall()
+        return [self._public_artifact(row) for row in rows]
+
+    def latest_artifacts(self, session_id):
+        """Return newest artifacts by name and content while keeping all history downloadable by id."""
+        # list_artifacts is ordered by (created_at, rowid); the enumeration index
+        # carries that insertion order so same-second writes rank correctly.
+        latest = {}
+        for sequence, item in enumerate(self.list_artifacts(session_id)):
+            key = (item["created_at"], sequence)
+            previous = latest.get(item["name"])
+            if previous is None or key > previous[0]:
+                latest[item["name"]] = (key, item)
+        unique_content = {}
+        for key, item in latest.values():
+            previous = unique_content.get(item["sha256"])
+            if previous is None or key > previous[0]:
+                unique_content[item["sha256"]] = (key, item)
+        return [item for _, item in sorted(unique_content.values(), key=lambda pair: pair[0])]
+
+    def get_artifact(self, artifact_id, session_id):
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM artifacts WHERE id=? AND session_id=?", (artifact_id, session_id)
+            ).fetchone()
+        if row is None:
+            return None
+        return {**self._public_artifact(row), "path": row["path"]}
+
+    def save_proposal(self, session_id, flow_id, base_digest, candidate, summary):
+        proposal_id, now = str(uuid.uuid4()), _now()
+        with self._connect() as db:
+            db.execute(
+                """INSERT INTO proposals
+                   (id,session_id,flow_id,base_digest,candidate_json,summary_json,status,created_at,updated_at)
+                   VALUES(?,?,?,?,?,?,?,?,?)""",
+                (
+                    proposal_id,
+                    session_id,
+                    str(flow_id),
+                    base_digest,
+                    json.dumps(candidate, ensure_ascii=False),
+                    json.dumps(summary, ensure_ascii=False),
+                    "pending",
+                    now,
+                    now,
+                ),
+            )
+        return proposal_id
+
+    def get_proposal(self, proposal_id):
+        with self._connect() as db:
+            row = db.execute("SELECT * FROM proposals WHERE id=?", (proposal_id,)).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["candidate"] = json.loads(result.pop("candidate_json"))
+        result["summary"] = json.loads(result.pop("summary_json"))
+        return result
+
+    def update_proposal_status(self, proposal_id, expected, status):
+        now = _now()
+        with self._connect() as db:
+            cursor = db.execute(
+                "UPDATE proposals SET status=?,updated_at=? WHERE id=? AND status=?",
+                (status, now, proposal_id, expected),
+            )
+            return cursor.rowcount == 1
+
+    def pending_proposals(self, session_id=None):
+        query = (
+            "SELECT id,session_id,flow_id,summary_json,status,created_at FROM proposals WHERE "
+            "status='pending'"
+        )
+        params = ()
+        if session_id:
+            query += " AND session_id=?"
+            params = (session_id,)
+        query += " ORDER BY created_at"
+        with self._connect() as db:
+            rows = db.execute(query, params).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "session_id": row["session_id"],
+                "flow_id": row["flow_id"],
+                "summary": json.loads(row["summary_json"]),
+                "status": row["status"],
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    def create_approval(self, approval_id, session_id, project_id, action, reason, request):
+        now = _now()
+        with self._connect() as db:
+            db.execute(
+                """INSERT INTO approvals
+                   (id,session_id,project_id,action,reason,request_json,status,created_at,updated_at)
+                   VALUES(?,?,?,?,?,?, 'pending', ?, ?)""",
+                (
+                    approval_id,
+                    session_id,
+                    project_id,
+                    str(action)[:100],
+                    str(reason)[:1000],
+                    json.dumps(request, ensure_ascii=False, allow_nan=False),
+                    now,
+                    now,
+                ),
+            )
+        self.append_event(
+            session_id,
+            "approval_requested",
+            {
+                "approval_id": approval_id,
+                "action": action,
+                "project_id": project_id,
+                "reason": str(reason)[:1000],
+            },
+        )
+
+    def get_approval(self, approval_id):
+        with self._connect() as db:
+            row = db.execute("SELECT * FROM approvals WHERE id=?", (approval_id,)).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["request"] = json.loads(result.pop("request_json"))
+        return result
+
+    def pending_approvals(self, session_id=None):
+        query = (
+            "SELECT id,session_id,project_id,action,reason,request_json,status,created_at FROM approvals "
+            "WHERE status='pending'"
+        )
+        params = ()
+        if session_id:
+            query += " AND session_id=?"
+            params = (session_id,)
+        query += " ORDER BY created_at"
+        with self._connect() as db:
+            rows = db.execute(query, params).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            request = json.loads(item.pop("request_json"))
+            item["summary"] = request.get("summary", {})
+            if item.get("action") == "dsh.tool":
+                item["request"] = {
+                    "kind": "dsh.tool",
+                    "tool": request.get("tool", ""),
+                    "reason": request.get("reason", ""),
+                }
+            result.append(item)
+        return result
+
+    def invalidate_pending_dsh_approvals(self):
+        """Invalidate DSH tool approvals left pending by a previous process."""
+        now = _now()
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT id,session_id FROM approvals WHERE action='dsh.tool' AND status='pending'"
+            ).fetchall()
+            if not rows:
+                return 0
+            db.execute(
+                "UPDATE approvals SET status='invalidated',updated_at=? "
+                "WHERE action='dsh.tool' AND status='pending'",
+                (now,),
+            )
+        for row in rows:
+            self.append_event(
+                row["session_id"],
+                "approval_invalidated",
+                {
+                    "approval_id": row["id"],
+                    "action": "dsh.tool",
+                    "reason": "服务重启后审批已失效。",
+                },
+            )
+        return len(rows)
+
+    def decide_approval(self, approval_id, decision):
+        if decision not in {"approved", "rejected", "cancelled"}:
+            raise ValueError("Invalid approval decision")
+        now = _now()
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT session_id,action FROM approvals WHERE id=? AND status='pending'", (approval_id,)
+            ).fetchone()
+            if row is None:
+                return False
+            changed = (
+                db.execute(
+                    "UPDATE approvals SET status=?,updated_at=? WHERE id=? AND status='pending'",
+                    (decision, now, approval_id),
+                ).rowcount
+                == 1
+            )
+        if changed:
+            self.append_event(
+                row["session_id"],
+                "approval_decided",
+                {"approval_id": approval_id, "action": row["action"], "decision": decision},
+            )
+        return changed
+
+    def invalidate_approval(self, approval_id):
+        """Invalidate stale pending or already-approved authorization snapshots."""
+        now = _now()
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT session_id,action FROM approvals WHERE id=? AND status IN ('pending','approved')",
+                (approval_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            changed = (
+                db.execute(
+                    "UPDATE approvals SET status='invalidated',updated_at=? "
+                    "WHERE id=? AND status IN ('pending','approved')",
+                    (now, approval_id),
+                ).rowcount
+                == 1
+            )
+        if changed:
+            self.append_event(
+                row["session_id"],
+                "approval_decided",
+                {"approval_id": approval_id, "action": row["action"], "decision": "invalidated"},
+            )
+        return changed

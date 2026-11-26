@@ -20,6 +20,6 @@
 
 ## 包内接口与维护
 
-`materials_quality.demos.catalog` 提供 `list_datasets()`、`get_dataset(id)`、`read_demo_bytes(id)`；`materials_quality.demos.reference.load_reference_flow(id)` 只允许清单中的固定 ID，返回新的原生 Langflow 图。源数据及存储流程均校验 SHA-256。图内 `studyui_reference.nodes` 给出 source、import、analysis、plot、report 等稳定角色；电池另有 charge/discharge 及各自的图节点角色。
+`materials_quality.demos.catalog` 提供 `list_datasets()`、`get_dataset(id)`、`read_demo_bytes(id)`；`materials_quality.demos.reference.load_reference_flow(id)` 只允许清单中的固定 ID，返回新的原生 LFX 图。源数据及存储流程均校验 SHA-256。图内 `studyui_reference.nodes` 给出 source、import、analysis、plot、report 等稳定角色；电池另有 charge/discharge 及各自的图节点角色。
 
-修改参考图构建器后，在 `packages/materials-quality` 下运行 `python -m scripts.build_demo_examples`，会重建 `demos/flows/` 及流程校验清单，不改动原始数据或元数据。请随后运行 `tests/test_demo_reference_flows.py`：它执行存储图，而非直接调用构建器，核对原始字节、实际导入结果、数值、生成图件和 HTML 内容。独立验收脚本进一步从原文件计算数值预期。
+修改参考图构建器后，在 `materials-quality` 下运行 `python -m scripts.build_demo_examples`，会重建 `demos/flows/` 及流程校验清单，不改动原始数据或元数据。请随后运行 `tests/test_demo_reference_flows.py`：它执行存储图，而非直接调用构建器，核对原始字节、实际导入结果、数值、生成图件和 HTML 内容。独立验收脚本进一步从原文件计算数值预期。
