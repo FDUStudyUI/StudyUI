@@ -35,7 +35,7 @@ def _home(tmp_path, monkeypatch):
 
 def test_build_web_environment_accepts_official_and_scrubs(tmp_path, monkeypatch):
     _home(tmp_path, monkeypatch)
-    settings = _settings(tmp_path)
+    settings = _settings(tmp_path, base_url="https://api.deepseek.com/v1")
     monkeypatch.setenv("DEEPSEEK_BASE_URL", "https://gateway.example/v1")
     monkeypatch.setenv("STUDYUI_DSH_BASE_URL", "https://gateway.example/anthropic")
     monkeypatch.setenv("OPENAI_API_KEY", "leak")

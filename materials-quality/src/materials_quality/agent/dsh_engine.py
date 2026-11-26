@@ -136,9 +136,8 @@ def map_base_url(base_url: str, *, allow_env_override: bool = True) -> str:
     parsed = urlsplit(raw)
     host = (parsed.hostname or "").lower()
     if host in {"api.deepseek.com", "api.deepseek.cn"}:
-        if parsed.path.rstrip("/").endswith("/anthropic"):
-            return raw.rstrip("/")
-        return raw.rstrip("/") + "/anthropic"
+        # OpenAI-compatible /v1 is not part of the Messages API base path.
+        return parsed._replace(path="/anthropic", query="", fragment="").geturl()
     return raw.rstrip("/")
 
 

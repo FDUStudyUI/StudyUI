@@ -11,6 +11,11 @@ def test_map_base_url_known_hosts():
         dsh_engine.map_base_url("https://api.deepseek.com/anthropic") == "https://api.deepseek.com/anthropic"
     )
     assert dsh_engine.map_base_url("http://127.0.0.1:1234/v1").endswith("/v1")
+    for suffix in ("/v1", "/v1/", "/anthropic/v1", "/anthropic/"):
+        assert dsh_engine.map_base_url("https://api.deepseek.com" + suffix) == (
+            "https://api.deepseek.com/anthropic"
+        )
+    assert dsh_engine.map_base_url("https://api.deepseek.cn/v1") == "https://api.deepseek.cn/anthropic"
 
 
 def test_map_base_url_env_override(monkeypatch):
