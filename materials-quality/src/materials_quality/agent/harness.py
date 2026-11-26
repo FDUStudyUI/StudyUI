@@ -2729,6 +2729,8 @@ class StudyUIAgent:
 
     def agent_engine(self):
         """Selected agent engine: ``dsh-sdk``, ``dsh`` (headless) or ``legacy``."""
+        if self._custom_model:
+            return "legacy"
         from . import dsh_engine, dsh_sdk_engine
 
         engine = os.environ.get("STUDYUI_AGENT_ENGINE", "").strip().lower()

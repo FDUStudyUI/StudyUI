@@ -154,3 +154,14 @@ def test_build_env_temp_outside_workspace(tmp_path, monkeypatch):
     temp_root = Path(env["TEMP"]).resolve()
     assert workspace.resolve() not in temp_root.parents
     assert temp_root != workspace.resolve()
+
+
+def test_explicit_model_is_not_replaced_by_available_dsh(tmp_path, monkeypatch):
+    from materials_quality.agent import dsh_engine, dsh_sdk_engine
+    from materials_quality.agent.harness import StudyUIAgent
+
+    monkeypatch.setattr(dsh_engine, "available", lambda _: True)
+    monkeypatch.setattr(dsh_sdk_engine, "available", lambda _: True)
+    monkeypatch.setenv("STUDYUI_AGENT_ENGINE", "dsh-sdk")
+    agent = StudyUIAgent(tmp_path / "agent.db", canvas=object(), model=object())
+    assert agent.agent_engine() == "legacy"

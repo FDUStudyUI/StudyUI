@@ -302,7 +302,8 @@ window.__ModuleLoader__.load({
         const reload = () => {
           if (!selected) return;
           beginLoad();
-          if (frame.current) frame.current.src = `/studyui/canvas/flow/${selected}?reload=${Date.now()}`;
+          if (frame.current)
+            frame.current.src = `/studyui/canvas/flow/${selected}?studyui_host=dsh&reload=${Date.now()}`;
         };
         const onFrameLoad = () => {
           const check = () => {
@@ -636,7 +637,7 @@ window.__ModuleLoader__.load({
               { style: { flex: '1 1 auto', minHeight: 0 } },
               h('iframe', {
                 ref: frame,
-                src: `/studyui/canvas/flow/${selected}`,
+                src: `/studyui/canvas/flow/${selected}?studyui_host=dsh`,
                 title: '工作流画布',
                 onLoad: onFrameLoad,
                 style: { border: 0, width: '100%', height: '100%', display: 'block' },

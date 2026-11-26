@@ -109,7 +109,7 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: python -m pytest tests/test_ui_selectors.py tests/test_ui_form_selectors.py -q
       - name: Verify StudyUI chat, task recovery and Markdown rendering
-        run: python -m pytest tests/test_agent_ui_browser.py tests/test_agent_rich_rendering.py tests/test_material_workbench_ui.py -q
+        run: python -m pytest tests/test_agent_ui_browser.py tests/test_agent_rich_rendering.py tests/test_material_workbench_ui.py tests/test_canvas_host_browser.py -q
       - name: Verify five demonstration entries and fresh-start navigation
         run: python -m pytest tests/test_demo_reference_ui.py -q
       - name: Run five StudyUI reference workflows without a model
