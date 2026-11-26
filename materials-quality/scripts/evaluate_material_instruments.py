@@ -6,6 +6,7 @@ Replays freeze the graph and run in fresh Python processes without model access.
 """
 
 import argparse
+import asyncio
 import hashlib
 import json
 import os
@@ -183,6 +184,14 @@ def method_contract(flow, item):
     )
 
 
+async def _replay_graph(graph):
+    # Keep the cold-process event loop on its main thread. Graph.start() adds
+    # a worker thread that can crash in output serialization on Windows.
+    async for step in graph.async_start():
+        if hasattr(step, "valid") and not step.valid:
+            raise ValueError("Native graph execution failed")
+
+
 def replay(manifest_path, output):
     from lfx.graph import Graph
 
@@ -196,9 +205,7 @@ def replay(manifest_path, output):
             raw = Path(entry["flow_file"]).read_bytes()
             assert hashlib.sha256(raw).hexdigest() == entry["flow_sha256"], "Frozen graph changed"
             graph = Graph.from_payload(json.loads(raw))
-            for step in graph.start():
-                if hasattr(step, "valid") and not step.valid:
-                    raise ValueError("Native graph execution failed")
+            asyncio.run(_replay_graph(graph))
             flow = json.loads(raw)
             node = next(
                 n
