@@ -54,6 +54,38 @@ def test_material_tasks_are_listed():
     assert {task["id"] for task in result["tasks"]} == {"mechanics", "spectra", "xrd"}
 
 
+def test_get_workflow_defaults_to_existing_summary_and_can_return_definition(monkeypatch):
+    from types import SimpleNamespace
+
+    flow = {
+        "id": "demo",
+        "name": "Demo",
+        "data": {
+            "nodes": [
+                {
+                    "id": "n1",
+                    "data": {
+                        "type": "Demo",
+                        "node": {
+                            "template": {"code": {"value": "x" * 100_000}, "column": {"value": "strain"}},
+                            "outputs": [],
+                        },
+                    },
+                }
+            ],
+            "edges": [],
+        },
+    }
+    monkeypatch.setattr(mcp_server, "_workflow_store", lambda: SimpleNamespace(read=lambda _: (flow, "rev")))
+    brief = mcp_server._get_workflow({"flow_id": "demo"})
+    full = mcp_server._get_workflow({"flow_id": "demo", "include_definition": True})
+    assert brief["revision"] == full["revision"] == "rev"
+    assert brief["workflow"]["nodes"][0]["config"]["column"] == "strain"
+    assert not brief["definition_included"]
+    assert len(json.dumps(brief)) < 2000
+    assert full["workflow"] == flow and full["definition_included"]
+
+
 def test_demo_datasets_are_listed():
     result = mcp_server._list_demo_datasets({})
     assert result["count"] == 5

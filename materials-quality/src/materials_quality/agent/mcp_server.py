@@ -164,11 +164,19 @@ def _list_workflows(_arguments: dict) -> dict:
 
 
 def _get_workflow(arguments: dict) -> dict:
+    from .workflow import flow_summary
+
     flow_id = str(arguments.get("flow_id") or "").strip()
     if not flow_id:
         raise StudyUIToolError("flow_id is required")
     flow, revision = _workflow_store().read(flow_id)
-    return {"flow_id": flow_id, "revision": revision, "workflow": flow}
+    full = bool(arguments.get("include_definition", False))
+    return {
+        "flow_id": flow_id,
+        "revision": revision,
+        "definition_included": full,
+        "workflow": flow if full else flow_summary(flow),
+    }
 
 
 def _copy_workflow(arguments: dict) -> dict:
@@ -398,7 +406,12 @@ TOOLS = [
         ["operation"],
     ),
     _tool("list_workflows", "列出已保存的 StudyUI 画布工作流。"),
-    _tool("get_workflow", "读取一个已保存工作流的完整定义。", {"flow_id": _STRING}, ["flow_id"]),
+    _tool(
+        "get_workflow",
+        "读取工作流结构、参数与版本。仅需原始节点定义时设置 include_definition=true。",
+        {"flow_id": _STRING, "include_definition": {"type": "boolean", "default": False}},
+        ["flow_id"],
+    ),
     _tool(
         "copy_workflow",
         "从已保存工作流复制一个新工作流（作为模板修改）；返回新 flow_id。",
