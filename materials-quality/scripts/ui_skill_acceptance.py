@@ -37,6 +37,21 @@ def _set_number(node, name, value):
     control.press("Tab")
 
 
+def _show_controls(page, planner, names):
+    """Pin the tested advanced fields through the native Parameters panel."""
+    planner.hover()
+    planner.click(position={"x": 100, "y": 25})
+    planner.get_by_test_id("parameters-button").click()
+    expect(page.get_by_test_id("inspection-panel-close")).to_be_visible()
+    for name in names:
+        add = page.get_by_test_id(f"inspector-add-{name}")
+        remove = page.get_by_test_id(f"inspector-remove-{name}")
+        expect(add.or_(remove)).to_be_visible(timeout=30000)
+        if add.is_visible():
+            add.click()
+    page.get_by_test_id("inspection-panel-close").click()
+
+
 def _watch_writes(page):
     state = {"pending": set(), "last": monotonic()}
 
@@ -119,6 +134,7 @@ def _saved_reopen(page, writes, expected_window):
     expect(page.locator(".react-flow__node")).to_have_count(3)
     expect(page.locator(".react-flow__edge")).to_have_count(3)
     planner = _node(page, "ResearchSkillPlanner")
+    _show_controls(page, planner, ("window_confirmed", "window_low", "window_high"))
     expect(planner.get_by_test_id("toggle_bool_window_confirmed")).to_have_attribute("aria-checked", "true")
     assert float(_field(planner, "window_low").input_value()) == expected_window
     return planner, _node(page, "ResearchSkillExecutor")
@@ -156,6 +172,7 @@ def accept_ui(base_url, output, executable=None):
                 _import(page, base_url, payload, output / f"{task}.json")
                 planner, executor = _node(page, "ResearchSkillPlanner"), _node(page, "ResearchSkillExecutor")
                 if task == "spectra":
+                    _show_controls(page, planner, ("window_confirmed", "window_low", "window_high"))
                     _switch(planner, "window_confirmed", False)
                     _run(planner)
                     pending = _report_when(

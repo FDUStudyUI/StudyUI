@@ -14,6 +14,7 @@ from scripts.ui_skill_acceptance import (
     _save_native_controls,
     _saved_planner_fields,
     _set_number,
+    _show_controls,
     _watch_writes,
 )
 
@@ -23,6 +24,12 @@ def _reopen(page, writes, expected):
     page.reload(wait_until="domcontentloaded")
     expect(page.locator(".react-flow__node")).to_have_count(3)
     expect(page.locator(".react-flow__edge")).to_have_count(3)
+    if expected.get("task") == "spectra":
+        _show_controls(
+            page,
+            _node(page, "ResearchSkillPlanner"),
+            ("selection_rule", "prominence_mode"),
+        )
     return _node(page, "ResearchSkillPlanner"), _node(page, "ResearchSkillExecutor")
 
 
@@ -116,12 +123,14 @@ def accept_ui(base_url, output, executable=None):
                     planner, executor = _reopen(page, writes, expected)
                     _choose(page, planner, "prominence_mode", "参考噪声窗口")
                     expected["prominence_mode"] = "参考噪声窗口"
+                    _show_controls(page, planner, ("noise_confirmed",))
                     expect(planner.get_by_test_id("toggle_bool_noise_confirmed")).to_be_visible()
                     pending = _plan(page, planner, lambda p: not p["ready"])
                     assert any(i["field"] == "noise_window" for i in pending["issues"])
                     planner, executor = _reopen(page, writes, expected)
                     _choose(page, planner, "prominence_mode", "指定突出度阈值")
                     expected["prominence_mode"] = "指定突出度阈值"
+                    _show_controls(page, planner, ("prominence",))
                     _set_number(planner, "prominence", 0.5)
                     expected["prominence"] = 0.5
                     _plan(page, planner)
