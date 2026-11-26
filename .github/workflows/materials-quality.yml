@@ -45,8 +45,8 @@ jobs:
             '../scripts/assets/*.html' \
             '../dsh-plugins/**/*.js' \
             '../dsh-plugins/**/*.json' \
-            '../../.github/workflows/*.yml' \
-            ../../.prettierrc.json
+            '../.github/workflows/*.yml' \
+            ../.prettierrc.json
       - run: python -m pytest -q
       - run: python -m scripts.build_example
       - run: python -m scripts.build_mechanics
