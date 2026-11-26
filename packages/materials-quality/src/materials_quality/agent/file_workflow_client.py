@@ -96,6 +96,9 @@ class FileWorkflowClient:
         external_data_approved=False,
         expected_digest=None,
         expected_project_id=None,
+        ledger=None,
+        run_id=None,
+        session_id=None,
     ):
         return self.executor.run(
             str(flow_id),
@@ -106,4 +109,7 @@ class FileWorkflowClient:
             external_data_approved=external_data_approved,
             expected_digest=expected_digest,
             expected_project_id=expected_project_id,
+            ledger=ledger,
+            run_id=run_id,
+            session_id=session_id,
         )

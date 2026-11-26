@@ -7,8 +7,46 @@ import pandas as pd
 from jsonschema import validate
 
 from materials_quality.science.material_tasks import assess_protocol, task_catalog
+from materials_quality.science.runtime_guards import evaluate_runtime_guards
 
 from .material_protocols import PROTOCOL_SCHEMA, load_protocol_input
+
+
+def evaluate_spec_guards(table, spec):
+    """Evaluate runtime GUARD checks for a protocol spec, matching material_protocols.py."""
+    task = spec["task"]
+    x, y = spec.get("x"), spec.get("y")
+    if not x or not y or x not in table.columns or y not in table.columns:
+        return None
+    guard_table = table.sort_values(x, kind="stable") if spec.get("sort", False) else table
+    guard_cfg = {
+        "strain_col": x,
+        "stress_col": y,
+        "x_col": x,
+        "y_col": y,
+        "sort": bool(spec.get("sort", False)),
+    }
+    if task == "mechanics":
+        if "fit_range" in spec:
+            guard_cfg["fit_range"] = spec["fit_range"]
+    elif task == "spectra":
+        guard_cfg["mode"] = spec.get("signal_kind", "absorbance")
+    elif task == "xrd":
+        guard_cfg.update(has_reference_pattern=False, claims_phase_id=False)
+    elif task == "battery":
+        guard_cfg.update(
+            cycle_col=x,
+            c_rate_col=spec.get("c_rate_col"),
+            requested_metric=spec.get("requested_metric", "retention"),
+        )
+    elif task == "thermal":
+        guard_cfg.update(
+            temp_col=x,
+            signal_col=y,
+            heating_rate=spec.get("heating_rate"),
+            atmosphere=spec.get("atmosphere"),
+        )
+    return evaluate_runtime_guards(task, guard_table, config=guard_cfg).to_dict()
 
 
 def _input(harness, session, spec):
@@ -43,7 +81,24 @@ def preview(harness, session, spec):
 def check(harness, session, spec):
     validate(spec, PROTOCOL_SCHEMA)
     table, raw, _, _ = _input(harness, session, spec)
-    return {**assess_protocol(table, spec), "source_sha256": hashlib.sha256(raw).hexdigest()}
+    assessment = (
+        {"task": spec["task"], "status": "ready", "checks": [], "next_actions": []}
+        if spec["task"] in {"battery", "thermal"}
+        else assess_protocol(table, spec)
+    )
+    result = {**assessment, "source_sha256": hashlib.sha256(raw).hexdigest()}
+    guard_report = evaluate_spec_guards(table, spec)
+    result["guard_report"] = guard_report
+    if guard_report and guard_report.get("status") == "block":
+        result["status"] = "block"
+        next_actions = list(result.get("next_actions") or [])
+        for finding in guard_report.get("findings") or []:
+            if finding.get("severity") == "block":
+                msg = str(finding.get("recommendation") or finding.get("message") or "").strip()
+                if msg and msg not in next_actions:
+                    next_actions.append(msg)
+        result["next_actions"] = next_actions
+    return result
 
 
 def build(harness, session, spec):
@@ -111,8 +166,9 @@ def example(harness, session, spec):
     }
 
 
-def run_canvas(harness, flow, session, on_progress=None):
+def run_canvas(harness, flow, session, on_progress=None, *, ledger_run_id=None):
     import time
+    import uuid
 
     from .harness import _compact_run_result
     from .tasks import checkpoint
@@ -134,9 +190,26 @@ def run_canvas(harness, flow, session, on_progress=None):
     started = time.monotonic()
     if on_progress:
         on_progress({"type": "tool_start", "step": {"name": "run_workflow", "title": "运行材料分析"}})
-    result = harness.langflow.run_flow(
-        flow["id"], include_all_nodes=True, expected_digest=flow_digest(flow), expected_project_id=project
-    )
+    effective_run_id = ledger_run_id or f"run_{uuid.uuid4().hex[:16]}"
+    try:
+        result = harness.langflow.run_flow(
+            flow["id"],
+            include_all_nodes=True,
+            expected_digest=flow_digest(flow),
+            expected_project_id=project,
+            ledger=getattr(harness, "ledger", None),
+            run_id=effective_run_id,
+            session_id=session,
+        )
+    except TypeError as exc:
+        if not any(flag in str(exc) for flag in ("ledger", "run_id", "session_id")):
+            raise
+        result = harness.langflow.run_flow(
+            flow["id"],
+            include_all_nodes=True,
+            expected_digest=flow_digest(flow),
+            expected_project_id=project,
+        )
     artifacts = harness._store_generated_artifacts(result, session, flow=flow)
     summary = _compact_run_result(result, flow=flow)
     completed = summary["execution_status"] == "completed"

@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import uuid
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
@@ -22,7 +23,10 @@ def require_local_request(request):
 
 def task_router(harness):
     router = APIRouter()
-    manager = TaskManager(harness.store.path.parent / "tasks.sqlite3")
+    manager = TaskManager(
+        harness.store.path.parent / "tasks.sqlite3",
+        ledger_root=harness.store.path.parent / "workflow_runs",
+    )
 
     def session_check(session_id):
         if not harness.store.has_session(session_id):
@@ -101,6 +105,34 @@ def task_router(harness):
         await run_in_threadpool(owned_task, session_id, task_id)
         return await run_in_threadpool(manager.cancel, task_id)
 
+    @router.post("/api/sessions/{session_id}/tasks/{task_id}/resume", status_code=202)
+    async def task_resume(session_id: str, task_id: str, request: Request):
+        require_local_request(request)
+        task = await run_in_threadpool(owned_task, session_id, task_id)
+        run_id = str(task.get("ledger_run_id") or "").strip()
+        if task["status"] != "interrupted_resumable" or not run_id:
+            raise HTTPException(409, "当前任务不支持断点续跑。")
+        plan = await run_in_threadpool(harness.resume_plan_for_run, run_id)
+        if not plan.get("resumable"):
+            raise HTTPException(409, "当前任务被人工门禁阻塞或无有效检查点，暂不可续跑。")
+        events = harness.ledger.read_events(run_id)
+        flow_id = next(
+            ((ev.get("payload") or {}).get("flow_id") for ev in events if ev.get("kind") == "run_started"),
+            None,
+        )
+        if not flow_id:
+            raise HTTPException(400, "事件账本缺少关联工作流标识，无法续跑。")
+
+        def work(progress):
+            return harness.run_canvas_workflow(
+                flow_id, session_id=session_id, on_progress=progress, ledger_run_id=run_id
+            )
+
+        try:
+            return await run_in_threadpool(manager.resume_task, task_id, work)
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
     @router.post("/api/sessions/{session_id}/tasks", status_code=202)
     async def task_submit(session_id: str, request: Request):
         require_local_request(request)
@@ -114,14 +146,18 @@ def task_router(harness):
                 raise ValueError("请求必须为对象。")
             message = data.get("message")
             flow_id = data.get("flow_id")
+            run_id = ""
             if flow_id:
                 if not isinstance(flow_id, str) or len(flow_id) > 80:
                     raise ValueError("流程标识无效。")
                 flow = await run_in_threadpool(harness.langflow.get_flow, flow_id)
                 harness._require_project_flow(session_id, flow)
+                run_id = f"run_{uuid.uuid4().hex[:16]}"
 
                 def work(progress):
-                    return harness.run_canvas_workflow(flow_id, session_id=session_id, on_progress=progress)
+                    return harness.run_canvas_workflow(
+                        flow_id, session_id=session_id, on_progress=progress, ledger_run_id=run_id
+                    )
             else:
                 if not isinstance(message, str) or not 1 <= len(message.strip()) <= 12_000:
                     raise ValueError("消息必须包含 1 至 12000 个字符。")
@@ -140,7 +176,13 @@ def task_router(harness):
             def submit_for_existing_session():
                 with manager.lock:
                     session_check(session_id)
-                    return manager.submit(session_id, data.get("request_key"), work, fingerprint=fingerprint)
+                    return manager.submit(
+                        session_id,
+                        data.get("request_key"),
+                        work,
+                        fingerprint=fingerprint,
+                        ledger_run_id=run_id,
+                    )
 
             return await run_in_threadpool(submit_for_existing_session)
         except PermissionError as exc:

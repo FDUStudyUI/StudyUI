@@ -17,7 +17,7 @@ from pathlib import Path
 _cancel = ContextVar("studyui_task_cancel", default=None)
 _deadline = ContextVar("studyui_task_deadline", default=None)
 TURN_BUDGET_SECONDS = 240
-TERMINAL = {"completed", "cancelled", "failed", "interrupted", "waiting_approval"}
+TERMINAL = {"completed", "cancelled", "failed", "interrupted", "interrupted_resumable", "waiting_approval"}
 
 
 class SessionBusy(ValueError):
@@ -63,9 +63,10 @@ class TaskManager:
     exclusion are process-local, so this runtime requires a single server worker.
     """
 
-    def __init__(self, path):
+    def __init__(self, path, *, ledger_root=None):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.ledger_root = Path(ledger_root).resolve() if ledger_root is not None else None
         self.lock = threading.RLock()
         self.signals = {}
         self.legacy_sessions = set()
@@ -77,13 +78,40 @@ class TaskManager:
                 status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
                 result TEXT, error TEXT, progress TEXT, fingerprint TEXT NOT NULL,
                 UNIQUE(session_id, request_key))""")
-            if "partial_content" not in {row[1] for row in db.execute("PRAGMA table_info(tasks)")}:
+            columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)")}
+            if "partial_content" not in columns:
                 db.execute("ALTER TABLE tasks ADD COLUMN partial_content TEXT NOT NULL DEFAULT ''")
-            db.execute(
-                "UPDATE tasks SET status='interrupted', error=?, updated_at=? "
-                "WHERE status IN ('queued','running','cancelling')",
-                ("服务已重启；任务未自动重放，请查看已有产物后决定是否重新运行。", _now()),
-            )
+            if "ledger_run_id" not in columns:
+                db.execute("ALTER TABLE tasks ADD COLUMN ledger_run_id TEXT NOT NULL DEFAULT ''")
+            stale_rows = db.execute(
+                "SELECT id, ledger_run_id FROM tasks WHERE status IN ('queued','running','cancelling')"
+            ).fetchall()
+            ledger = None
+            if self.ledger_root is not None:
+                from .workflow_ledger import WorkflowLedger
+
+                ledger = WorkflowLedger(self.ledger_root)
+            now = _now()
+            for row in stale_rows:
+                run_id = str(row["ledger_run_id"] or "").strip()
+                resumable = False
+                if run_id and ledger is not None and ledger.exists(run_id):
+                    try:
+                        summary = ledger.summarize_run(run_id)
+                        resumable = bool(summary.get("resumable"))
+                    except Exception:
+                        resumable = False
+                if resumable:
+                    ledger.append_event(run_id, "run_interrupted", {"task_id": row["id"]})
+                    db.execute(
+                        "UPDATE tasks SET status='interrupted_resumable', error=?, updated_at=? WHERE id=?",
+                        ("服务已重启；检测到有效事件账本与检查点，可调用续跑跳过已完成纯计算步骤。", now, row["id"]),
+                    )
+                else:
+                    db.execute(
+                        "UPDATE tasks SET status='interrupted', error=?, updated_at=? WHERE id=?",
+                        ("服务已重启；任务未自动重放，请查看已有产物后决定是否重新运行。", now, row["id"]),
+                    )
 
     def _db(self):
         db = sqlite3.connect(self.path, timeout=20)
@@ -168,7 +196,30 @@ class TaskManager:
             with self.lock:
                 self.legacy_sessions.remove(session_id)
 
-    def submit(self, session_id, request_key, work, *, fingerprint=""):
+    def attach_ledger(self, task_id, ledger_run_id):
+        """Bind a durable WorkflowLedger run_id to an active or recorded task."""
+        with self.lock:
+            self._update(task_id, ledger_run_id=str(ledger_run_id or ""))
+        return self.get(task_id)
+
+    def resume_task(self, task_id, work, *, request_key=None):
+        """Submit a resumed task for an ``interrupted_resumable`` ledger-backed run."""
+        original = self.get(task_id)
+        if original["status"] != "interrupted_resumable":
+            raise ValueError(f"任务 {task_id} 当前状态为 {original['status']}，不支持续跑。")
+        run_id = str(original.get("ledger_run_id") or "").strip()
+        if not run_id:
+            raise ValueError("该任务未关联有效事件账本，无法续跑。")
+        key = request_key or f"resume:{task_id[:32]}:{uuid.uuid4().hex[:8]}"
+        return self.submit(
+            original["session_id"],
+            key,
+            work,
+            fingerprint=f"resume:{original['fingerprint']}:{run_id}",
+            ledger_run_id=run_id,
+        )
+
+    def submit(self, session_id, request_key, work, *, fingerprint="", ledger_run_id=""):
         if not isinstance(request_key, str) or not 1 <= len(request_key) <= 100:
             raise ValueError("任务请求标识无效。")
         with self.lock, self._db() as db:
@@ -185,9 +236,9 @@ class TaskManager:
                 raise ValueError("运行任务已达上限，请稍后重试。")
             task_id = str(uuid.uuid4())
             db.execute(
-                "INSERT INTO tasks(id,session_id,request_key,status,created_at,updated_at,fingerprint) "
-                "VALUES(?,?,?,'queued',?,?,?)",
-                (task_id, session_id, request_key, _now(), _now(), fingerprint),
+                "INSERT INTO tasks(id,session_id,request_key,status,created_at,updated_at,fingerprint,ledger_run_id) "
+                "VALUES(?,?,?,'queued',?,?,?,?)",
+                (task_id, session_id, request_key, _now(), _now(), fingerprint, str(ledger_run_id or "")),
             )
             db.commit()
             signal = threading.Event()

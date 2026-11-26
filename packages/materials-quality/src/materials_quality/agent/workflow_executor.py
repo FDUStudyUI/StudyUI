@@ -192,6 +192,9 @@ class FileWorkflowExecutor:
         external_data_approved: bool = False,
         expected_digest: str | None = None,
         expected_project_id: str | None = None,
+        ledger=None,
+        run_id: str | None = None,
+        session_id: str | None = None,
     ):
         from lfx.load import run_flow_from_json
 
@@ -209,6 +212,13 @@ class FileWorkflowExecutor:
                 flow_digest(flow) != expected_digest or flow.get("folder_id") != expected_project_id
             ):
                 raise ValueError("运行授权后工作流内容或所属项目已变化；请重新确认运行或数据传输审批。")
+        if ledger is not None and run_id and not ledger.exists(run_id):
+            ledger.start_run(
+                run_id,
+                flow,
+                session_id=session_id,
+                metadata={"flow_id": flow_id, "revision": revision},
+            )
         from .execution_context import (
             begin_upstream_image_scope,
             external_data_approval,
@@ -241,13 +251,60 @@ class FileWorkflowExecutor:
                     output_type=resolved_output_type,
                     tweaks=copy.deepcopy(tweaks or {}),
                 )
+        except Exception as exc:
+            if ledger is not None and run_id:
+                ledger.append_event(
+                    run_id,
+                    "run_failed",
+                    {"flow_id": flow_id, "error": f"{type(exc).__name__}: {exc}"[:500]},
+                )
+            raise
         finally:
             reset_external_data_approval(token)
             reset_upstream_image_scope(image_scope)
+        serial_outputs = [_serialize_run_outputs(value) for value in outputs]
+        if ledger is not None and run_id:
+            from materials_quality.science.catalog import entries as science_entries
+
+            op_by_type = {item["class_name"]: item["key"] for item in science_entries()}
+            cp_by_op = {
+                str(cp.get("operation")): str(cp.get("key"))
+                for cp in checkpoints
+                if isinstance(cp, dict) and cp.get("operation") and cp.get("key")
+            }
+            type_by_id = {
+                str(n.get("id")): str(n.get("data", {}).get("type") or "")
+                for n in flow.get("data", {}).get("nodes", [])
+                if isinstance(n, dict) and n.get("id")
+            }
+            for run in serial_outputs:
+                for entry in run.get("outputs", []):
+                    if not isinstance(entry, dict) or not entry.get("component_id"):
+                        continue
+                    cid = str(entry["component_id"])
+                    ctype = type_by_id.get(cid, "")
+                    op_key = op_by_type.get(ctype, "")
+                    ledger.append_event(
+                        run_id,
+                        "node_completed",
+                        {
+                            "node_id": cid,
+                            "component_type": ctype,
+                            "checkpoint_key": cp_by_op.get(op_key, ""),
+                        },
+                    )
+            for cp in checkpoints:
+                if isinstance(cp, dict) and cp.get("key"):
+                    ledger.append_event(
+                        run_id,
+                        "checkpoint_recorded",
+                        {"operation": cp.get("operation"), "checkpoint_key": cp.get("key")},
+                    )
+            ledger.append_event(run_id, "run_completed", {"flow_id": flow_id, "revision": revision})
         result = {
             "flow_id": flow_id,
             "revision": revision,
-            "outputs": [_serialize_run_outputs(value) for value in outputs],
+            "outputs": serial_outputs,
             "checkpoints": checkpoints,
         }
         if flow.get("studyui_protocol"):

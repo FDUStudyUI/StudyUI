@@ -99,6 +99,22 @@ def create_bundle(flow, outputs, root, checkpoints):
         },
     )
     _json(directory / "protocol.json", protocol)
+    from materials_quality.science.runtime_guards import build_boundary_disclosure
+
+    raw_task = (
+        protocol.get("task")
+        or (protocol.get("parameters") or {}).get("task")
+        or str(protocol.get("id") or "").removeprefix("materials.")
+    )
+    protocol_task = {"battery_cycles": "battery"}.get(raw_task, raw_task) or None
+    _json(
+        directory / "scope_and_limitations.json",
+        build_boundary_disclosure(
+            task=protocol_task,
+            guard_report=protocol.get("guard_report"),
+            assessment=protocol.get("assessment"),
+        ),
+    )
     _json(directory / "checks.json", _redact({"checkpoints": checkpoints, "runtime_results": serial}))
     _json(
         directory / "environment.json",
