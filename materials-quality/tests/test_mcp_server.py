@@ -54,6 +54,28 @@ def test_material_tasks_are_listed():
     assert {task["id"] for task in result["tasks"]} == {"mechanics", "spectra", "xrd"}
 
 
+def test_task_status_summarizes_large_results_without_mutating_full_result(monkeypatch):
+    from types import SimpleNamespace
+
+    job = {
+        "id": "job",
+        "status": "completed",
+        "result": {
+            "run_id": "run1",
+            "guard_report": {"status": "pass"},
+            "outputs": [{"node_id": "n1", "outputs": {"table": {"rows": list(range(10000))}}}],
+        },
+    }
+    monkeypatch.setattr(mcp_server, "_workflow_queue", lambda: SimpleNamespace(get=lambda _: job))
+    brief = mcp_server._task_status({"task_id": "job"})
+    full = mcp_server._task_status({"task_id": "job", "include_full_result": True})
+    assert brief["result_summarized"]
+    assert brief["result"]["run_id"] == "run1"
+    assert brief["result"]["guard_report"] == {"status": "pass"}
+    assert len(json.dumps(brief)) < 8000
+    assert len(full["result"]["outputs"][0]["outputs"]["table"]["rows"]) == 10000
+
+
 def test_get_workflow_defaults_to_existing_summary_and_can_return_definition(monkeypatch):
     from types import SimpleNamespace
 

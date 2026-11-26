@@ -272,6 +272,13 @@ def _task_status(arguments: dict) -> dict:
     job = _workflow_queue().get(str(arguments.get("task_id") or ""))
     if job is None:
         raise StudyUIToolError("unknown task")
+    result = job.get("result")
+    if isinstance(result, dict) and not arguments.get("include_full_result", False):
+        from .harness import MAX_TOOL_RESULT_CHARS, _bounded_run_workflow_result
+
+        if len(json.dumps(result, ensure_ascii=False, default=str)) > MAX_TOOL_RESULT_CHARS:
+            summary = _bounded_run_workflow_result({"result": result})["result"]
+            job = {**job, "result": {**result, **summary}, "result_summarized": True}
     return {**job, "task_id": job["id"], "kind": "workflow"}
 
 
@@ -432,8 +439,8 @@ TOOLS = [
     ),
     _tool(
         "workflow_task_status",
-        "查询 run_workflow 后台任务的状态与结果。",
-        {"task_id": _STRING},
+        "查询运行状态与结果摘要。需要完整曲线等数据时设置 include_full_result=true。",
+        {"task_id": _STRING, "include_full_result": {"type": "boolean", "default": False}},
         ["task_id"],
     ),
     _tool(
