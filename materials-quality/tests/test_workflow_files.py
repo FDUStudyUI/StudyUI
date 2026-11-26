@@ -58,11 +58,54 @@ def test_file_executor_passes_json_to_lfx_without_http(tmp_path, monkeypatch):
     assert calls[0][0] == flow
     assert calls[0][1]["tweaks"] == {"node": {"value": 1}}
     assert result == {
+        "run_id": result["run_id"],
         "flow_id": flow["id"],
         "revision": revision,
         "outputs": [{"result": "ok"}],
         "checkpoints": [],
+        "guard_report": None,
     }
+    from materials_quality.agent.workflow_ledger import WorkflowLedger
+
+    assert WorkflowLedger(tmp_path / ".ledger").read_events(result["run_id"])[-1]["kind"] == "run_completed"
+
+
+def test_direct_execution_checks_saved_material_method_before_computing(tmp_path, monkeypatch):
+    import lfx.load
+
+    from materials_quality.agent.workflow_executor import FileWorkflowExecutor
+    from materials_quality.agent.workflow_ledger import WorkflowLedger
+
+    source = tmp_path / "spectrum.csv"
+    source.write_text("x,y\n1,1\n2,0\n3,1\n", encoding="utf-8")
+    store = WorkflowFileStore(tmp_path / "flows")
+    flow = {
+        "id": str(uuid.uuid4()),
+        "name": "guarded",
+        "data": {"nodes": [], "edges": []},
+        "studyui_protocol": {
+            "parameters": {
+                "task": "spectra",
+                "path": str(source),
+                "x": "x",
+                "y": "y",
+                "signal_kind": "absorbance",
+            }
+        },
+    }
+    store.save(flow)
+    monkeypatch.setattr(lfx.load, "run_flow_from_json", lambda *a, **kw: pytest.fail("must not execute"))
+    monkeypatch.setattr(
+        "materials_quality.agent.material_workbench.evaluate_spec_guards",
+        lambda table, spec: {
+            "status": "block",
+            "findings": [{"severity": "block", "message": "wrong signal kind"}],
+        },
+    )
+    with pytest.raises(ValueError, match="wrong signal kind"):
+        FileWorkflowExecutor(store).run(flow["id"], run_id="guard-check")
+    events = WorkflowLedger(store.root / ".ledger").read_events("guard-check")
+    assert [e["kind"] for e in events][-2:] == ["guard_report", "run_failed"]
 
 
 def test_file_api_reads_edits_and_runs_without_login(tmp_path, monkeypatch):

@@ -101,6 +101,47 @@ def numeric_reference(item, observed):
             "modulus_difference_from_instrument_percent": 100
             * (slope / item["instrument_summary"]["modulus_MPa"] - 1),
         }
+    if item["protocol"]["task"] == "battery":
+        p = item["protocol"]
+        frame = pd.read_csv(BytesIO(raw))
+        cell_col = p.get("cell_col", "cell_id")
+        x_col, y_col = p["x"], p["y"]
+        if cell_col in frame:
+            grouped = frame.sort_values([cell_col, x_col], kind="stable").groupby(cell_col, sort=False)
+            expected = [
+                float(grp[y_col].iloc[-1] / grp[y_col].iloc[0] * 100.0)
+                for _, grp in grouped
+                if grp[y_col].iloc[0] != 0
+            ]
+        else:
+            ordered = frame.sort_values(x_col, kind="stable")
+            expected = (
+                [float(ordered[y_col].iloc[-1] / ordered[y_col].iloc[0] * 100.0)]
+                if ordered[y_col].iloc[0] != 0
+                else []
+            )
+        valid = len(observed) == len(expected) and np.allclose(observed, expected, rtol=1e-6, atol=1e-6)
+        return {
+            "passed": bool(valid),
+            "expected_retention_pct": expected,
+            "reference": "closed_form_per_cell_first_cycle_retention",
+        }
+    if item["protocol"]["task"] == "thermal":
+        p = item["protocol"]
+        frame = pd.read_csv(BytesIO(raw), comment="#")
+        if p["x"] in frame and p["y"] in frame:
+            x_arr = frame[p["x"]].to_numpy(dtype=float)
+            y_arr = frame[p["y"]].to_numpy(dtype=float)
+        else:
+            array = np.loadtxt(StringIO(raw.decode("utf-8-sig")), comments="#")
+            x_arr, y_arr = array[:, 0], array[:, 1]
+        expected = reference_peaks(x_arr, y_arr, p["prominence"])
+        valid = len(observed) == len(expected) and np.allclose(sorted(observed), expected, rtol=0, atol=1e-9)
+        return {
+            "passed": bool(valid),
+            "expected_peak_positions": expected,
+            "reference": "direct_local_maximum_and_topographic_prominence_definition",
+        }
     text = raw.decode("cp1252" if item["protocol"]["task"] == "spectra" else "utf-8-sig")
     array = np.loadtxt(StringIO(text), comments="#")
     expected = reference_peaks(array[:, 0], array[:, 1], item["protocol"]["prominence"])

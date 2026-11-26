@@ -161,7 +161,9 @@ def test_waiting_for_workflow_slot_is_cancellable(tmp_path, monkeypatch):
 
     calls = []
     monkeypatch.setattr(lfx.load, "run_flow_from_json", lambda *a, **kw: calls.append(1))
-    runner = executor.FileWorkflowExecutor(SimpleNamespace(read=lambda _: ({"data": {}}, "v1")))
+    runner = executor.FileWorkflowExecutor(
+        SimpleNamespace(root=tmp_path, read=lambda _: ({"data": {}}, "v1"))
+    )
     manager = TaskManager(tmp_path / "tasks.db")
     executor._WORKFLOW_RUN_GATE.acquire()
     try:

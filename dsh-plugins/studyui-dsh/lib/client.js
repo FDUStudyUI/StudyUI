@@ -1023,6 +1023,16 @@ window.__ModuleLoader__.load({
                 h('span', { style: pill }, `${tasks.length} 个任务组`),
                 h('span', { style: pill }, `${taskCount} 个检查项`),
                 h('span', { style: pill }, `${datasets.length} 个示例数据`),
+                h(
+                  'a',
+                  {
+                    href: '/studyui/workbench',
+                    target: '_blank',
+                    rel: 'noopener',
+                    style: runButton,
+                  },
+                  '参数表单与运行记录 ↗',
+                ),
               ),
             ),
             error ? h('div', { style: errorBanner }, `加载失败：${error}`) : null,

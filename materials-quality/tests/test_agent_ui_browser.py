@@ -35,8 +35,8 @@ def browser_task_app(tmp_path, monkeypatch):
         (tmp_path / name).mkdir(parents=True)
     model = BlockingModel()
 
-    def harness_with_model(database, *, canvas):
-        return StudyUIAgent(database, canvas=canvas, model=model)
+    def harness_with_model(database, *, canvas, **kwargs):
+        return StudyUIAgent(database, canvas=canvas, model=model, **kwargs)
 
     monkeypatch.setattr(agent_server, "StudyUIAgent", harness_with_model)
     app = agent_server.create_app(

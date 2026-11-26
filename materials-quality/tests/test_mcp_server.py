@@ -6,6 +6,8 @@ import sys
 import threading
 from pathlib import Path
 
+import pytest
+
 from materials_quality.agent import mcp_server
 
 
@@ -177,3 +179,47 @@ def test_stdio_transport_keeps_stdout_as_json(tmp_path):
     for line in all_lines:
         if line.strip():
             json.loads(line)
+
+
+def test_mcp_workflow_reuses_cooperative_queue(monkeypatch):
+    from materials_quality.agent.tasks import checkpoint
+
+    started, release = threading.Event(), threading.Event()
+    later_steps = []
+
+    def run(arguments):
+        started.set()
+        assert release.wait(5)
+        checkpoint()
+        later_steps.append("must not run")
+
+    monkeypatch.setattr(mcp_server, "_WORKFLOW_QUEUE", None)
+    monkeypatch.setattr(mcp_server, "_run_workflow_sync", run)
+    task = mcp_server._run_workflow({"flow_id": "test-flow"})
+    assert started.wait(5)
+    assert mcp_server._cancel_task(task)["status"] == "cancelled"
+    release.set()
+    mcp_server._workflow_queue()._queue.join()
+    assert later_steps == []
+    assert mcp_server._task_status(task)["result"] is None
+
+
+def test_mcp_workflow_respects_project_read_only(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from materials_quality.agent.permissions import PermissionStore
+
+    settings = tmp_path / "studyui-settings.json"
+    settings.write_text(json.dumps({"default_preset": "read_only"}), encoding="utf-8")
+    assert PermissionStore(settings).get_preset("project") == "read_only"
+    monkeypatch.setenv("STUDYUI_RUNTIME_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        mcp_server,
+        "_workflow_client",
+        lambda *a: SimpleNamespace(
+            get_flow=lambda fid: {"folder_id": "project"},
+            run_flow=lambda *a, **kw: pytest.fail("read-only flow must not execute"),
+        ),
+    )
+    with pytest.raises(mcp_server.StudyUIToolError, match="只读"):
+        mcp_server._run_workflow_sync({"flow_id": "read-only-flow"})

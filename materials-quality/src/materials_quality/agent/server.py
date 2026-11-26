@@ -28,7 +28,10 @@ if __package__ is None or __package__ == "":
         sys.path.insert(0, str(_src_dir))
     __package__ = "materials_quality.agent"
 
+from materials_quality.assets.catalog_bridge import build_default_asset_graph
+from materials_quality.assets.scope_doc import render_scope_and_limitations_markdown
 from materials_quality.demos.catalog import get_dataset, list_datasets, read_demo_bytes
+from materials_quality.evolution import collect_evidence, critique_evidence, propose_declarative_patches
 
 from .demo_reference import create_reference_workflow
 from .file_workflow_client import FileWorkflowClient
@@ -42,6 +45,121 @@ from .workflow_jobs import WorkflowJobQueue
 DEMO_DATASETS = list_datasets()
 
 PAGE = (Path(__file__).parent / "ui" / "index.html").read_text(encoding="utf-8")
+
+
+def _governance_scope_payload(harness):
+    graph = getattr(harness, "asset_graph", None) or build_default_asset_graph()
+    workflows = [
+        {
+            "id": node.id,
+            "title": node.title,
+            "operation": node.metadata.get("operation"),
+            "protocol_compiler_ready": bool(node.metadata.get("protocol_compiler_ready")),
+            "applicability_scope": list(node.applicability_scope),
+            "out_of_scope_cases": list(node.out_of_scope_cases),
+            "known_limitations": list(node.known_limitations),
+        }
+        for node in sorted(graph.by_type("W"), key=lambda item: item.id)
+    ]
+    roles = [
+        {
+            "id": node.id,
+            "title": node.title,
+            "allowed_tools_count": len(node.metadata.get("allowed_tools", [])),
+            "applicability_scope": list(node.applicability_scope),
+            "known_limitations": list(node.known_limitations),
+        }
+        for node in sorted(graph.by_type("R"), key=lambda item: item.id)
+    ]
+    return {
+        "summary": graph.summary(),
+        "markdown": render_scope_and_limitations_markdown(graph),
+        "workflows": workflows,
+        "roles": roles,
+    }
+
+
+def _governance_evolution_payload(harness):
+    evolution = harness.evolution
+    records = []
+    for patch_file in sorted(evolution.patches_dir.glob("*.json")):
+        try:
+            rec = json.loads(patch_file.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(rec, dict):
+            records.append(rec)
+    records.sort(
+        key=lambda item: (str(item.get("updated_at") or ""), str(item.get("patch_id") or "")), reverse=True
+    )
+    pending = [rec for rec in records if rec.get("status") == "pending_approval"]
+    applied = [rec for rec in records if rec.get("status") == "applied"]
+    other = [rec for rec in records if rec.get("status") not in {"pending_approval", "applied"}]
+    return {
+        "mode": evolution.mode,
+        "pending": pending,
+        "applied": applied,
+        "other": other,
+        "patches": records,
+    }
+
+
+def _governance_evolution_collect(harness, data):
+    session_id = str(data.get("session_id") or "").strip() or None
+    run_id = str(data.get("run_id") or "").strip() or None
+    if hasattr(harness.evolution, "collect_and_propose"):
+        return harness.evolution.collect_and_propose(
+            store=harness.store,
+            ledger=harness.ledger,
+            asset_graph=harness._mutable_asset_graph(),
+            session_id=session_id,
+            run_id=run_id,
+        )
+    bundle = collect_evidence(
+        store=harness.store,
+        ledger=harness.ledger,
+        session_ids=[session_id] if session_id else None,
+        run_ids=[run_id] if run_id else None,
+    )
+    graph = harness._mutable_asset_graph()
+    findings = critique_evidence(bundle, graph)
+    patches = propose_declarative_patches(findings, graph)
+    target_session_id = session_id
+    if patches and not target_session_id:
+        sessions = harness.store.list_sessions()
+        target_session_id = sessions[0]["id"] if sessions else harness.new_session("知识进化收集")
+    project_id = (
+        (harness.store.session_context(target_session_id) or {}).get("project_id")
+        if target_session_id
+        else None
+    )
+    submitted = []
+    for patch in patches:
+        existing = harness.evolution.get_record(patch.patch_id)
+        if existing and existing.get("status") in {"pending_approval", "applied"}:
+            submitted.append(
+                {
+                    "status": existing["status"],
+                    "patch_id": patch.patch_id,
+                    "approval_id": existing.get("approval_id"),
+                }
+            )
+            continue
+        submitted.append(
+            harness.evolution.submit_patch(
+                patch,
+                graph,
+                session_id=target_session_id,
+                project_id=project_id,
+            )
+        )
+    return {
+        "collected_items": len(bundle.items),
+        "non_transient_items": len(bundle.non_transient_items()),
+        "findings_count": len(findings),
+        "proposed_patches": [patch.to_dict() for patch in patches],
+        "submitted": submitted,
+    }
 
 
 def make_handler(harness, canvas_path, task_manager):
@@ -86,6 +204,12 @@ def make_handler(harness, canvas_path, task_manager):
             if not isinstance(data, dict):
                 raise ValueError("Request body must be a JSON object")
             return data
+
+        def _optional_body(self):
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            if length == 0:
+                return {}
+            return self._body()
 
         def _error(self, exc, status=400):
             self._send(status, {"error": str(exc)[:1000]})
@@ -143,6 +267,10 @@ def make_handler(harness, canvas_path, task_manager):
                 from materials_quality.science.material_tasks import task_catalog
 
                 return self._send(200, {"tasks": task_catalog(), "examples": examples()})
+            if path == "/api/governance/scope":
+                return self._send(200, _governance_scope_payload(harness))
+            if path == "/api/governance/evolution":
+                return self._send(200, _governance_evolution_payload(harness))
             if path == "/api/sessions":
                 return self._send(200, harness.store.list_sessions())
             if path == "/api/projects":
@@ -342,6 +470,21 @@ def make_handler(harness, canvas_path, task_manager):
                             "prompt": prompt,
                         },
                     )
+                if path == "/api/governance/evolution/collect":
+                    data = self._optional_body()
+                    return self._send(200, _governance_evolution_collect(harness, data))
+                if path.startswith("/api/governance/evolution/") and path.endswith("/rollback"):
+                    parts = path.strip("/").split("/")
+                    if len(parts) != 5 or parts[2] != "evolution" or parts[4] != "rollback":
+                        return self._error("Not found", 404)
+                    patch_id = unquote(parts[3])
+                    try:
+                        result = harness.evolution.rollback_patch(patch_id, harness._mutable_asset_graph())
+                    except FileNotFoundError as exc:
+                        return self._error(exc, 404)
+                    except RuntimeError as exc:
+                        return self._error(exc, 409)
+                    return self._send(200, result)
                 data = self._body()
                 if path in {
                     "/api/material-tasks/preview",
@@ -895,7 +1038,7 @@ def create_app(database, workflows, components, frontend):
         workflows or project_root / "workflows",
         components or project_root / ".demo-runtime" / "components",
     )
-    harness = StudyUIAgent(database, canvas=workflow_client)
+    harness = StudyUIAgent(database, canvas=workflow_client, enable_role_routing=True)
     if not harness.store.list_workspaces():
         harness.store.add_workspace(str(harness.project_root), harness.project_root.name or "StudyUI")
 

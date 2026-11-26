@@ -16,10 +16,15 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from materials_quality.assets.catalog_bridge import build_default_asset_graph, cached_default_asset_graph
+from materials_quality.evolution.acceptance import EvolutionController
+
 from .academic_search import PROVIDERS as RESEARCH_PROVIDERS
 from .academic_search import search as search_literature
 from .data_inspection import READ_DENIAL, authorized_file, inspect_file
 from .file_workflow_client import FileWorkflowClient
+from .graph_gate import apply_checked_graph_update
+from .human_gates import HumanGateController
 from .material_protocols import PROTOCOL_SCHEMA, compile_material_protocol
 from .model import (
     DEFAULT_MAX_OUTPUT_TOKENS,
@@ -30,18 +35,19 @@ from .model import (
 )
 from .model_profiles import ModelProfiles
 from .permissions import PermissionStore, new_approval_id
+from .role_router import build_role_context_note, route_tools, select_role
 from .skill_registry import SkillRegistry
 from .skill_sandbox import SkillSandbox
 from .store import SessionStore
 from .tasks import TaskCancelled, TaskDeadlineExceeded, checkpoint, task_budget
 from .workflow import (
-    apply_actions,
     component_catalog_summary,
     edge_handle,
     flow_digest,
     flow_summary,
     is_secret_name,
 )
+from .workflow_ledger import WorkflowLedger
 
 MAX_TOOL_ROUNDS = 48
 MAX_TOOL_CALLS_PER_ROUND = 12
@@ -409,6 +415,7 @@ TOOLS = [
         "Return missing/blocked conditions, source locators, and eligible node mappings.",
         {
             "query": {"type": "string", "minLength": 1, "maxLength": 500},
+            "task": {"type": "string", "enum": ["mechanics", "spectra", "xrd", "battery", "thermal"]},
             "goal": {"type": "string", "maxLength": 120},
             "signal_type": {
                 "type": "string",
@@ -651,13 +658,43 @@ TOOLS = [
         {"approval_id": {"type": "string", "minLength": 1, "maxLength": 80}},
         ["approval_id"],
     ),
+    _tool(
+        "run_materials_solver",
+        "Run optional deterministic materials solver plugins with explicit physics boundaries: "
+        "'xrd_cif_screening' (pymatgen CIF theoretical XRD & candidate matching, never replaces Rietveld) "
+        "or 'battery_single_cell' (PyBaMM SPM/SPMe/DFN discharge baseline). Degrades gracefully when "
+        "optional [compute] dependencies are not installed.",
+        {
+            "solver": {"type": "string", "enum": ["xrd_cif_screening", "battery_single_cell"]},
+            "cif_text": {"type": "string", "maxLength": 20000},
+            "wavelength": {"type": "string", "maxLength": 20},
+            "two_theta_range": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+            "measured_peaks": {"type": "array", "items": {"type": "object"}},
+            "tol_deg": {"type": "number", "exclusiveMinimum": 0},
+            "model_name": {"type": "string", "enum": ["SPM", "SPMe", "DFN"]},
+            "parameter_set": {"type": "string", "maxLength": 64},
+            "c_rate": {"type": "number", "exclusiveMinimum": 0},
+            "ambient_temp_C": {"type": "number"},
+            "cutoff_voltage_V": {"type": "number"},
+        },
+        ["solver"],
+    ),
 ]
 
 
 class StudyUIAgent:
     """Owns research dialogue and delegates workflow work to embedded LFX."""
 
-    def __init__(self, database, *, canvas=None, model=None, skill_root=None):
+    def __init__(
+        self,
+        database,
+        *,
+        canvas=None,
+        model=None,
+        skill_root=None,
+        enable_role_routing=False,
+        evolution_mode="manual",
+    ):
         project_root = Path(__file__).resolve().parents[4]
         self.canvas = canvas or FileWorkflowClient(
             project_root / "workflows", project_root / ".demo-runtime" / "components"
@@ -682,14 +719,35 @@ class StudyUIAgent:
         self.skills = SkillRegistry(runtime_root / "skills")
         self.skill_sandbox = SkillSandbox(self.skills)
         self.artifact_root = runtime_root / "artifacts"
+        self.ledger = WorkflowLedger(runtime_root / "workflow_runs")
+        self.human_gates = HumanGateController(self.store, self.ledger)
+        self.evolution = EvolutionController(
+            store=self.store, storage_dir=runtime_root / "evolution", mode=evolution_mode
+        )
+        self.asset_graph = cached_default_asset_graph()
+        if any(self.evolution.patches_dir.glob("*.json")):
+            custom_graph = build_default_asset_graph()
+            if self.evolution.apply_persisted_patches(custom_graph):
+                self.asset_graph = custom_graph
         self.project_root = flow_root.parent if flow_root else project_root
         self._custom_model = model is not None
+        self.enable_role_routing = bool(enable_role_routing)
         self._turn_state = threading.local()
         self._progress_state = threading.local()
         with contextlib.suppress(Exception):
             self.store.invalidate_pending_dsh_approvals()
         self._pinned_schemas = {}
         self._approval_state = threading.local()
+
+    def resume_plan_for_run(self, run_id):
+        flow_root = self.canvas.store.root if isinstance(self.canvas, FileWorkflowClient) else None
+        events = self.ledger.read_events(run_id)
+        flow_id = next(
+            ((ev.get("payload") or {}).get("flow_id") for ev in events if ev.get("kind") == "run_started"),
+            None,
+        )
+        cp_root = (flow_root / ".checkpoints" / str(flow_id)) if (flow_root and flow_id) else None
+        return self.ledger.resume_plan(run_id, checkpoint_root=cp_root)
 
     @property
     def _approved_execution(self):
@@ -919,7 +977,9 @@ class StudyUIAgent:
             "3. 遇到疑问或信息缺失，直接在答复中说明已知条件与限制，避免无休止地遍历工具。"
         )
 
-    def run_turn(self, session_id, user_text, *, canvas_run=None, internal_context=None, on_progress=None):
+    def run_turn(
+        self, session_id, user_text, *, canvas_run=None, internal_context=None, on_progress=None, role=None
+    ):
         if canvas_run is None and self.agent_engine() in {"dsh-sdk", "dsh"}:
             from . import dsh_engine
 
@@ -963,6 +1023,8 @@ class StudyUIAgent:
             "workflow_runs": 0,
             "skill_selection": None,
             "skill_preflight_complete": False,
+            "role": role,
+            "role_selection": None,
             "canvas_run": dict(canvas_run) if canvas_run else None,
             "workflow_run_result": None,
             "tool_steps": [],
@@ -998,7 +1060,18 @@ class StudyUIAgent:
             with contextlib.suppress(AttributeError):
                 del self._turn_state.value
 
-    def run_canvas_workflow(self, flow_id, *, session_id=None, on_progress=None):
+    def _mutable_asset_graph(self):
+        if self.asset_graph is cached_default_asset_graph():
+            self.asset_graph = build_default_asset_graph()
+            self.evolution.apply_persisted_patches(self.asset_graph)
+        return self.asset_graph
+
+    @staticmethod
+    def _safe_ledger_id(raw_id):
+        cleaned = re.sub(r"[^A-Za-z0-9_-]", "_", str(raw_id or "")).strip("_")
+        return cleaned[:80] if cleaned else "flow"
+
+    def run_canvas_workflow(self, flow_id, *, session_id=None, on_progress=None, ledger_run_id=None):
         """Start the main Agent for a user-clicked canvas run."""
         flow = self.canvas.get_flow(str(flow_id))
         project_id = flow.get("folder_id")
@@ -1021,7 +1094,7 @@ class StudyUIAgent:
         if flow.get("studyui_protocol") is not None:
             from .material_workbench import run_canvas
 
-            return run_canvas(self, flow, session_id, on_progress=on_progress)
+            return run_canvas(self, flow, session_id, on_progress=on_progress, ledger_run_id=ledger_run_id)
 
         has_ai = any(
             isinstance(node, dict) and node.get("data", {}).get("type") == "StudyUIAIAnalysis"
@@ -1190,6 +1263,27 @@ class StudyUIAgent:
         if skill_context:
             messages.append({"role": "system", "content": skill_context})
         canvas_run = getattr(self._turn_state, "value", {}).get("canvas_run")
+        role_selection = select_role(
+            user_text.strip() if not internal else "",
+            explicit_role=state.get("role"),
+            canvas_run=canvas_run,
+        )
+        state["role_selection"] = role_selection
+        role_routing_active = bool(self.enable_role_routing or state.get("role"))
+        if role_routing_active:
+            role_note = build_role_context_note(role_selection, graph=self.asset_graph)
+            if role_note:
+                messages.append({"role": "system", "content": role_note})
+            self.store.append_event(
+                session_id,
+                "role_selected",
+                {
+                    "role_key": role_selection["role_key"],
+                    "role_id": role_selection["role_id"],
+                    "reason": role_selection["reason"],
+                    "tool_count": len(role_selection["allowed_tools"]),
+                },
+            )
         if canvas_run:
             messages.append(
                 {
@@ -1345,12 +1439,13 @@ class StudyUIAgent:
                     for parameter in signature.parameters.values()
                 )
                 output_limit = getattr(self.model, "max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
+                active_tools = route_tools(TOOLS, role_selection, enabled=role_routing_active)
                 if supports_stream:
                     response = self.model.complete(
-                        messages, TOOLS, max_tokens=output_limit, on_chunk=chunk_cb
+                        messages, active_tools, max_tokens=output_limit, on_chunk=chunk_cb
                     )
                 else:
-                    response = self.model.complete(messages, TOOLS, max_tokens=output_limit)
+                    response = self.model.complete(messages, active_tools, max_tokens=output_limit)
             except ValueError as exc:
                 if isinstance(exc, ModelToolArgumentsError) and argument_repairs < 2:
                     argument_repairs += 1
@@ -1992,15 +2087,55 @@ class StudyUIAgent:
                 raise ValueError("材料任务需要 protocol；自定义图请使用 build_workflow。")
             name = "build_workflow"
         if name == "recommend_analysis_methods":
+            from materials_quality.assets.domain_knowledge import search_domain_method_cards
             from materials_quality.science.method_cards import recommend_methods
 
             result = recommend_methods(config={"top_k": 3, **args})
+            domain_hits = search_domain_method_cards(
+                query=str(args.get("query") or args.get("goal") or ""),
+                task=args.get("task"),
+                top_k=5,
+            )
             return {
                 **result.data,
+                "domain_task_cards": domain_hits["cards"],
+                "task_boundaries": domain_hits["task_boundaries"],
                 "condition_evidence": "caller_declarations_not_measurement_verification",
                 "automatic_execution": False,
                 "warnings": result.warnings,
             }
+        if name == "run_materials_solver":
+            from materials_quality.science.plugins import (
+                compute_theoretical_xrd_from_cif,
+                match_measured_xrd_peaks,
+                simulate_single_cell_discharge,
+            )
+
+            solver = args.get("solver")
+            if solver == "xrd_cif_screening":
+                cif_text = str(args.get("cif_text") or "")
+                tt_range = tuple(args.get("two_theta_range") or (10.0, 90.0))
+                computed = compute_theoretical_xrd_from_cif(
+                    cif_text,
+                    wavelength=str(args.get("wavelength") or "CuKa"),
+                    two_theta_range=tt_range,
+                )
+                if computed["status"] == "ok" and args.get("measured_peaks"):
+                    computed["peak_match"] = match_measured_xrd_peaks(
+                        args["measured_peaks"],
+                        computed["peaks"],
+                        tol_deg=float(args.get("tol_deg") or 0.35),
+                    )
+                return computed
+            if solver == "battery_single_cell":
+                return simulate_single_cell_discharge(
+                    model_name=str(args.get("model_name") or "SPM"),
+                    parameter_set=str(args.get("parameter_set") or "Chen2020"),
+                    c_rate=float(args.get("c_rate") or 1.0),
+                    ambient_temp_C=float(args.get("ambient_temp_C") or 25.0),
+                    cutoff_voltage_V=float(args.get("cutoff_voltage_V") or 2.5),
+                )
+            raise ValueError(f"Unsupported solver: {solver!r}")
         if name == "list_pending_approvals":
             approvals = self.store.pending_approvals(session_id)
             recent_decisions = [
@@ -2223,7 +2358,20 @@ class StudyUIAgent:
             }
             actions = args.get("actions") or []
             if actions:
-                candidate, descriptions = apply_actions(flow, actions, self.canvas.component_catalog())
+                gate_res = apply_checked_graph_update(
+                    flow,
+                    actions,
+                    self.canvas.component_catalog(),
+                    permissions=None,
+                    allow_external_ai_without_approval=True,
+                    ledger=self.ledger,
+                    run_id=self._safe_ledger_id(flow["id"]),
+                    rationale=str(args.get("rationale", "build_workflow"))[:500],
+                )
+                if not gate_res.accepted:
+                    raise ValueError("; ".join(item["message"] for item in gate_res.rejections))
+                candidate = gate_res.flow
+                descriptions = list(gate_res.descriptions)
             else:
                 candidate = flow
                 descriptions = ["创建初始工作流"]
@@ -2259,6 +2407,9 @@ class StudyUIAgent:
             if not isinstance(tweaks, dict) or len(json.dumps(tweaks, ensure_ascii=False)) > 24_000:
                 raise ValueError("Workflow tweaks must be a small JSON object")
             self._validate_workflow_local_paths(session_id, flow, tweaks)
+            guard_gate = self._check_workflow_guard_human_gate(session_id, flow)
+            if guard_gate is not None:
+                return guard_gate
             approval = getattr(self, "_approved_execution", None) or {}
             canvas_run = getattr(self._turn_state, "value", {}).get("canvas_run") or {}
             canvas_authorized = (
@@ -2330,6 +2481,7 @@ class StudyUIAgent:
                 "external_data_approved": approved_external_data,
                 **approved_snapshot,
             }
+            ledger_run_id = f"run_{uuid.uuid4().hex[:16]}"
             try:
                 try:
                     # Ask the executor for every executed node so the agent can
@@ -2338,14 +2490,28 @@ class StudyUIAgent:
                     result = self.canvas.run_flow(
                         flow.get("id", flow_id),
                         include_all_nodes=True,
+                        ledger=self.ledger,
+                        run_id=ledger_run_id,
+                        session_id=session_id,
                         **run_kwargs,
                     )
                 except TypeError as exc:
-                    if "include_all_nodes" not in str(exc):
+                    if not any(
+                        flag in str(exc) for flag in ("include_all_nodes", "ledger", "run_id", "session_id")
+                    ):
                         raise
-                    # Compatible workflow clients may not expose the visibility
-                    # flag; keep running instead of failing the whole tool call.
-                    result = self.canvas.run_flow(flow.get("id", flow_id), **run_kwargs)
+                    try:
+                        result = self.canvas.run_flow(
+                            flow.get("id", flow_id),
+                            include_all_nodes=True,
+                            **run_kwargs,
+                        )
+                    except TypeError as exc2:
+                        if "include_all_nodes" not in str(exc2):
+                            raise
+                        # Compatible workflow clients may not expose the visibility
+                        # flag; keep running instead of failing the whole tool call.
+                        result = self.canvas.run_flow(flow.get("id", flow_id), **run_kwargs)
             finally:
                 reset_subagent_model_scope(model_token)
                 reset_subagent_audit_context(audit_token)
@@ -2383,6 +2549,171 @@ class StudyUIAgent:
             )
             return {"status": "deleted_to_recovery", "flow_id": flow_id, "flow_name": flow.get("name")}
         raise ValueError("The requested tool is not registered")
+
+    def _has_approved_human_gate(self, session_id: str, flow_digest_value: str) -> bool:
+        with self.store._connect() as db:
+            rows = db.execute(
+                "SELECT request_json FROM approvals "
+                "WHERE session_id=? AND action='workflow.human_gate' AND status='approved'",
+                (session_id,),
+            ).fetchall()
+        for row in rows:
+            try:
+                req = json.loads(row["request_json"])
+            except Exception:
+                continue
+            if not isinstance(req, dict):
+                continue
+            guard = req.get("guard_report") if isinstance(req.get("guard_report"), dict) else {}
+            if req.get("flow_digest") == flow_digest_value or guard.get("flow_digest") == flow_digest_value:
+                return True
+        return False
+
+    def _check_workflow_guard_human_gate(self, session_id: str, flow: dict) -> dict | None:
+        protocol = flow.get("studyui_protocol")
+        if not isinstance(protocol, dict):
+            meta = flow.get("metadata")
+            if isinstance(meta, dict) and isinstance(meta.get("studyui_protocol"), dict):
+                protocol = meta["studyui_protocol"]
+        if not isinstance(protocol, dict):
+            return None
+
+        current_digest = flow_digest(flow)
+        if self._has_approved_human_gate(session_id, current_digest):
+            return None
+
+        spec = (
+            dict(protocol.get("parameters") or {})
+            if isinstance(protocol.get("parameters"), dict)
+            else dict(protocol)
+        )
+        task = str(
+            spec.get("task") or protocol.get("task") or str(protocol.get("id", "")).removeprefix("materials.")
+        ).strip()
+        if task not in {"mechanics", "spectra", "xrd", "battery", "thermal"}:
+            return None
+        spec["task"] = task
+
+        guard_report = None
+        spec_path = spec.get("path")
+        if spec_path and Path(str(spec_path)).is_file():
+            from .material_protocols import load_protocol_input
+            from .material_workbench import evaluate_spec_guards
+
+            table, _, _, _ = load_protocol_input(spec)
+            guard_report = evaluate_spec_guards(table, spec)
+        elif isinstance(protocol.get("guard_report"), dict):
+            guard_report = dict(protocol["guard_report"])
+
+        if not isinstance(guard_report, dict):
+            return None
+
+        recoverable_codes = {
+            "MECHANICS_LOW_ELASTIC_R2",
+            "BATTERY_MIXED_CRATE_UNGROUPED",
+            "THERMAL_UNSPECIFIED_ATMOSPHERE",
+        }
+        findings = [f for f in (guard_report.get("findings") or []) if isinstance(f, dict)]
+        recoverable = [
+            f for f in findings if f.get("severity") == "warn" or f.get("code") in recoverable_codes
+        ]
+        if (
+            task == "thermal"
+            and not spec.get("atmosphere")
+            and not any(f.get("code") == "THERMAL_UNSPECIFIED_ATMOSPHERE" for f in recoverable)
+            and any("吹扫气氛" in str(nv) for nv in (guard_report.get("not_verified") or []))
+        ):
+            recoverable.append(
+                {
+                    "code": "THERMAL_UNSPECIFIED_ATMOSPHERE",
+                    "severity": "warn",
+                    "message": "未声明吹扫气氛（如 N2 / 空气 / Ar），氧化与热解机理待实验记录确认。",
+                    "recommendation": "建议补充 atmosphere 参数（如 N2 / air / Ar）或确认继续分析。",
+                }
+            )
+        if not recoverable:
+            return None
+
+        primary = recoverable[0]
+        code = str(primary.get("code") or "")
+        if code == "MECHANICS_LOW_ELASTIC_R2":
+            gate_kind = "select_fit_range"
+            fit_range = spec.get("fit_range")
+            if isinstance(fit_range, (list, tuple)) and len(fit_range) == 2:
+                lo, hi = float(fit_range[0]), float(fit_range[1])
+                proposed_parameters = {
+                    "fit_range": [lo, round(lo + 0.6 * (hi - lo), 6)],
+                    "confirm_guard_override": True,
+                }
+            else:
+                proposed_parameters = {"confirm_guard_override": True}
+        elif code == "BATTERY_MIXED_CRATE_UNGROUPED":
+            gate_kind = "confirm_guard_override"
+            proposed_parameters = {
+                "group_by_c_rate": True,
+                "c_rate_col": spec.get("c_rate_col") or "c_rate",
+            }
+        elif code == "THERMAL_UNSPECIFIED_ATMOSPHERE":
+            gate_kind = "confirm_method_parameters"
+            proposed_parameters = {"atmosphere": "N2"}
+        else:
+            gate_kind = "confirm_guard_override"
+            proposed_parameters = {"confirm_guard_override": True}
+
+        nodes = [n for n in flow.get("data", {}).get("nodes", []) if isinstance(n, dict)]
+        analysis_node_id = next(
+            (
+                str(n.get("id"))
+                for n in nodes
+                if n.get("id") == "analysis"
+                or str(n.get("data", {}).get("type", "")).startswith(("ScienceMaterials", "Battery"))
+            ),
+            "analysis",
+        )
+        prompt = f"[{code}] {primary.get('message', '')} {primary.get('recommendation', '')}".strip()
+        ledger_run_id = f"run_{uuid.uuid4().hex[:16]}"
+        self.ledger.start_run(
+            ledger_run_id,
+            flow,
+            session_id=session_id,
+            metadata={"source": "run_workflow", "guard_gate": True, "flow_digest": current_digest},
+        )
+        gate = self.human_gates.request_gate(
+            session_id=session_id,
+            run_id=ledger_run_id,
+            node_id=analysis_node_id,
+            gate_kind=gate_kind,
+            prompt=prompt,
+            proposed_parameters=proposed_parameters,
+            guard_report={
+                **guard_report,
+                "flow_id": str(flow.get("id", "")),
+                "flow_digest": current_digest,
+            },
+        )
+        self.ledger.append_event(
+            ledger_run_id,
+            "run_interrupted",
+            {
+                "reason": "guard_human_gate",
+                "approval_id": gate["approval_id"],
+                "guard_codes": [f.get("code") for f in recoverable],
+            },
+        )
+        return {
+            "status": "pending_approval",
+            "task_status": "interrupted_resumable",
+            "approval_id": gate["approval_id"],
+            "gate_kind": gate_kind,
+            "run_id": ledger_run_id,
+            "node_id": analysis_node_id,
+            "flow_id": str(flow.get("id", "")),
+            "flow_digest": current_digest,
+            "reason": prompt,
+            "proposed_parameters": proposed_parameters,
+            "suggested_tweaks": proposed_parameters,
+            "guard_report": guard_report,
+        }
 
     def _refresh_model(self):
         if self._custom_model:
@@ -2999,6 +3330,7 @@ class StudyUIAgent:
             "build_workflow": "workflow.create",
             "build_material_workflow": "workflow.create",
             "run_workflow": "workflow.run",
+            "run_materials_solver": "solver.run",
             "delete_workflow": "workflow.delete",
             "list_pending_approvals": "approval.list",
             "cancel_approval": "approval.cancel",
@@ -3337,6 +3669,19 @@ class StudyUIAgent:
             request_data = request.get("request", {})
             if request_data.get("kind") == "skill.import":
                 self.skills.discard_staged(request_data.get("stage_id"))
+            if request_data.get("kind") == "workflow.human_gate" and request_data.get("run_id"):
+                self.ledger.append_event(
+                    str(request_data["run_id"]),
+                    "human_gate_resolved",
+                    {
+                        "approval_id": approval_id,
+                        "node_id": request_data.get("node_id", ""),
+                        "gate_kind": request_data.get("gate_kind"),
+                        "decision": "cancelled" if decision == "cancelled" else "rejected",
+                        "reviewer_note": "",
+                        "confirmed_parameters": dict(request_data.get("proposed_parameters") or {}),
+                    },
+                )
             return {"approval_id": approval_id, "status": decision}
         data = request.get("request", {})
         action_args = data.get("args") if isinstance(data.get("args"), dict) else {}
@@ -3439,6 +3784,41 @@ class StudyUIAgent:
                     "status": "completed",
                     "result": {"project_id": data["project_id"], "sessions_preserved": True},
                 }
+            if data.get("kind") == "workflow.human_gate" or request["action"] == "workflow.human_gate":
+                run_id = str(data.get("run_id") or "")
+                node_id = str(data.get("node_id") or "")
+                effective_params = dict(data.get("proposed_parameters") or {})
+                if run_id:
+                    self.ledger.append_event(
+                        run_id,
+                        "human_gate_resolved",
+                        {
+                            "approval_id": approval_id,
+                            "node_id": node_id,
+                            "gate_kind": data.get("gate_kind"),
+                            "decision": "approved",
+                            "reviewer_note": "",
+                            "confirmed_parameters": effective_params,
+                        },
+                    )
+                return {
+                    "approval_id": approval_id,
+                    "status": "completed",
+                    "result": {
+                        "run_id": run_id,
+                        "node_id": node_id,
+                        "can_resume": True,
+                        "confirmed_parameters": effective_params,
+                    },
+                }
+            if request["action"] == "knowledge.evolution.apply" or "patch_id" in data:
+                result = self.evolution.apply_approved_patch(data["patch_id"], self._mutable_asset_graph())
+                self.store.append_event(
+                    request["session_id"],
+                    "knowledge_patch_applied",
+                    {"approval_id": approval_id, **result},
+                )
+                return {"approval_id": approval_id, "status": "completed", "result": result}
             action_args = data.get("args") if isinstance(data.get("args"), dict) else {}
             flow_id = action_args.get("flow_id")
             if flow_id and request["action"] in {
@@ -3587,7 +3967,32 @@ class StudyUIAgent:
         ):
             raise ValueError("工作流在审批后发生变化；本次授权已失效，请重新审批。")
         catalog = self.canvas.component_catalog()
-        candidate, descriptions = apply_actions(flow, args.get("actions"), catalog)
+        safe_run_id = self._safe_ledger_id(flow.get("id", flow_id))
+        gate_res = apply_checked_graph_update(
+            flow,
+            args.get("actions"),
+            catalog,
+            permissions=None,
+            allow_external_ai_without_approval=True,
+            compile_check=bool(catalog),
+            ledger=None,
+            run_id=safe_run_id,
+            rationale=str(args.get("rationale", ""))[:500],
+        )
+        if not gate_res.accepted:
+            self.ledger.append_event(
+                safe_run_id,
+                "graph_update_rejected",
+                {
+                    "base_digest": flow_digest(flow),
+                    "rationale": str(args.get("rationale", ""))[:500],
+                    "rejections": list(gate_res.rejections),
+                    "gate_details": dict(gate_res.gate_details),
+                },
+            )
+            raise ValueError("; ".join(item["message"] for item in gate_res.rejections))
+        candidate = gate_res.flow
+        descriptions = list(gate_res.descriptions)
         base_digest = flow_digest(flow)
         summary = {
             "flow_name": flow.get("name"),
@@ -3616,6 +4021,12 @@ class StudyUIAgent:
             and not explicit_proposal
         ) or direct_edit_approved:
             self.canvas.update_flow(flow.get("id", flow_id), candidate)
+            self.ledger.record_graph_version(
+                safe_run_id,
+                candidate,
+                reason=summary["rationale"] or "; ".join(descriptions),
+                gate_report=gate_res.gate_details,
+            )
             self.store.append_event(
                 session_id,
                 "workflow_changed",
@@ -3650,7 +4061,21 @@ class StudyUIAgent:
                 raise ValueError(
                     "The workflow changed after this proposal was prepared; create a fresh proposal"
                 )
-            candidate, _ = apply_actions(flow, proposal["candidate"], self.canvas.component_catalog())
+            catalog = self.canvas.component_catalog()
+            gate_res = apply_checked_graph_update(
+                flow,
+                proposal["candidate"],
+                catalog,
+                permissions=None,
+                allow_external_ai_without_approval=True,
+                compile_check=bool(catalog),
+                ledger=self.ledger,
+                run_id=self._safe_ledger_id(proposal["flow_id"]),
+                rationale=f"approve_proposal:{proposal_id}",
+            )
+            if not gate_res.accepted:
+                raise ValueError("; ".join(item["message"] for item in gate_res.rejections))
+            candidate = gate_res.flow
             self.canvas.update_flow(proposal["flow_id"], candidate)
             self.store.update_proposal_status(proposal_id, "applying", "approved")
             self.store.append_event(proposal["session_id"], "proposal_approved", {"proposal_id": proposal_id})
@@ -3691,6 +4116,7 @@ class StudyUIAgent:
             "pending_proposals": self.store.pending_proposals(session_id),
             "pending_approvals": self.store.pending_approvals(session_id),
             "skill_selection": state.get("skill_selection"),
+            "role_selection": state.get("role_selection"),
             "reasoning_content": state.get("reasoning_content", ""),
             "tool_steps": state.get("tool_steps", []),
             "token_usage": _public_usage(state.get("token_usage")),

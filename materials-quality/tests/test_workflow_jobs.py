@@ -67,3 +67,29 @@ def test_missing_job_returns_none():
     queue = WorkflowJobQueue(lambda flow_id, *, external_data_approved=False: {})
     assert queue.get("missing") is None
     assert queue.cancel("missing") is None
+
+
+def test_cancel_stops_following_steps_and_releases_queue():
+    from materials_quality.agent.tasks import checkpoint
+
+    started = threading.Event()
+    release = threading.Event()
+    completed = []
+
+    def runner(flow_id, **options):
+        if flow_id == "first":
+            started.set()
+            assert release.wait(5)
+            checkpoint()
+        completed.append(flow_id)
+        return {"flow_id": flow_id}
+
+    queue = WorkflowJobQueue(runner)
+    first = queue.submit("first")
+    assert started.wait(5)
+    second = queue.submit("second")
+    queue.cancel(first["id"])
+    release.set()
+    assert _wait_for(queue, second["id"])["status"] == "completed"
+    assert completed == ["second"]
+    assert queue.get(first["id"])["result"] is None

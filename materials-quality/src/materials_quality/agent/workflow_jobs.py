@@ -13,6 +13,8 @@ import threading
 import time
 import uuid
 
+from .tasks import cancellation_scope, checkpoint, task_budget
+
 MAX_RESULT_CHARS = 1_500_000
 
 
@@ -43,13 +45,17 @@ class WorkflowJobQueue:
         self.runner = runner
         self.history = max(1, int(history))
         self._jobs: dict[str, dict] = {}
+        self._signals: dict[str, threading.Event] = {}
+        self._options: dict[str, dict] = {}
         self._order: list[str] = []
         self._lock = threading.Lock()
         self._queue: queue.Queue[str] = queue.Queue()
         self._worker = threading.Thread(target=self._loop, name="studyui-workflow-jobs", daemon=True)
         self._worker.start()
 
-    def submit(self, flow_id, *, name: str = "", external_data_approved: bool = False) -> dict:
+    def submit(
+        self, flow_id, *, name: str = "", external_data_approved: bool = False, run_options=None
+    ) -> dict:
         job_id = uuid.uuid4().hex
         job = {
             "id": job_id,
@@ -65,6 +71,8 @@ class WorkflowJobQueue:
         }
         with self._lock:
             self._jobs[job_id] = job
+            self._signals[job_id] = threading.Event()
+            self._options[job_id] = dict(run_options or {})
             self._order.append(job_id)
             while len(self._order) > self.history:
                 oldest = self._order[0]
@@ -88,8 +96,13 @@ class WorkflowJobQueue:
                     job["started_at"] = time.time()
                     flow_id = job["flow_id"]
                     approved = bool(job.get("external_data_approved"))
+                    signal = self._signals[job_id]
+                    options = self._options[job_id]
                 try:
-                    result = self.runner(flow_id, external_data_approved=approved)
+                    with cancellation_scope(signal), task_budget():
+                        checkpoint()
+                        result = self.runner(flow_id, external_data_approved=approved, **options)
+                        checkpoint()
                 except Exception as exc:
                     with self._lock:
                         if job.get("status") != "cancelled":
@@ -104,6 +117,9 @@ class WorkflowJobQueue:
                     with self._lock:
                         job["finished_at"] = time.time()
             finally:
+                with self._lock:
+                    self._signals.pop(job_id, None)
+                    self._options.pop(job_id, None)
                 self._queue.task_done()
 
     def get(self, job_id: str) -> dict | None:
@@ -122,6 +138,7 @@ class WorkflowJobQueue:
             if job is None:
                 return None
             if job.get("status") in {"queued", "running"}:
+                self._signals[str(job_id)].set()
                 job["status"] = "cancelled"
                 job["error"] = "已请求取消；正在执行的步骤可能仍会完成。"
                 if job.get("started_at") is None:

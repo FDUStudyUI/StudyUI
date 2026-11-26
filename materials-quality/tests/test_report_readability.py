@@ -44,7 +44,14 @@ def test_html_shows_figures_and_existing_scalar_results_before_collapsed_trace(t
     assert "<img src=x" not in text
     assert "source-line\\n" in text
     assert data == original
-    assert result.data["sections"] == ["Data sources", "Node parameters", "Results", "Warnings"]
+    assert result.data["sections"] == [
+        "Data sources",
+        "Node parameters",
+        "Results",
+        "Warnings",
+        "Scope & Limitations",
+    ]
+    assert 'class="scope-limitations"' in text
 
 
 def test_html_keeps_readable_evidence_groups_and_markdown_order(tmp_path):

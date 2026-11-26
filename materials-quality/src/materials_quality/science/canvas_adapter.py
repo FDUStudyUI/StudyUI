@@ -724,3 +724,134 @@ def output_summary(component, key):
         text=f"{get(key)['title']}{status_text}。结果表：{table_text}；"
         f"生成文件 {len(envelope['artifacts'])} 个。\n" + "\n".join(envelope["warnings"])
     )
+
+
+def xrd_cif_screening(table=None, *, config=None, data=None, tables=None, calculator=None):
+    """Wrap ``pymatgen_xrd`` CIF theoretical pattern & candidate peak matching as a NodeResult."""
+    from .plugins.pymatgen_xrd import compute_theoretical_xrd_from_cif, match_measured_xrd_peaks
+
+    cfg = dict(config or {})
+    cif_text = str(cfg.get("cif_text") or "")
+    if not cif_text.strip() and cfg.get("source_cif"):
+        cif_path = Path(str(cfg["source_cif"]))
+        if not cif_path.is_file():
+            raise ValueError(f"CIF file not found: {cif_path}")
+        cif_text = cif_path.read_text(encoding="utf-8")
+
+    wavelength = str(cfg.get("wavelength") or "CuKa")
+    raw_range = cfg.get("two_theta_range")
+    if isinstance(raw_range, (list, tuple)) and len(raw_range) == 2:
+        two_theta_range = (float(raw_range[0]), float(raw_range[1]))
+    else:
+        two_theta_range = (
+            float(cfg.get("two_theta_min", 10.0)),
+            float(cfg.get("two_theta_max", 90.0)),
+        )
+    min_intensity = float(cfg.get("min_intensity", 1.0))
+
+    computed = compute_theoretical_xrd_from_cif(
+        cif_text,
+        wavelength=wavelength,
+        two_theta_range=two_theta_range,
+        min_intensity=min_intensity,
+        calculator=calculator,
+    )
+    if computed["status"] == "unavailable":
+        empty = pd.DataFrame(columns=["two_theta_deg", "intensity_rel", "d_spacing_angstrom", "hkls"])
+        empty.attrs["units"] = {
+            "two_theta_deg": "deg",
+            "intensity_rel": "%",
+            "d_spacing_angstrom": "angstrom",
+        }
+        return NodeResult(
+            table=empty,
+            data={**computed, "execution_status": "unavailable"},
+            warnings=[
+                f"可选依赖 pymatgen 未安装，已优雅降级。请运行：{computed['install_hint']}",
+                *computed.get("known_limitations", []),
+            ],
+        )
+
+    peaks_rows = [
+        {
+            "two_theta_deg": p["two_theta_deg"],
+            "intensity_rel": p["intensity_rel"],
+            "d_spacing_angstrom": p["d_spacing_angstrom"],
+            "hkls": ", ".join(str(h) for h in p.get("hkls", [])),
+        }
+        for p in computed["peaks"]
+    ]
+    frame = pd.DataFrame(
+        peaks_rows,
+        columns=["two_theta_deg", "intensity_rel", "d_spacing_angstrom", "hkls"],
+    )
+    frame.attrs["units"] = {
+        "two_theta_deg": "deg",
+        "intensity_rel": "%",
+        "d_spacing_angstrom": "angstrom",
+    }
+
+    result_data = {**computed, "execution_status": "completed"}
+    if isinstance(table, pd.DataFrame) and not table.empty:
+        tt_col = next((c for c in ("two_theta_deg", "two_theta", "x") if c in table.columns), None)
+        int_col = next((c for c in ("intensity_rel", "intensity", "y") if c in table.columns), None)
+        if tt_col is None or int_col is None:
+            raise ValueError(
+                "Measured peaks table must contain two_theta_d"
+                "eg/two_theta/x and intensity_rel/intensity/y "
+                "columns"
+            )
+        measured = [
+            {"two_theta_deg": float(row[tt_col]), "intensity_rel": float(row[int_col])}
+            for _, row in table.iterrows()
+        ]
+        tol_deg = float(cfg.get("tol_deg", 0.35))
+        min_rel_intensity = float(cfg.get("min_rel_intensity", 5.0))
+        result_data["match_result"] = match_measured_xrd_peaks(
+            measured,
+            computed["peaks"],
+            tol_deg=tol_deg,
+            min_rel_intensity=min_rel_intensity,
+        )
+
+    return NodeResult(
+        table=frame,
+        data=result_data,
+        warnings=list(computed.get("known_limitations", [])),
+    )
+
+
+def pybamm_battery_sim(table=None, *, config=None, data=None, tables=None, backend=None):
+    """Wrap ``pybamm_battery`` single-cell discharge simulation as a NodeResult."""
+    from .plugins.pybamm_battery import simulate_single_cell_discharge
+
+    cfg = dict(config or {})
+    sim = simulate_single_cell_discharge(
+        model_name=str(cfg.get("model_name") or "SPM"),
+        parameter_set=str(cfg.get("parameter_set") or "Chen2020"),
+        c_rate=float(cfg.get("c_rate", 1.0)),
+        ambient_temp_C=float(cfg.get("ambient_temp_C", 25.0)),
+        cutoff_voltage_V=float(cfg.get("cutoff_voltage_V", 2.5)),
+        t_points=int(cfg.get("t_points", 100)),
+        backend=backend,
+    )
+    if sim["status"] == "unavailable":
+        empty = pd.DataFrame(columns=["time_s", "voltage_V", "current_A"])
+        empty.attrs["units"] = {"time_s": "s", "voltage_V": "V", "current_A": "A"}
+        return NodeResult(
+            table=empty,
+            data={**sim, "execution_status": "unavailable"},
+            warnings=[
+                f"可选依赖 pybamm 未安装，已优雅降级。请运行：{sim['install_hint']}",
+                *sim.get("boundary_warnings", []),
+                *sim.get("known_limitations", []),
+            ],
+        )
+
+    frame = pd.DataFrame(sim["series"], columns=["time_s", "voltage_V", "current_A"])
+    frame.attrs["units"] = {"time_s": "s", "voltage_V": "V", "current_A": "A"}
+    return NodeResult(
+        table=frame,
+        data={**sim, "execution_status": "completed"},
+        warnings=[*sim.get("boundary_warnings", []), *sim.get("known_limitations", [])],
+    )

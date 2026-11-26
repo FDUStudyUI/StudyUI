@@ -13,10 +13,9 @@ import json
 import os
 import sys
 import threading
-import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from io import TextIOWrapper
 from pathlib import Path
 from typing import Any
@@ -34,8 +33,8 @@ SERVER_NAME = "studyui"
 MAX_RESULT_CHARS = 1_500_000
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
-_JOBS: dict[str, dict] = {}
-_JOBS_LOCK = threading.Lock()
+_WORKFLOW_QUEUE = None
+_QUEUE_LOCK = threading.Lock()
 _EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="studyui-mcp")
 
 
@@ -199,16 +198,29 @@ def _copy_workflow(arguments: dict) -> dict:
     }
 
 
-def _run_workflow_sync(arguments: dict) -> dict:
+@lru_cache(maxsize=4)
+def _workflow_client(root: Path, components: Path):
     from materials_quality.agent.file_workflow_client import FileWorkflowClient
+
+    return FileWorkflowClient(root, components)
+
+
+def _run_workflow_sync(arguments: dict) -> dict:
+    from materials_quality.agent.permissions import PermissionStore
     from materials_quality.agent.workflow import flow_digest
 
     flow_id = str(arguments.get("flow_id") or "").strip()
     if not flow_id:
         raise StudyUIToolError("flow_id is required")
-    client = FileWorkflowClient(workflows_dir(), components_dir())
+    client = _workflow_client(workflows_dir(), components_dir())
     # Validate exactly as the executor does, then pin the run to that snapshot.
     flow = client.get_flow(flow_id)
+    settings_root = runtime_root() or REPO_ROOT / ".demo-runtime"
+    if (
+        PermissionStore(settings_root / "studyui-settings.json").get_preset(flow.get("folder_id"))
+        == "read_only"
+    ):
+        raise StudyUIToolError("当前项目为只读，无法运行工作流。")
     return client.run_flow(
         flow_id,
         tweaks=arguments.get("tweaks") or None,
@@ -220,77 +232,46 @@ def _run_workflow_sync(arguments: dict) -> dict:
     )
 
 
-def _start_job(kind: str, work) -> dict:
-    task_id = uuid.uuid4().hex
-    record: dict[str, Any] = {
-        "task_id": task_id,
-        "kind": kind,
-        "status": "running",
-        "started_at": time.time(),
-        "finished_at": None,
-        "result": None,
-        "error": "",
-    }
-    with _JOBS_LOCK:
-        _JOBS[task_id] = record
+def _workflow_queue():
+    global _WORKFLOW_QUEUE
+    from .workflow_jobs import WorkflowJobQueue
 
-    def run() -> None:
-        try:
-            value = work()
-            from materials_quality.science_tools import _jsonable
+    # Tool handlers may arrive concurrently; creation uses the existing module lock.
+    with _QUEUE_LOCK:
+        if _WORKFLOW_QUEUE is None:
+            _WORKFLOW_QUEUE = WorkflowJobQueue(
+                lambda flow_id, **options: _run_workflow_sync({"flow_id": flow_id, **options})
+            )
+        return _WORKFLOW_QUEUE
 
-            with _JOBS_LOCK:
-                if record["status"] != "cancelled":
-                    record["result"] = _jsonable(value)
-                    record["status"] = "completed"
-        except Exception as exc:
-            with _JOBS_LOCK:
-                if record["status"] != "cancelled":
-                    record["status"] = "failed"
-                    record["error"] = f"{type(exc).__name__}: {exc}"
-        finally:
-            with _JOBS_LOCK:
-                record["finished_at"] = time.time()
 
-    threading.Thread(target=run, name=f"studyui-{kind}-{task_id[:8]}", daemon=True).start()
+def _run_workflow(arguments: dict) -> dict:
+    options = dict(arguments)
+    flow_id = str(options.pop("flow_id", "")).strip()
+    if not flow_id:
+        raise StudyUIToolError("flow_id is required")
+    approved = bool(options.pop("external_data_approved", False))
+    job = _workflow_queue().submit(flow_id, external_data_approved=approved, run_options=options)
     return {
-        "task_id": task_id,
-        "kind": kind,
-        "status": "running",
+        "task_id": job["id"],
+        "kind": "workflow",
+        "status": job["status"],
         "poll_with": "workflow_task_status",
     }
 
 
-def _run_workflow(arguments: dict) -> dict:
-    return _start_job("workflow", lambda: _run_workflow_sync(arguments))
-
-
 def _task_status(arguments: dict) -> dict:
-    task_id = str(arguments.get("task_id") or "").strip()
-    if not task_id:
-        raise StudyUIToolError("task_id is required")
-    with _JOBS_LOCK:
-        record = _JOBS.get(task_id)
-        if record is None:
-            raise StudyUIToolError(f"unknown task: {task_id}")
-        return {
-            key: record.get(key)
-            for key in ("task_id", "kind", "status", "result", "error", "started_at", "finished_at")
-        }
+    job = _workflow_queue().get(str(arguments.get("task_id") or ""))
+    if job is None:
+        raise StudyUIToolError("unknown task")
+    return {**job, "task_id": job["id"], "kind": "workflow"}
 
 
 def _cancel_task(arguments: dict) -> dict:
-    task_id = str(arguments.get("task_id") or "").strip()
-    if not task_id:
-        raise StudyUIToolError("task_id is required")
-    with _JOBS_LOCK:
-        record = _JOBS.get(task_id)
-        if record is None:
-            raise StudyUIToolError(f"unknown task: {task_id}")
-        if record["status"] == "running":
-            record["status"] = "cancelled"
-            record["error"] = "cancellation requested; the workflow may finish in the background"
-        return {"task_id": task_id, "status": record["status"]}
+    job = _workflow_queue().cancel(str(arguments.get("task_id") or ""))
+    if job is None:
+        raise StudyUIToolError("unknown task")
+    return {"task_id": job["id"], "status": job["status"]}
 
 
 def _list_material_tasks(_arguments: dict) -> dict:

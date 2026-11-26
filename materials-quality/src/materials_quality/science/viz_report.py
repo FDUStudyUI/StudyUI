@@ -67,6 +67,70 @@ def _evidence_html(bundle):
     )
 
 
+def _boundary_html(disclosure):
+    """Render applicability scope, unverified premises, GUARD alerts, and limitations."""
+
+    def _bullets(items):
+        if not items:
+            return "<p><small>无</small></p>"
+        return "<ul>" + "".join(f"<li>{html.escape(_text(item))}</li>" for item in items) + "</ul>"
+
+    findings = [
+        f"[{item.get('severity', 'warn').upper()}] {item.get('code', '')}: {item.get('message', '')}"
+        + (f"（建议：{item.get('recommendation')}）" if item.get("recommendation") else "")
+        for item in (disclosure.get("guard_findings") or [])
+        if isinstance(item, dict)
+    ]
+    return (
+        '<section class="scope-limitations">'
+        "<h2>适用范围、未验证前提与技术限制 (Scope &amp; Limitations)</h2>"
+        f"<p><strong>任务类型</strong>：{html.escape(str(disclosure.get('task', 'general')))}；"
+        "<strong>运行期 GUARD 状态</strong>："
+        f"{html.escape(str(disclosure.get('guard_status', 'not_evaluated')))}"
+        f"</p>"
+        "<h3>适用范围</h3>"
+        + _bullets(disclosure.get("applicability_scope"))
+        + "<h3>未验证前提</h3>"
+        + _bullets(disclosure.get("not_verified_conditions"))
+        + "<h3>运行期 GUARD 告警</h3>"
+        + _bullets(findings)
+        + "<h3>明确不支持场景与已知技术限制</h3>"
+        + _bullets(
+            list(disclosure.get("out_of_scope_cases") or []) + list(disclosure.get("known_limitations") or [])
+        )
+        + "</section>"
+    )
+
+
+def _boundary_markdown(disclosure):
+    """Render Scope & Limitations cleanly in Markdown without raw JSON dumps."""
+
+    def _bullets(items):
+        if not items:
+            return "- 无"
+        return "\n".join(f"- {_md(item)}" for item in items)
+
+    findings = [
+        f"[{item.get('severity', 'warn').upper()}] {item.get('code', '')}: {item.get('message', '')}"
+        + (f"（建议：{item.get('recommendation')}）" if item.get("recommendation") else "")
+        for item in (disclosure.get("guard_findings") or [])
+        if isinstance(item, dict)
+    ]
+    limitations = list(disclosure.get("out_of_scope_cases") or []) + list(
+        disclosure.get("known_limitations") or []
+    )
+    return "\n\n".join(
+        [
+            f"任务类型：`{_md(disclosure.get('task', 'general'))}`；"
+            f"运行期 GUARD 状态：`{_md(disclosure.get('guard_status', 'not_evaluated'))}`",
+            "### 适用范围\n\n" + _bullets(disclosure.get("applicability_scope")),
+            "### 未验证前提\n\n" + _bullets(disclosure.get("not_verified_conditions")),
+            "### 运行期 GUARD 告警\n\n" + _bullets(findings),
+            "### 明确不支持场景与已知技术限制\n\n" + _bullets(limitations),
+        ]
+    )
+
+
 def _results_html(results):
     """Present existing scalar values; retain the complete payload in a disclosure."""
     entries = results if isinstance(results, list) else [{"data": results}]
@@ -92,6 +156,28 @@ def _results_html(results):
         + html.escape(_text(results))
         + "</pre></details></section>"
     )
+
+
+_OPERATION_TO_TASK = {
+    "materials.mechanics": "mechanics",
+    "materials.spectra": "spectra",
+    "materials.xrd": "xrd",
+    "materials.battery_cycles": "battery",
+    "materials.thermal": "thermal",
+}
+
+
+def _infer_material_task(data, results):
+    explicit = data.get("task")
+    if explicit in {"mechanics", "spectra", "xrd", "battery", "thermal"}:
+        return explicit
+    entries = results if isinstance(results, list) else [results]
+    for entry in entries:
+        if isinstance(entry, dict):
+            op = entry.get("operation")
+            if op in _OPERATION_TO_TASK:
+                return _OPERATION_TO_TASK[op]
+    return explicit
 
 
 def build_report(table, c, data):
@@ -156,6 +242,21 @@ def build_report(table, c, data):
     ]
     if data.get("evidence_bundle") is not None:
         sections.append(("Evidence-linked claims", data["evidence_bundle"]))
+    boundary_disclosure = data.get("boundary_disclosure")
+    inferred_task = _infer_material_task(data, results)
+    if boundary_disclosure is None and (
+        data.get("guard_report") is not None
+        or inferred_task in {"mechanics", "spectra", "xrd", "battery", "thermal"}
+    ):
+        from .runtime_guards import build_boundary_disclosure
+
+        boundary_disclosure = build_boundary_disclosure(
+            task=inferred_task,
+            guard_report=data.get("guard_report"),
+            assessment=data.get("assessment"),
+        )
+    if boundary_disclosure is not None:
+        sections.append(("Scope & Limitations", boundary_disclosure))
     if format == "html":
         trace = "\n".join(
             f"<details><summary>{name}</summary><pre>{html.escape(_text(value))}</pre></details>"
@@ -194,6 +295,7 @@ def build_report(table, c, data):
             )
             + _results_html(results)
             + (_evidence_html(data["evidence_bundle"]) if data.get("evidence_bundle") is not None else "")
+            + (_boundary_html(boundary_disclosure) if boundary_disclosure is not None else "")
             + warning_html
             + trace
             + "</body></html>"
@@ -201,7 +303,17 @@ def build_report(table, c, data):
         extension = "html"
     else:
         content = "# " + _md(title) + "\n\n"
-        content += "\n\n".join("## " + name + "\n\n" + _md(value) for name, value in sections)
+        content += "\n\n".join(
+            "## "
+            + name
+            + "\n\n"
+            + (
+                _boundary_markdown(value)
+                if name == "Scope & Limitations" and isinstance(value, dict)
+                else _md(value)
+            )
+            for name, value in sections
+        )
         content += "\n\n## Result table\n\n" + table_markdown + "\n\n## Figures\n\n"
         content += "\n\n".join(f"![{_md(f['caption'])}](data:image/png;base64,{f['data']})" for f in verified)
         extension = "md"

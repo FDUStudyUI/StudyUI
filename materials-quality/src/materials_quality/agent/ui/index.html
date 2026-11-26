@@ -1886,6 +1886,8 @@
               </button>
               <button type="button" class="prompt-chip" id="demo-quick-btn" aria-haspopup="dialog">
                 🧪 演示案例</button
+              ><button type="button" class="prompt-chip" id="btn-governance-scope" aria-haspopup="dialog">
+                🛡️ 适用边界 &amp; 进化</button
               ><button type="button" class="prompt-chip" id="btn-export-brief" title="导出当前研究成果简报">
                 📑 导出简报
               </button>
@@ -2520,7 +2522,125 @@
         color: var(--muted);
         text-decoration: none;
       }
+      .role-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 500;
+        background: #edf3fc;
+        color: #1f4b82;
+        border: 1px solid #c9daf2;
+        margin-left: 6px;
+      }
+      .guard-report-banner {
+        margin: 8px 0;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #e7c27d;
+        background: #fff8eb;
+        color: #6b4506;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .guard-report-banner.is-block {
+        border-color: #e69d9d;
+        background: #fff1f1;
+        color: #7c1c1c;
+      }
+      .guard-report-banner strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      .guard-report-banner ul {
+        margin: 4px 0 0 16px;
+        padding: 0;
+      }
+      .dsh-resume-task {
+        margin-top: 8px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid #1f6feb;
+        background: #1f6feb;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .dsh-resume-task:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+      #governance-dialog {
+        width: min(820px, 92vw);
+        max-height: 86vh;
+      }
+      .gov-grid {
+        display: grid;
+        gap: 12px;
+        margin-top: 10px;
+      }
+      .gov-card {
+        border: 1px solid var(--line, #dbe3ef);
+        border-radius: 8px;
+        padding: 10px 12px;
+        background: #fafcff;
+        font-size: 12px;
+      }
+      .gov-card h4 {
+        margin: 0 0 6px;
+        font-size: 13px;
+      }
+      .gov-patch-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid #dbe3ef;
+        border-radius: 6px;
+        background: #fff;
+        margin-top: 6px;
+      }
     </style>
+    <dialog id="governance-dialog">
+      <div class="dialog-header-bar">
+        <div>
+          <h2>适用边界 &amp; 知识进化</h2>
+          <p>查看资产图谱、五大材料任务适用范围与已知限制，并收集/回滚声明式知识补丁。</p>
+        </div>
+        <button
+          type="button"
+          class="modal-close-x"
+          onclick="document.querySelector('#governance-dialog').close()"
+          title="关闭 (Esc)"
+        >
+          ✕
+        </button>
+      </div>
+      <div id="gov-summary" class="settings-note">正在加载资产图谱与治理状态…</div>
+      <div class="settings-section">
+        <h3>适用范围与边界（AssetGraph）</h3>
+        <div id="gov-scope-list" class="gov-grid"></div>
+        <details style="margin-top: 10px">
+          <summary style="cursor: pointer; font-size: 12px">查看完整 Markdown 边界声明</summary>
+          <pre
+            id="gov-scope-md"
+            style="white-space: pre-wrap; font-size: 11px; max-height: 220px; overflow: auto"
+          ></pre>
+        </details>
+      </div>
+      <div class="settings-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+          <h3 style="margin: 0">声明式知识进化（Evolution）</h3>
+          <button type="button" class="prompt-chip" id="gov-collect-btn">收集并提议补丁</button>
+        </div>
+        <div id="gov-evolution-status" class="settings-note" style="margin-top: 6px"></div>
+        <div id="gov-evolution-list" class="gov-grid"></div>
+      </div>
+    </dialog>
     <dialog id="settings-dialog">
       <div class="dialog-header-bar">
         <div>
@@ -3177,6 +3297,29 @@
         details.append(summary, panel);
         return details;
       }
+      function createGuardReportBanner(guardReport) {
+        if (!guardReport || typeof guardReport !== 'object') return null;
+        const findings = Array.isArray(guardReport.findings) ? guardReport.findings : [];
+        if (guardReport.status === 'pass' && !findings.length) return null;
+        const isBlock = guardReport.status === 'block' || guardReport.passed === false;
+        const box = el('div', 'guard-report-banner' + (isBlock ? ' is-block' : ''));
+        box.appendChild(
+          el(
+            'strong',
+            '',
+            `${isBlock ? '⛔ 运行时物理守卫阻断' : '⚠️ 运行时物理守卫提醒'} (${guardReport.status || 'warn'})`,
+          ),
+        );
+        if (findings.length) {
+          const list = el('ul');
+          for (const item of findings) {
+            const text = `[${item.code || 'GUARD'}] ${item.message || ''}${item.recommendation ? ' — 建议：' + item.recommendation : ''}`;
+            list.appendChild(el('li', '', text));
+          }
+          box.appendChild(list);
+        }
+        return box;
+      }
       function addMessage(role, text, meta = {}) {
         const msg = el('div', 'msg ' + (role === 'user' ? 'user' : 'assistant'));
         const parts =
@@ -3190,6 +3333,20 @@
           const mName = meta.model || activeModelName || 'StudyUI';
           const head = el('div', 'dsh-assistant-head');
           const identity = el('span', 'model-badge', mName);
+          head.append(identity);
+          if (meta.role_selection && typeof meta.role_selection === 'object') {
+            const rs = meta.role_selection;
+            const toolCount = Array.isArray(rs.allowed_tools)
+              ? rs.allowed_tools.length
+              : (rs.tool_count ?? 0);
+            const roleBadge = el(
+              'span',
+              'role-badge',
+              `${rs.title || rs.role_key || rs.role_id || '角色'} · ${toolCount} 工具`,
+            );
+            if (rs.reason) roleBadge.title = rs.reason;
+            head.append(roleBadge);
+          }
           const actions = el('div', 'dsh-message-actions');
           const grounding = el('button', 'prompt-chip', '溯源');
           grounding.type = 'button';
@@ -3200,8 +3357,10 @@
           copy.title = '复制回答';
           copy.onclick = () => StudyUIRich.copyText(msg.markdownSource || '', copy);
           actions.append(grounding, copy);
-          head.append(identity, actions);
+          head.append(actions);
           msg.appendChild(head);
+          const guardBanner = createGuardReportBanner(meta.guard_report);
+          if (guardBanner) msg.appendChild(guardBanner);
           if (meta.tool_steps && meta.tool_steps.length) {
             msg.appendChild(createAuditStepper(meta.tool_steps));
           }
@@ -3925,6 +4084,8 @@
               ),
             ),
           );
+          const guardBanner = createGuardReportBanner(result.guard_report);
+          if (guardBanner) mt('checks').appendChild(guardBanner);
           mt('status').textContent =
             result.status === 'ready' ? '条件检查通过，可以生成可编辑流程。' : result.next_actions.join(' ');
           if (result.status === 'ready' && JSON.stringify(spec) === JSON.stringify(materialSpec())) {
@@ -4707,6 +4868,7 @@
         cancelled: '已取消；已完成产物保留',
         failed: '失败',
         interrupted: '服务重启，任务已中断',
+        interrupted_resumable: '任务已暂停（可从检查点恢复）',
         waiting_approval: '等待审批',
         completed: '完成',
       };
@@ -4997,6 +5159,12 @@
           renderStatsDock();
           if (result.message) {
             addMessage('assistant', result.message, result);
+          } else if (result.guard_report) {
+            const guardBanner = createGuardReportBanner(result.guard_report);
+            if (guardBanner) feed.appendChild(guardBanner);
+          }
+          if (task.status === 'interrupted_resumable') {
+            card.appendChild(createResumeTaskButton(sessionId, task.id));
           }
           if (task.error) addMessage('assistant', task.error);
           showArtifacts(result.artifacts || []);
@@ -5147,7 +5315,7 @@
             const latest = rows.items?.[0];
             if (
               latest &&
-              ['cancelled', 'failed', 'interrupted'].includes(latest.status) &&
+              ['cancelled', 'failed', 'interrupted', 'interrupted_resumable'].includes(latest.status) &&
               latest.partial_content
             ) {
               const partial = el('div', 'msg assistant');
@@ -5159,7 +5327,15 @@
               );
               feed.append(partial);
             }
-            if (latest?.status === 'interrupted') addMessage('assistant', latest.error);
+            if (latest?.status === 'interrupted_resumable') {
+              const resumeBox = el('section', 'dsh-run-status');
+              resumeBox.append(
+                el('strong', '', taskLabels.interrupted_resumable),
+                el('div', 'dsh-run-detail', latest.error || `任务 ${latest.id} 已保留检查点，可恢复执行。`),
+                createResumeTaskButton(sessionId, latest.id),
+              );
+              feed.append(resumeBox);
+            } else if (latest?.status === 'interrupted') addMessage('assistant', latest.error);
           }
         } catch (e) {
           toast(`任务状态读取失败：${e.message}`);
@@ -6869,6 +7045,126 @@
         const inside = (selector) => path.some((node) => node instanceof Element && node.matches(selector));
         if (!inside('.workspace-menu') && !inside('#workspace-trigger')) closeWorkspaceMenu();
         if (!inside('.compose-controls')) closePickerMenus();
+      });
+      function createResumeTaskButton(sessionId, taskId) {
+        const btn = el('button', 'dsh-resume-task', '恢复执行 (Resume)');
+        btn.type = 'button';
+        btn.onclick = async () => {
+          btn.disabled = true;
+          try {
+            const resumed = await api(
+              `/api/sessions/${encodeURIComponent(sessionId)}/tasks/${encodeURIComponent(taskId)}/resume`,
+              { method: 'POST', body: {} },
+            );
+            if (resumed && resumed.id) {
+              localStorage.setItem('studyui-task-' + sessionId, resumed.id);
+              watchTask(sessionId, resumed.id);
+            }
+          } catch (e) {
+            btn.disabled = false;
+            toast(`恢复执行失败：${e.message}`);
+          }
+        };
+        return btn;
+      }
+      async function refreshGovernanceDialog() {
+        const summaryEl = document.querySelector('#gov-summary');
+        const scopeList = document.querySelector('#gov-scope-list');
+        const scopeMd = document.querySelector('#gov-scope-md');
+        const evoStatus = document.querySelector('#gov-evolution-status');
+        const evoList = document.querySelector('#gov-evolution-list');
+        summaryEl.textContent = '正在加载资产图谱与治理状态…';
+        try {
+          const [scope, evo] = await Promise.all([
+            api('/api/governance/scope'),
+            api('/api/governance/evolution'),
+          ]);
+          const byType = scope.summary?.by_type || {};
+          summaryEl.textContent =
+            `工具 T:${byType.T || 0} · 知识卡 K:${byType.K || 0} · 工作流 W:${byType.W || 0} · ` +
+            `技能 S:${byType.S || 0} · 数据 D:${byType.D || 0} · 角色 R:${byType.R || 0} · 校验错误:${scope.summary?.error_count ?? 0}`;
+          scopeMd.textContent = scope.markdown || '';
+          scopeList.replaceChildren(
+            ...(scope.workflows || []).map((wf) => {
+              const card = el('div', 'gov-card');
+              card.append(
+                el('h4', '', `${wf.title} (${wf.id})`),
+                el('div', '', `适用范围：${(wf.applicability_scope || []).join('；') || '—'}`),
+                el('div', '', `不支持场景：${(wf.out_of_scope_cases || []).join('；') || '—'}`),
+                el('div', '', `已知限制：${(wf.known_limitations || []).join('；') || '—'}`),
+              );
+              return card;
+            }),
+          );
+          const pending = evo.pending || [];
+          const applied = evo.applied || [];
+          evoStatus.textContent = `模式：${evo.mode || 'manual'} · 待审批补丁：${pending.length} · 已应用补丁：${applied.length}`;
+          const rows = [...pending, ...applied];
+          if (!rows.length) {
+            evoList.replaceChildren(el('div', 'settings-note', '暂无待审批或已应用的知识进化补丁。'));
+          } else {
+            evoList.replaceChildren(
+              ...rows.map((rec) => {
+                const row = el('div', 'gov-patch-row');
+                const info = el('div');
+                const patch = rec.patch || {};
+                info.append(
+                  el('strong', '', `${rec.patch_id || patch.patch_id || 'patch'} (${rec.status})`),
+                  el(
+                    'div',
+                    'settings-note',
+                    `${patch.target_asset_id || ''} · ${patch.field || ''}: ${(patch.values || []).join('；')}`,
+                  ),
+                );
+                row.appendChild(info);
+                if (rec.status === 'applied') {
+                  const rb = el('button', 'prompt-chip', '回滚');
+                  rb.type = 'button';
+                  rb.onclick = async () => {
+                    rb.disabled = true;
+                    try {
+                      await api(`/api/governance/evolution/${encodeURIComponent(rec.patch_id)}/rollback`, {
+                        method: 'POST',
+                        body: {},
+                      });
+                      toast('已回滚知识补丁');
+                      await refreshGovernanceDialog();
+                    } catch (err) {
+                      rb.disabled = false;
+                      toast(`回滚失败：${err.message}`);
+                    }
+                  };
+                  row.appendChild(rb);
+                }
+                return row;
+              }),
+            );
+          }
+        } catch (err) {
+          summaryEl.textContent = `加载失败：${err.message}`;
+        }
+      }
+      document.querySelector('#btn-governance-scope')?.addEventListener('click', () => {
+        document.querySelector('#governance-dialog')?.showModal();
+        void refreshGovernanceDialog();
+      });
+      document.querySelector('#gov-collect-btn')?.addEventListener('click', async () => {
+        const btn = document.querySelector('#gov-collect-btn');
+        btn.disabled = true;
+        try {
+          const res = await api('/api/governance/evolution/collect', {
+            method: 'POST',
+            body: active ? { session_id: active } : {},
+          });
+          toast(
+            `已收集 ${res.collected_items || 0} 条证据，提议 ${(res.proposed_patches || []).length} 个补丁`,
+          );
+          await refreshGovernanceDialog();
+        } catch (err) {
+          toast(`收集失败：${err.message}`);
+        } finally {
+          btn.disabled = false;
+        }
       });
       syncQuickControls();
     </script>

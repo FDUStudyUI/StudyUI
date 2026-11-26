@@ -18,25 +18,49 @@ PAPER_OPERATIONS = frozenset(
     }
 )
 
+_NATIVE_PLUGIN_ENTRIES = {
+    "materials.xrd_cif_screening": {
+        "key": "materials.xrd_cif_screening",
+        "title": "CIF 理论 XRD 候选筛查 (pymatgen)",
+        "function": "materials_quality.science.canvas_adapter:xrd_cif_screening",
+        "directory": "materials_analysis",
+        "filename": "pymatgen_xrd_screening",
+        "class_name": "PymatgenXrdScreening",
+    },
+    "materials.pybamm_battery_sim": {
+        "key": "materials.pybamm_battery_sim",
+        "title": "单电芯放电曲线仿真 (PyBaMM)",
+        "function": "materials_quality.science.canvas_adapter:pybamm_battery_sim",
+        "directory": "materials_batch",
+        "filename": "pybamm_battery_sim",
+        "class_name": "PybammBatterySim",
+    },
+}
+
 
 def entries():
     return json.loads(Path(__file__).with_name("catalog.json").read_text(encoding="utf-8"))
 
 
-def get(key):
+def _lookup_entry(key):
     item = next((x for x in entries() if x["key"] == key), None)
+    if item is None and key in _NATIVE_PLUGIN_ENTRIES:
+        item = dict(_NATIVE_PLUGIN_ENTRIES[key])
     if item is None:
         raise ValueError(f"Unknown science operation: {key}")
+    return item
+
+
+def get(key):
+    item = _lookup_entry(key)
     module, function = item["function"].split(":")
     item["callable"] = getattr(import_module(module), function)
     return item
 
 
-@lru_cache(maxsize=44)
+@lru_cache(maxsize=48)
 def component_class(key):
-    item = next((x for x in entries() if x["key"] == key), None)
-    if item is None:
-        raise ValueError(f"Unknown science operation: {key}")
+    item = _lookup_entry(key)
     # Also works from a regular wheel; source files are packaged with the nodes.
     root = Path(__file__).resolve().parents[1] / "component_sources"
     if not root.is_dir():
