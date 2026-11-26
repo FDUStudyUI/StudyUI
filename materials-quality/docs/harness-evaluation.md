@@ -24,8 +24,11 @@ The adopted methodology comes from `docs/benchmarks.md`, the 28-asset
 MatOS itself is a third-party repository whose benchmark needs
 `scripts/matos-setup.sh` (Bun), a provisioned DSH runtime, public
 MatTools/SciAgentGym/ResearchClawBench data and its own credentials. The task
-forbids installing/executing the clone, and none of those prerequisites were
-present, so MatOS is reported as unavailable rather than run.
+forbids installing/executing the GitHub clone, and the local machine lacks those
+prerequisites, so the local probe reports MatOS unavailable. A separate,
+pre-existing MatOS server was available through this machine's SSH config and
+was later used read-only for the remote n=6 comparison below; the GitHub clone
+was never executed.
 
 ## Model pinning
 
@@ -50,7 +53,12 @@ present, so MatOS is reported as unavailable rather than run.
 | `native_dsh` | The installed DeepSeek Harness headless profile (`dsh headless`) | no; no StudyUI MCP, prompts or project instructions |
 | `claude_code` | Installed Claude Code CLI with `--bare`, pointed at DeepSeek's Anthropic-compatible route and `deepseek-flash` | no |
 | `codex` | Installed Codex CLI using its existing DeepSeek V4.1 Flash provider configuration | no |
-| `matos` | Not installed/authenticated; never executed | n/a |
+| `matos` (local) | No local MatOS binary; the local probe reports unavailable | n/a |
+| `matos_remote` | Pre-existing MatOS server via the `matos-server` SSH alias, same six fixtures and model; read-only comparison in a new run directory | n/a (MatOS agent) |
+
+The local 72-run table covers the first four harnesses. The remote MatOS
+comparison is separate (n=6, one repetition) and is reported below; the local
+`matos` row remains unavailable.
 
 Availability is probed each run. A harness that is not detected or cannot reach
 the pinned model is recorded with a reason and skipped.
@@ -234,6 +242,77 @@ The same evaluator ran the pre-improvement harness from a detached worktree at t
 | data_quality_audit | 0.00 (1) | - | - | - |
 | mechanics_modulus | 0.00 (1) | - | - | - |
 
+### MatOS remote comparison (pre-existing server)
+
+The local machine has no MatOS binary, so the local probe reports `matos`
+unavailable. A pre-existing MatOS instance was available through the
+`matos-server` SSH alias and was used read-only with the same six fixtures,
+prompts, model family and deterministic scoring. No MatOS settings,
+installation or upgrade were changed; the run only created a new directory
+under `/root/yield-test/runs/` and new sessions. The provider key was sourced
+from the server's existing `/root/.config/matos/matos.env` and was never
+printed or copied.
+
+**Verified environment**
+
+- Ubuntu 24.04.5 LTS; `/opt/MatOS` at commit `a50fd7613346a59f13e87a8bc368d0cec048585d`, package `1.0.0`.
+- Services listening on `127.0.0.1:17473` and `127.0.0.1:17474`; both `/health` probes returned HTTP 200.
+- DSH runtime bundle `3da3e21aa6eb1def0ed0f35d5fb8d847`; model `deepseek-v4.1-flash`, provider `deepseek-official`, role `research-scientist`, context profile `full`, effort `high`, 45 tools and 15 selected assets (recorded in `matos.turn.context.assembled`).
+
+**Exact command shape** (run in each task directory; the prompt was the same
+fixture prompt used by the local suite):
+
+```bash
+export PATH="/root/.local/share/matos/toolchain/bun-v1.3.14/bin:/root/.local/share/matos/toolchain/node-v24.18.0-linux-x64/bin:$PATH"
+set -a; source /root/.config/matos/matos.env; set +a
+export MATOS_DSH_MODEL=deepseek-v4.1-flash MATOS_DSH_EFFORT=high
+export MATOS_DSH_PROFILE=matos-yield MATOS_DSH_HOME=/root/yield-test/dsh-home
+timeout 1800 /opt/MatOS/bin/matos run --role research-scientist \
+  --context-profile full --max-turns 30 --model deepseek-v4.1-flash "$(cat prompt.txt)"
+```
+
+**Results** (6 tasks × 1 repetition; all answers were numerically correct):
+
+| Task | Success | Numerical | Evidence | Tool use | Tool calls | Tool errors | Latency (s) | Prompt tokens |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| arrhenius_activation_energy | 1 | 1.00 | 1.00 | yes | 7 | 0 | 29 | 197,113 |
+| battery_retention | 1 | 1.00 | 1.00 | yes | 5 | 0 | 20 | 176,177 |
+| data_quality_audit | 1 | 1.00 | 1.00 | yes | 11 | 0 | 45 | 371,751 |
+| mechanics_modulus | 1 | 1.00 | 1.00 | yes | 12 | 1 | 46 | 493,983 |
+| thermal_mass_loss | 1 | 1.00 | 1.00 | yes | 4 | 0 | 20 | 138,225 |
+| xrd_dspacing | 1 | 1.00 | 1.00 | yes | 7 | 0 | 39 | 246,179 |
+| **Mean / overall** | **1.000** | **1.000** | **1.000** | **1.000** | **7.67** | **0.17** | **33.17** | **270,571** |
+
+MatOS records one outer turn per task but 11.33 model requests on average. Its
+token total is the sum of DSH `inputTokens` and `cacheReadTokens` across the
+task's sessions (including session-title/feedback overhead): mean input
+71,681, cache read 198,891, output 3,336. The one tool error was an exploratory
+shell call in the mechanics task; it recovered and still passed.
+
+**Cross-harness comparison**
+
+| Harness | n | Success | Tool use | Tool calls | Tool errors | Latency (s) | Prompt tokens/run |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| StudyUI | 18 | 1.000 | 1.000 | 2.06 | 0.00 | 5.74 | 3,404 |
+| Claude Code | 18 | 1.000 | 1.000 | 2.72 | 0.00 | 7.53 | 6,848 |
+| Native DSH | 18 | 1.000 | 1.000 | 4.11 | 1.61 | 27.51 | 58,534 |
+| Codex | 18 | 1.000 | 1.000 | 5.94 | 0.94 | 37.65 | 126,245 |
+| MatOS (remote) | 6 | 1.000 | 1.000 | 7.67 | 0.17 | 33.17 | 270,571 |
+
+StudyUI ties MatOS on task success, numerical/evidence correctness and tool use,
+and beats it on tool calls (2.06 vs 7.67), tool errors (0.00 vs 0.17), latency
+(5.74 vs 33.17 s) and prompt tokens (3,404 vs 270,571). MatOS uses a full
+45-tool role/context composition and multiple model steps per outer turn; its
+token accounting includes cache reads and auxiliary sessions, so the token gap
+is partly a harness-architecture difference rather than a model difference.
+MatOS used the `deepseek-v4.1-flash` id through the `deepseek-official` provider,
+while StudyUI/native DSH/Claude used the official `deepseek-flash` id and Codex
+used its local `ccs-opencode/deepseek-v4.1-flash` gateway. MatOS was run once
+per task rather than three times; the local four harnesses retain the 3-repetition
+table. The MatOS result files are under the gitignored
+`materials-quality/artifacts/harness-bench/matos-studyui-20261127b/` and the
+summarized numbers are in this table.
+
 ## Environment findings and blockers
 
 - The official DeepSeek model listing returned `deepseek-flash` and
@@ -256,11 +335,14 @@ The same evaluator ran the pre-improvement harness from a detached worktree at t
   benchmark kept `workspace-write` for comparability; StudyUI's direct tools
   did not hit this path. A full-access run or a repaired workspace ACL would
   remove the error but change the permission posture.
-- MatOS was not installed or authenticated. Running it would require
-  `scripts/matos-setup.sh` (Bun), a provisioned DSH runtime, the public
-  MatTools/SciAgentGym/ResearchClawBench data, and its own credentials. The
-  task forbids installing or executing the read-only clone, so MatOS is
-  reported as unavailable rather than faked.
+- The local machine has no MatOS binary, so the local probe reports `matos`
+  unavailable. A pre-existing MatOS server (`matos-server` SSH alias,
+  Ubuntu 24.04.5, `/opt/MatOS` commit `a50fd76`, ports 17473/17474 healthy)
+  was used read-only for a separate n=6 comparison; no settings, installation
+  or upgrade were changed. The server's existing provider env was sourced but
+  keys were not printed or copied. The local 72-run table still excludes MatOS;
+  the remote table is separate. The read-only GitHub clone used for methodology
+  was never executed.
 - The benchmark is small: six synthetic tasks, one model, three repetitions.
   The fixtures are deterministic and published with the harness, but the
   result should be read as a reproducible smoke comparison, not a general
