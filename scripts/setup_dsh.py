@@ -6,7 +6,7 @@ engine answers ``--version``. Node.js 24 must be available on PATH or via
 ``STUDYUI_NODE_BIN``.
 
 Usage:
-    python scripts/setup_dsh.py [--runtime-root .demo-runtime] [--check]
+    python scripts/setup_dsh.py [--runtime-root .demo-runtime] [--check] [--web]
 """
 
 from __future__ import annotations
@@ -23,16 +23,23 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "materials-quality" / "src"
 sys.path.insert(0, str(SRC))
 
-from materials_quality.agent import dsh_engine  # noqa: E402
+from materials_quality.agent import dsh_engine, dsh_web  # noqa: E402
 
 DSH_PACKAGE = os.environ.get("STUDYUI_DSH_PACKAGE", dsh_engine.DEFAULT_DSH_PACKAGE)
 
 
-def find_node():
+def find_node(runtime_root: Path | None = None):
     override = os.environ.get("STUDYUI_NODE_BIN", "").strip()
     if override:
         return override
-    return shutil.which("node") or shutil.which("node.exe")
+    found = shutil.which("node") or shutil.which("node.exe")
+    if found:
+        return found
+    if runtime_root is not None:
+        bundled = runtime_root.parent / "runtime" / "dsh" / "node" / "node.exe"
+        if bundled.is_file():
+            return str(bundled)
+    return None
 
 
 def run(cmd, cwd=None, check=True):
@@ -45,12 +52,13 @@ def main(argv=None):
     parser.add_argument("--runtime-root", default=str(ROOT / ".demo-runtime"))
     parser.add_argument("--check", action="store_true", help="only report readiness")
     parser.add_argument("--skip-install", action="store_true", help="reuse an existing node_modules")
+    parser.add_argument("--web", action="store_true", help="provision the StudyUI DSH Web profile")
     args = parser.parse_args(argv)
 
     runtime_root = Path(args.runtime_root).expanduser().resolve()
     dsh_root = runtime_root / "dsh"
     settings_path = runtime_root / "studyui-settings.json"
-    node = find_node()
+    node = find_node(runtime_root)
     npm = shutil.which("npm")
     if not node:
         print("Node.js 24 is required (STUDYUI_NODE_BIN or PATH).", file=sys.stderr)
@@ -84,27 +92,41 @@ def main(argv=None):
         return 1
     print("dsh:", result.stdout.strip() or result.stderr.strip())
 
-    base_url = ""
-    try:
-        settings = json.loads(settings_path.read_text(encoding="utf-8"))
-        active = settings.get("active_model_id") or ""
-        base_url = str((settings.get("models") or {}).get(active, {}).get("base_url", ""))
-    except (OSError, ValueError):
-        pass
-    profile_dir = dsh_engine.ensure_profile(settings_path, base_url=base_url)
+    if args.check:
+        if args.web:
+            profile_dir = dsh_web.web_profile_dir(settings_path)
+            state = "exists" if profile_dir.is_dir() else "missing"
+            print(f"web profile: {profile_dir} ({state})")
+            return 0 if profile_dir.is_dir() else 1
+        print(f"DSH is installed at {bin_js}")
+        return 0
+
+    if args.web:
+        profile_dir = dsh_web.ensure_web_profile(settings_path)
+        print("web profile:", profile_dir)
+        try:
+            plugin_dir = dsh_web.install_studyui_plugin(
+                settings_path,
+                source=ROOT / "dsh-plugins" / "studyui-dsh",
+            )
+            print("brand plugin:", plugin_dir)
+        except (dsh_web.DshWebError, OSError) as exc:
+            print("warning:", exc, file=sys.stderr)
+        warning = dsh_web.stale_credentials_warning(dsh_engine.resolve_dsh_home(settings_path))
+        if warning:
+            print("warning:", warning, file=sys.stderr)
+        try:
+            profile = dsh_web.select_model(settings_path)
+            dsh_web.validate_official_model(profile, available=dsh_web.official_models(settings_path))
+        except dsh_web.DshWebError as exc:
+            print("warning:", exc, file=sys.stderr)
+        print("DSH Web is ready.")
+        return 0
+
+    profile_dir = dsh_engine.ensure_profile(settings_path)
     print("profile:", profile_dir)
-    sdk_profile_dir = dsh_engine.ensure_profile(
-        settings_path, base_url=base_url, profile="studyui-sdk", sdk=True
-    )
+    sdk_profile_dir = dsh_engine.ensure_profile(settings_path, profile="studyui-sdk", sdk=True)
     print("sdk profile:", sdk_profile_dir)
-    plugin = "dsh-opencode-session-header"
-    for target in (profile_dir, sdk_profile_dir):
-        if dsh_engine.needs_opencode_plugin(base_url) and not (target / "node_modules" / plugin).is_dir():
-            if npm is None:
-                print("npm is required to install the OpenCode session-header plugin.", file=sys.stderr)
-                return 1
-            if not args.skip_install:
-                run([npm, "install", "--no-audit", "--no-fund", plugin], cwd=target)
     try:
         import deepseek_harness  # noqa: F401
 

@@ -85,6 +85,13 @@ VISIBLE = {
 }
 
 
+CORE_VISIBLE = {
+    "spectra": {"curve_column", "x_column", "y_column", "group_column"},
+    "mechanics": {"x_column", "y_column", "group_column", "sample_column"},
+    "contrast": {"group_column", "sample_column", "variable_column", "value_column"},
+}
+
+
 def planner_inputs():
     return [
         DataFrameInput(name="input_table", display_name="输入数据表", required=True),

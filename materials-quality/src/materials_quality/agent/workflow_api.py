@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
+from .node_layout import compact_flow_templates
 from .workflow_executor import FileWorkflowExecutor
 from .workflow_files import WorkflowConflictError, WorkflowFileStore
 
@@ -154,6 +155,7 @@ def create_workflow_router(
             raise HTTPException(status_code=404, detail="Workflow not found") from None
 
     def public(flow, revision):
+        compact_flow_templates(flow)
         return {**_canvas_visible_flow(flow), "version_token": revision, "user_id": None}
 
     @router.get("/flows/basic_examples/")
@@ -343,6 +345,35 @@ def create_workflow_router(
         except FileExistsError:
             raise HTTPException(status_code=409, detail="Workflow already exists") from None
         return public(flow, revision)
+
+    @router.post("/flows/{flow_id}/copy", status_code=201)
+    async def copy_flow_route(flow_id: uuid.UUID, request: Request):
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+        try:
+            flow, _revision = await run_in_threadpool(store.read, str(flow_id))
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="Workflow not found") from None
+        duplicate = copy.deepcopy(flow)
+        duplicate["id"] = str(uuid.uuid4())
+        duplicate["name"] = str(payload.get("name") or (flow.get("name") or "工作流") + " 副本")[:160]
+        now = datetime.now(timezone.utc).isoformat()
+        duplicate["created_at"] = now
+        duplicate["updated_at"] = now
+        duplicate.pop("version_token", None)
+        duplicate.pop("user_id", None)
+        authorize(duplicate.get("folder_id"), "workflow.create")
+        try:
+            revision = await run_in_threadpool(store.save, duplicate, create_only=True)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        except FileExistsError:
+            raise HTTPException(status_code=409, detail="Workflow already exists") from None
+        return public(duplicate, revision)
 
     @router.patch("/flows/{flow_id}")
     async def update_flow(flow_id: uuid.UUID, request: Request, if_match: str | None = Header(default=None)):

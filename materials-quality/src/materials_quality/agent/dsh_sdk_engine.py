@@ -128,7 +128,7 @@ def _build_runtime(
         working_directory=working_directory,
         dsh_home=command.dsh_home,
     )
-    dsh_engine.ensure_profile(settings_path, base_url=base_url, profile=SDK_PROFILE, sdk=True)
+    dsh_engine.ensure_profile(settings_path, profile=SDK_PROFILE, sdk=True)
     config = DeepSeekHarnessConfig(
         provider="deepseek-official",
         model=model,

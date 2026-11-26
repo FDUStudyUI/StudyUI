@@ -10,4 +10,4 @@ else
     exit 2
 fi
 export PYTHONUTF8=1 PYTHONDONTWRITEBYTECODE=1
-exec "$BOOTSTRAP_PYTHON" -B "$SCRIPT_DIR/scripts/start_demo.py" "$@"
+exec "$BOOTSTRAP_PYTHON" -B "$SCRIPT_DIR/scripts/start_demo.py" --web "$@"

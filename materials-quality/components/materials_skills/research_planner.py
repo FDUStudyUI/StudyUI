@@ -7,6 +7,7 @@ from lfx.schema import Data, Message
 from materials_quality.batch.native import prepare_form
 from materials_quality.skills.native import (
     COLUMNS,
+    CORE_VISIBLE,
     THRESHOLD_MODES,
     UNIT_MODES,
     VISIBLE,
@@ -100,8 +101,10 @@ class ResearchSkillPlanner(Component):
         task = _route(request) if task == "auto" else task
         # No inferred task: display task selector and request, rather than all task fields.
         allowed = VISIBLE.get(task, set())
+        core = {"input_table", "task", "request"} | CORE_VISIBLE.get(task, set())
         for name in set().union(*VISIBLE.values()):
             build_config[name]["show"] = name in allowed
+            build_config[name]["advanced"] = name not in core
         if task == "mechanics":
             build_config["x_column"]["display_name"] = "应变列"
             build_config["y_column"]["display_name"] = "应力列"

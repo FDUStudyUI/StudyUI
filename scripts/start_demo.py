@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import hashlib
 import importlib.util
 import json
@@ -16,8 +17,10 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 import uuid
+import webbrowser
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import ProxyHandler, build_opener
@@ -843,9 +846,106 @@ def start_system(python: Path, runtime: Path, port: int, ready_timeout: float) -
 def stop_server(process: subprocess.Popen) -> None:
     if process.poll() is not None:
         return
+    if os.name == "nt":
+        pid = getattr(process, "pid", None)
+        if pid is None:
+            with contextlib.suppress(Exception):
+                process.send_signal(signal.CTRL_C_EVENT)
+            process.wait(timeout=15)
+            return
+        # The venv launcher can spawn the real interpreter as a child. Kill the
+        # whole tree so the sidecar cannot keep the loopback port after its
+        # launcher exits; uvicorn needs no graceful shutdown here.
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            capture_output=True,
+            timeout=20,
+            check=False,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        process.wait(timeout=15)
+        return
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+        process.wait(timeout=15)
+        return
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    with contextlib.suppress(OSError):
+        os.killpg(process.pid, signal.SIGKILL)
+    process.wait(timeout=15)
+
+
+def _import_dsh_web():
+    src = PACKAGE / "src"
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
+    from materials_quality.agent import dsh_engine, dsh_web
+
+    return dsh_engine, dsh_web
+
+
+def prepare_canvas(runtime: Path, python: Path) -> None:
+    """Copy components and rebuild the themed Langflow canvas for the sidecar."""
+    components = runtime / "components"
+    components.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        PACKAGE / "components",
+        components,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    apply_studyui_canvas_theme(python, runtime)
+
+
+def check_web(runtime: Path, port: int, backend_port: int) -> int:
+    """Read-only DSH Web prerequisite check."""
+    dsh_engine, dsh_web = _import_dsh_web()
+    settings_path = runtime / "studyui-settings.json"
+    problems = []
+    if not settings_path.is_file():
+        problems.append(f"settings file is missing: {settings_path}")
+    try:
+        profile, notice = dsh_web.resolve_model(settings_path)
+        dsh_web.validate_official_model(profile, available=dsh_web.official_models(settings_path))
+        if notice:
+            print(f"check: {notice}", flush=True)
+        if not dsh_web.resolve_api_key(profile):
+            problems.append("DeepSeek API key is not configured")
+    except dsh_web.DshWebError as exc:
+        problems.append(str(exc))
+    if dsh_engine.resolve_command(settings_path) is None:
+        problems.append("DSH is not provisioned; run start_demo.bat --setup first")
+    profile_dir = dsh_web.web_profile_dir(settings_path)
+    if not profile_dir.is_dir():
+        problems.append(f"DSH Web profile is missing: {profile_dir}")
+    elif not (profile_dir / "node_modules" / "studyui-dsh").is_dir():
+        print("check: StudyUI brand plugin will be installed on first start.", flush=True)
+    if not port_available(port):
+        problems.append(f"port {port} is already in use")
+    if port == backend_port:
+        problems.append("--port and --backend-port must differ")
+    elif not port_available(backend_port):
+        problems.append(f"backend port {backend_port} is already in use")
+    canvas_index = runtime / "workbench-ui" / "index.html"
+    if not canvas_index.is_file():
+        print("check: canvas frontend will be prepared on first start.", flush=True)
+    if not (PACKAGE / "components").is_dir():
+        problems.append(f"canvas components are missing: {PACKAGE / 'components'}")
+    if problems:
+        for problem in problems:
+            print(f"check: {problem}", file=sys.stderr, flush=True)
+        return 2
+    print("DSH Web prerequisites OK.", flush=True)
+    return 0
+
+
+def stop_web(process: subprocess.Popen) -> None:
+    if process.poll() is not None:
+        return
     try:
         if os.name == "nt":
-            process.send_signal(signal.CTRL_BREAK_EVENT)
+            process.send_signal(signal.CTRL_C_EVENT)
         else:
             os.killpg(process.pid, signal.SIGTERM)
         process.wait(timeout=15)
@@ -853,8 +953,6 @@ def stop_server(process: subprocess.Popen) -> None:
     except (OSError, subprocess.TimeoutExpired):
         pass
     if os.name == "nt":
-        # A venv executable may launch the real interpreter as a descendant.
-        # Restrict fallback termination to the process tree we just created.
         subprocess.run(
             ["taskkill", "/PID", str(process.pid), "/T", "/F"],
             capture_output=True,
@@ -865,6 +963,164 @@ def stop_server(process: subprocess.Popen) -> None:
     else:
         os.killpg(process.pid, signal.SIGKILL)
     process.wait(timeout=15)
+
+
+def start_web(
+    runtime: Path,
+    python: Path,
+    port: int,
+    ready_timeout: float,
+    *,
+    backend_port: int = 7881,
+    check: bool = False,
+    open_browser: bool = True,
+) -> int:
+    """Start the StudyUI DSH Web surface and block until it exits."""
+    if not python.is_file():
+        print(
+            "Python environment missing. First run: start_demo.bat --setup",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 2
+    if Path(sys.executable).resolve() != python.resolve():
+        child = [
+            str(python),
+            "-B",
+            str(Path(__file__).resolve()),
+            "--web",
+            "--port",
+            str(port),
+            "--runtime",
+            str(runtime),
+            "--backend-port",
+            str(backend_port),
+        ]
+        if check:
+            child.append("--check")
+        if not open_browser:
+            child.append("--no-open")
+        try:
+            return subprocess.call(child)
+        except KeyboardInterrupt:
+            return 0
+    dsh_engine, dsh_web = _import_dsh_web()
+    if check:
+        return check_web(runtime, port, backend_port)
+    if port == backend_port:
+        print("--port and --backend-port must differ.", file=sys.stderr, flush=True)
+        return 2
+    for label, candidate in (("DSH Web", port), ("StudyUI backend", backend_port)):
+        if not port_available(candidate):
+            print(f"{label} port {candidate} is already in use.", file=sys.stderr, flush=True)
+            return 2
+    settings_path = runtime / "studyui-settings.json"
+    try:
+        profile_dir = dsh_web.ensure_web_profile(settings_path)
+        try:
+            dsh_web.install_studyui_plugin(
+                settings_path,
+                source=ROOT / "dsh-plugins" / "studyui-dsh",
+            )
+        except (dsh_web.DshWebError, OSError) as exc:
+            print(f"warning: {exc}", file=sys.stderr, flush=True)
+        command = dsh_engine.resolve_command(settings_path)
+        if command is None:
+            print(
+                "DSH is not provisioned. Run start_demo.bat --setup first.",
+                file=sys.stderr,
+                flush=True,
+            )
+            return 2
+        env = dsh_web.build_web_environment(settings_path)
+    except dsh_web.DshWebError as exc:
+        print(str(exc), file=sys.stderr, flush=True)
+        return 2
+    if env.get("STUDYUI_WEB_MODEL_NOTICE"):
+        print(f"note: {env['STUDYUI_WEB_MODEL_NOTICE']}", flush=True)
+    env["STUDYUI_PYTHON"] = sys.executable
+    env["STUDYUI_WORKFLOWS_DIR"] = str(ROOT / "workflows")
+    env["STUDYUI_COMPONENTS_DIR"] = str(runtime / "components")
+    env["STUDYUI_RUNTIME_ROOT"] = str(runtime)
+    env["STUDYUI_CANVAS_DIR"] = str(runtime / "workbench-ui")
+    env["STUDYUI_BACKEND_URL"] = f"http://127.0.0.1:{backend_port}"
+
+    argv = dsh_web.web_argv(command, port=port)
+    workspace = Path(env["STUDYUI_WEB_WORKSPACE"])
+    logs = runtime / "logs"
+    logs.mkdir(parents=True, exist_ok=True)
+    log_path = logs / "dsh-web.log"
+    backend = None
+    try:
+        prepare_canvas(runtime, python)
+        backend = start_studyui_service(python, runtime, backend_port, ready_timeout)
+    except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
+        print(f"StudyUI canvas backend failed to start: {exc}", file=sys.stderr, flush=True)
+        if backend is not None:
+            stop_server(backend)
+        return 1
+    print(f"Canvas backend ready: http://127.0.0.1:{backend_port}", flush=True)
+    print(
+        f"Starting StudyUI (DSH Web): http://127.0.0.1:{port}\n"
+        f"Profile: {profile_dir}\nLogs: {log_path}\n"
+        "Press Ctrl+C here to stop.",
+        flush=True,
+    )
+    options = (
+        {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+        if os.name == "nt"
+        else {"start_new_session": True}
+    )
+    process = subprocess.Popen(
+        argv,
+        cwd=workspace,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+        **options,
+    )
+    ready = threading.Event()
+    ready_url: dict[str, str] = {}
+
+    def pump() -> None:
+        with log_path.open("a", encoding="utf-8") as log:
+            for line in process.stdout or []:
+                log.write(dsh_web.redact_line(line))
+                log.flush()
+                url = dsh_web.parse_ready_url(line.rstrip("\n"))
+                if url and not ready.is_set():
+                    ready_url["url"] = url
+                    ready.set()
+
+    reader = threading.Thread(target=pump, name="dsh-web-output", daemon=True)
+    reader.start()
+    try:
+        if not ready.wait(ready_timeout):
+            stop_web(process)
+            print(
+                f"DSH Web did not report a ready URL; read {log_path}",
+                file=sys.stderr,
+                flush=True,
+            )
+            return 1
+        url = ready_url["url"]
+        print(f"DSH Web ready: {dsh_web.redact_token(url)}", flush=True)
+        if open_browser:
+            webbrowser.open(url)
+        while process.poll() is None:
+            time.sleep(0.5)
+        return process.returncode or 0
+    except KeyboardInterrupt:
+        print("Stopping DSH Web...", flush=True)
+        return 0
+    finally:
+        stop_web(process)
+        if backend is not None:
+            stop_server(backend)
 
 
 def valid_port(value: str) -> int:
@@ -886,6 +1142,7 @@ def positive_timeout(value: str) -> float:
     if not math.isfinite(number) or number <= 0:
         raise argparse.ArgumentTypeError("ready timeout must be a positive finite number of seconds")
     return number
+
 
 def appdata_runtime_root() -> Path:
     """Per-user application data directory outside the project workspace."""
@@ -928,8 +1185,6 @@ def migrate_runtime() -> int:
     return 0
 
 
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -940,7 +1195,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Inspect prerequisites only; never create/install/start/import",
+        help="Inspect prerequisites only; never create/install/start",
     )
     parser.add_argument(
         "--python",
@@ -948,6 +1203,22 @@ def main(argv: list[str] | None = None) -> int:
         help="Use an existing Python 3.10 environment read-only; incompatible with --setup",
     )
     parser.add_argument("--port", type=valid_port, default=7880, help="StudyUI main application port")
+    parser.add_argument(
+        "--backend-port",
+        type=valid_port,
+        default=7881,
+        help="StudyUI canvas/API sidecar port for --web",
+    )
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="Start the DSH Web UI instead of the legacy StudyUI page",
+    )
+    parser.add_argument(
+        "--no-open",
+        action="store_true",
+        help="With --web, print the authenticated URL without opening a browser",
+    )
     parser.add_argument(
         "--runtime",
         type=runtime_path,
@@ -970,6 +1241,20 @@ def main(argv: list[str] | None = None) -> int:
         return migrate_runtime()
     runtime = (args.runtime or default_runtime_root()).expanduser().resolve()
     python = args.python.expanduser().resolve() if args.python else venv_python(ROOT / ".demo-venv")
+    if args.web and not args.setup:
+        return start_web(
+            runtime,
+            python,
+            args.port,
+            args.ready_timeout,
+            backend_port=args.backend_port,
+            check=args.check,
+            open_browser=not args.no_open,
+        )
+    if args.web:
+        # --setup installs the Python environment first; start the legacy surface
+        # for this run, then the next launch uses DSH Web.
+        args.web = False
     print(
         f"Python: {python}\nRuntime: {runtime}\nStudyUI URL: http://127.0.0.1:{args.port}",
         flush=True,

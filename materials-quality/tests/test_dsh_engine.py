@@ -10,24 +10,12 @@ def test_map_base_url_known_hosts():
     assert (
         dsh_engine.map_base_url("https://api.deepseek.com/anthropic") == "https://api.deepseek.com/anthropic"
     )
-    assert (
-        dsh_engine.map_base_url("https://opencode.ai/zen/v1") == "https://opencode.ai/inference/go/anthropic"
-    )
-    assert (
-        dsh_engine.map_base_url("https://opencode.ai/inference/go/openai/v1")
-        == "https://opencode.ai/inference/go/anthropic"
-    )
     assert dsh_engine.map_base_url("http://127.0.0.1:1234/v1").endswith("/v1")
 
 
 def test_map_base_url_env_override(monkeypatch):
     monkeypatch.setenv("STUDYUI_DSH_BASE_URL", "https://gateway.example/anthropic")
     assert dsh_engine.map_base_url("https://api.deepseek.com") == "https://gateway.example/anthropic"
-
-
-def test_needs_opencode_plugin():
-    assert dsh_engine.needs_opencode_plugin("https://opencode.ai/inference/go/anthropic")
-    assert not dsh_engine.needs_opencode_plugin("https://api.deepseek.com")
 
 
 def test_permission_flags():
@@ -110,20 +98,16 @@ def test_resolve_command_js_entrypoint_uses_node(monkeypatch, tmp_path):
 def test_ensure_profile_writes_bundles_and_patch(tmp_path, monkeypatch):
     monkeypatch.setenv("STUDYUI_DSH_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("STUDYUI_DSH_MODEL", "deepseek-v4.1-flash")
-    profile_dir = dsh_engine.ensure_profile(tmp_path / "agent.sqlite3", base_url="https://opencode.ai/zen/v1")
+    profile_dir = dsh_engine.ensure_profile(tmp_path / "agent.sqlite3")
     package = json.loads((profile_dir / "package.json").read_text(encoding="utf-8"))
-    assert "dsh-opencode-session-header" in package["dsh"]["profile"]["bundles"]
+    assert package["dsh"]["profile"]["bundles"] == [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-headless",
+    ]
     patch = (profile_dir / "cordis.patch.yml").read_text(encoding="utf-8")
     assert "session-log-deepseek" in patch and "disabled: true" in patch
     assert "deepseek-v4.1-flash" in patch
     assert (tmp_path / "home" / "AGENTS.md").is_file()
-
-
-def test_ensure_profile_without_plugin_for_deepseek_endpoint(tmp_path, monkeypatch):
-    monkeypatch.setenv("STUDYUI_DSH_HOME", str(tmp_path / "home"))
-    profile_dir = dsh_engine.ensure_profile(tmp_path / "agent.sqlite3", base_url="https://api.deepseek.com")
-    package = json.loads((profile_dir / "package.json").read_text(encoding="utf-8"))
-    assert "dsh-opencode-session-header" not in package["dsh"]["profile"]["bundles"]
 
 
 def test_build_env_maps_endpoint_and_path(monkeypatch, tmp_path):

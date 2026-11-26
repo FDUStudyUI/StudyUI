@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.util
-import io
 import json
 import os
 import shutil
@@ -45,9 +44,8 @@ VENV = ROOT / ".demo-venv"
 
 # Node 24 LTS Windows x64 — pinned for reproducibility
 NODE_VERSION = "24.22.1"
-NODE_DOWNLOAD_URL = (
-    f"https://nodejs.org/dist/v{NODE_VERSION}/node-v{NODE_VERSION}-win-x64.zip"
-)
+NODE_DOWNLOAD_URL = f"https://nodejs.org/dist/v{NODE_VERSION}/node-v{NODE_VERSION}-win-x64.zip"
+NODE_SHASUMS_URL = f"https://nodejs.org/dist/v{NODE_VERSION}/SHASUMS256.txt"
 
 INCLUDE_FILES = (
     "README.md",
@@ -68,6 +66,7 @@ INCLUDE_FILES = (
 INCLUDE_DIRS = (
     "docs",
     "demo_datasets",
+    "dsh-plugins",
     "scripts/assets",
     "materials-quality/components",
     "materials-quality/docs",
@@ -272,55 +271,94 @@ def stage_runtime(stage: Path) -> Path:
     return python_dir
 
 
-def _download_node() -> Path:
-    """Download Node.js Windows x64 zip and extract to a temp directory.
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
-    Returns the path to the extracted node.exe.
-    """
-    url = NODE_DOWNLOAD_URL
+
+def _expected_node_sha256(archive_name: str) -> str:
+    try:
+        with urllib.request.urlopen(NODE_SHASUMS_URL, timeout=60) as response:
+            text = response.read().decode("utf-8", "replace")
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Failed to download Node checksums: {exc}") from exc
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[1] == archive_name:
+            return parts[0].lower()
+    raise ValueError(f"No checksum for {archive_name} in {NODE_SHASUMS_URL}")
+
+
+def _safe_extract(archive: zipfile.ZipFile, target: Path) -> None:
+    root = target.resolve()
+    for member in archive.infolist():
+        destination = (root / member.filename).resolve()
+        if destination != root and root not in destination.parents:
+            raise ValueError(f"Unsafe path in Node.js archive: {member.filename}")
+    archive.extractall(root)
+
+
+def _download_node() -> Path:
+    """Download the pinned Node.js Windows x64 zip, verify its checksum, extract it."""
     archive_name = f"node-v{NODE_VERSION}-win-x64.zip"
     extract_dir = Path(tempfile.mkdtemp(prefix="studyui-node-"))
     zip_path = extract_dir / archive_name
-    print(f"Downloading Node.js v{NODE_VERSION} from {url}…", flush=True)
+    print(f"Downloading Node.js v{NODE_VERSION} from {NODE_DOWNLOAD_URL}…", flush=True)
     try:
-        urllib.request.urlretrieve(url, zip_path)
-    except urllib.error.URLError as exc:
+        urllib.request.urlretrieve(NODE_DOWNLOAD_URL, zip_path)
+        expected = _expected_node_sha256(archive_name)
+        actual = _sha256_file(zip_path)
+        if actual != expected:
+            raise ValueError(f"Node.js checksum mismatch: expected {expected}, got {actual}")
+        with zipfile.ZipFile(zip_path) as archive:
+            if archive.testzip() is not None:
+                raise ValueError("Node.js archive failed integrity check")
+            _safe_extract(archive, extract_dir)
+        zip_path.unlink()
+        node_dir = extract_dir / f"node-v{NODE_VERSION}-win-x64"
+        if not (node_dir / "node.exe").is_file():
+            raise FileNotFoundError(f"node.exe not found in extracted Node.js archive at {node_dir}")
+        return node_dir
+    except Exception:
         shutil.rmtree(extract_dir, ignore_errors=True)
-        raise RuntimeError(f"Failed to download Node.js: {exc}") from exc
-    with zipfile.ZipFile(zip_path) as zf:
-        if zf.testzip() is not None:
-            shutil.rmtree(extract_dir, ignore_errors=True)
-            raise ValueError("Node.js archive failed integrity check")
-        zf.extractall(extract_dir)
-    zip_path.unlink()
-    node_dir = extract_dir / f"node-v{NODE_VERSION}-win-x64"
-    node_exe = node_dir / "node.exe"
-    if not node_exe.is_file():
-        shutil.rmtree(extract_dir, ignore_errors=True)
-        raise FileNotFoundError(f"node.exe not found in extracted Node.js archive at {node_exe}")
-    return node_dir
+        raise
 
 
-def _install_dsh(target_dir: Path) -> None:
-    """Install the pinned DSH package via npm into target_dir.
-
-    Creates a minimal package.json and runs npm install.
-    """
+def _install_dsh(target_dir: Path, *, node_exe: Path | None = None, node_dir: Path | None = None) -> None:
+    """Install the pinned DSH package with the bundled Node/npm when available."""
     package_json = target_dir / "package.json"
-    package_json.write_text(
-        json.dumps({"name": "studyui-dsh", "private": True}, indent=2), encoding="utf-8"
-    )
-    npm = shutil.which("npm")
-    if not npm:
-        raise FileNotFoundError("npm is required to install DSH; ensure Node.js is available on PATH")
+    package_json.write_text(json.dumps({"name": "studyui-dsh", "private": True}, indent=2), encoding="utf-8")
+    command: list[str]
+    env = None
+    npm_cli = node_dir / "node_modules" / "npm" / "bin" / "npm-cli.js" if node_dir else None
+    if node_exe is not None and npm_cli is not None and npm_cli.is_file():
+        command = [str(node_exe), str(npm_cli)]
+        env = os.environ.copy()
+        env["PATH"] = str(node_dir) + os.pathsep + env.get("PATH", "")
+    else:
+        npm = shutil.which("npm")
+        if not npm:
+            raise FileNotFoundError("npm is required to install DSH; ensure Node.js is available on PATH")
+        command = [npm]
     subprocess.run(
-        [npm, "install", "--no-audit", "--no-fund", "--ignore-scripts", "@deepseek-ai/dsh@0.2.2-rc.5"],
+        [
+            *command,
+            "install",
+            "--no-audit",
+            "--no-fund",
+            "--ignore-scripts",
+            "@deepseek-ai/dsh@0.2.2-rc.5",
+        ],
         cwd=target_dir,
         check=True,
         capture_output=True,
         text=True,
         encoding="utf-8",
         timeout=300,
+        env=env,
     )
 
 
@@ -328,7 +366,7 @@ def stage_dsh(stage: Path) -> Path:
     """Download Node 24 and pre-install DSH into the portable staging directory.
 
     Layout (matching _bundled_node / _bundled_dsh_bin expectations):
-        stage/runtime/dsh/node/node.exe   (and supporting DLLs)
+        stage/runtime/dsh/node/node.exe   (and supporting DLLs + LICENSE)
         stage/runtime/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
     """
     dsh_dir = stage / "runtime" / "dsh"
@@ -336,25 +374,21 @@ def stage_dsh(stage: Path) -> Path:
     node_dir.mkdir(parents=True, exist_ok=True)
 
     downloaded_node = _download_node()
-    # Copy node.exe and supporting files (DLLs, etc.) — not npm or other tools
-    for item in downloaded_node.iterdir():
-        if item.suffix.lower() in (".exe", ".dll") or item.name == "nodevars.bat":
-            shutil.copy2(item, node_dir / item.name)
-    shutil.rmtree(downloaded_node.parent, ignore_errors=True)
+    try:
+        for item in downloaded_node.iterdir():
+            if item.suffix.lower() in (".exe", ".dll") or item.name in ("nodevars.bat", "LICENSE"):
+                shutil.copy2(item, node_dir / item.name)
+        node_exe = node_dir / "node.exe"
+        if not node_exe.is_file():
+            raise FileNotFoundError("node.exe was not copied to the staging directory")
+        _install_dsh(dsh_dir, node_exe=downloaded_node / "node.exe", node_dir=downloaded_node)
+    finally:
+        shutil.rmtree(downloaded_node.parent, ignore_errors=True)
 
-    node_exe = node_dir / "node.exe"
-    if not node_exe.is_file():
-        raise FileNotFoundError("node.exe was not copied to the staging directory")
-
-    # Pre-install DSH
-    _install_dsh(dsh_dir)
-
-    # Verify the bundled DSH bin exists
     bin_js = dsh_dir / "node_modules" / "@deepseek-ai" / "dsh" / "lib" / "bin.js"
     if not bin_js.is_file():
         raise FileNotFoundError(f"DSH entrypoint missing after install: {bin_js}")
 
-    # Smoke-test the bundled DSH
     result = subprocess.run(
         [str(node_exe), str(bin_js), "--version"],
         capture_output=True,
@@ -363,8 +397,9 @@ def stage_dsh(stage: Path) -> Path:
         timeout=30,
     )
     version = (result.stdout or result.stderr or "").strip()
+    if result.returncode != 0:
+        raise RuntimeError(f"Bundled DSH smoke test failed (exit {result.returncode}): {version}")
     print(f"DSH bundled: {version}", flush=True)
-
     return dsh_dir
 
 

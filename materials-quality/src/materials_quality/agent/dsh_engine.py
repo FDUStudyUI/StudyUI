@@ -65,17 +65,34 @@ def resolve_dsh_home(settings_path: Path) -> Path:
     return (_runtime_root(settings_path) / "dsh-home").resolve()
 
 
+def _dsh_roots(runtime_root: Path) -> list[Path]:
+    """DSH install roots: runtime data (source setup) and portable program dir."""
+    roots = [runtime_root / "dsh"]
+    portable = runtime_root.parent / "runtime" / "dsh"
+    if portable not in roots:
+        roots.append(portable)
+    return roots
+
+
 def _bundled_node(runtime_root: Path) -> Path:
-    candidates = [
-        runtime_root / "dsh" / "node" / "node.exe",
-        runtime_root / "dsh" / "node" / "node",
-        runtime_root / "dsh" / "node" / "bin" / "node",
-    ]
-    return next((p for p in candidates if p.is_file()), Path())
+    for root in _dsh_roots(runtime_root):
+        candidates = [
+            root / "node" / "node.exe",
+            root / "node" / "node",
+            root / "node" / "bin" / "node",
+        ]
+        found = next((p for p in candidates if p.is_file()), None)
+        if found is not None:
+            return found
+    return Path()
 
 
 def _bundled_dsh_bin(runtime_root: Path) -> Path:
-    return runtime_root / "dsh" / "node_modules" / "@deepseek-ai" / "dsh" / "lib" / "bin.js"
+    for root in _dsh_roots(runtime_root):
+        candidate = root / "node_modules" / "@deepseek-ai" / "dsh" / "lib" / "bin.js"
+        if candidate.is_file():
+            return candidate
+    return _dsh_roots(runtime_root)[0] / "node_modules" / "@deepseek-ai" / "dsh" / "lib" / "bin.js"
 
 
 def resolve_command(settings_path: Path, profile: str = DEFAULT_PROFILE) -> DshCommand | None:
@@ -108,9 +125,9 @@ def available(settings_path: Path) -> bool:
     return resolve_command(settings_path) is not None
 
 
-def map_base_url(base_url: str) -> str:
+def map_base_url(base_url: str, *, allow_env_override: bool = True) -> str:
     """Map a StudyUI model base URL to an Anthropic-compatible endpoint."""
-    explicit = os.environ.get("STUDYUI_DSH_BASE_URL", "").strip()
+    explicit = os.environ.get("STUDYUI_DSH_BASE_URL", "").strip() if allow_env_override else ""
     if explicit:
         return explicit.rstrip("/")
     raw = (base_url or "").strip()
@@ -122,26 +139,12 @@ def map_base_url(base_url: str) -> str:
         if parsed.path.rstrip("/").endswith("/anthropic"):
             return raw.rstrip("/")
         return raw.rstrip("/") + "/anthropic"
-    if host == "opencode.ai" or host.endswith(".opencode.ai"):
-        if "/inference/go/" in raw:
-            if "/openai/" in raw:
-                return "https://opencode.ai/inference/go/anthropic"
-            return raw.rstrip("/")
-        if "/inference/" in raw:
-            return "https://opencode.ai/inference/anthropic"
-        return "https://opencode.ai/inference/go/anthropic"
     return raw.rstrip("/")
-
-
-def needs_opencode_plugin(base_url: str) -> bool:
-    host = (urlsplit(base_url or "").hostname or "").lower()
-    return host == "opencode.ai" or host.endswith(".opencode.ai")
 
 
 def ensure_profile(
     settings_path: Path,
     *,
-    base_url: str = "",
     profile: str = DEFAULT_PROFILE,
     sdk: bool = False,
 ) -> Path:
@@ -149,18 +152,13 @@ def ensure_profile(
     home = resolve_dsh_home(settings_path)
     profile_dir = home / "profiles" / profile
     profile_dir.mkdir(parents=True, exist_ok=True)
-    plugin = needs_opencode_plugin(base_url)
     package_path = profile_dir / "package.json"
-    dependencies = {}
     app_bundle = "@deepseek-ai/dsh-sdk-app" if sdk else "@deepseek-ai/dsh-headless"
     bundles = ["@deepseek-ai/dsh-base", app_bundle]
-    if plugin:
-        dependencies["dsh-opencode-session-header"] = "0.1.0"
-        bundles.append("dsh-opencode-session-header")
     package_path.write_text(
         PROFILE_TEMPLATE
         % {
-            "dependencies": json.dumps(dependencies, indent=4),
+            "dependencies": json.dumps({}, indent=4),
             "bundles": json.dumps(bundles, indent=6),
         },
         encoding="utf-8",
@@ -256,6 +254,7 @@ def build_env(
     working_directory: Path,
     dsh_home: Path | None = None,
     extra: dict | None = None,
+    allow_env_override: bool = True,
 ) -> dict:
     # Keep unrelated provider credentials out of the agent runtime; the model
     # key itself is injected explicitly below.
@@ -264,7 +263,7 @@ def build_env(
         env.update({str(k): str(v) for k, v in extra.items()})
     if dsh_home is not None:
         env["DSH_HOME"] = str(dsh_home)
-    env["DEEPSEEK_BASE_URL"] = map_base_url(base_url)
+    env["DEEPSEEK_BASE_URL"] = map_base_url(base_url, allow_env_override=allow_env_override)
     if api_key:
         env["DEEPSEEK_API_KEY"] = api_key
     env.setdefault("PYTHONUTF8", "1")
@@ -351,7 +350,7 @@ def run_turn(
     if command is None:
         raise DshUnavailable("DeepSeek Harness is not provisioned")
     os.environ.setdefault("STUDYUI_DSH_MODEL", model)
-    ensure_profile(settings_path, base_url=base_url, profile=command.profile)
+    ensure_profile(settings_path, profile=command.profile)
     argv = build_argv(
         command,
         message=message,

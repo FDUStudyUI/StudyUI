@@ -72,5 +72,14 @@ Thumbs.db
 # Tool scratch state
 .superpowers/
 
+# DSH Web runtime, workspace, and credential artifacts
+/dsh-home/
+**/dsh-home/
+**/.credentials*
+**/studyui-settings.json
+**/studyui-settings.json.lock
+/workspace/
+**/node_modules/
+
 # Local handoff notes (not part of the project)
 /HANDOFF.md

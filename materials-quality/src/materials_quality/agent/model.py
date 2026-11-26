@@ -7,7 +7,6 @@ import json
 import os
 import re
 import time
-import uuid
 from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
@@ -15,14 +14,6 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .model_io import transport_checkpoint as checkpoint
 from .tasks import TaskCancelled
-
-_OPENCODE_SESSION = os.environ.get("STUDYUI_OPENCODE_SESSION") or str(uuid.uuid4())
-
-
-def _opencode_session_id() -> str:
-    """Stable per-process session id for gateways that route by x-opencode-session."""
-    return _OPENCODE_SESSION
-
 
 _MAX_RESPONSE_BYTES = 16_000_000
 _MAX_STREAM_LINE = 256_000
@@ -419,7 +410,6 @@ class ChatModel:
             "Accept": "application/json, text/event-stream",
             "Content-Type": "application/json",
             "User-Agent": "StudyUI/0.8.0",
-            "x-opencode-session": _opencode_session_id(),
         }
         if self.api_key:
             headers["Authorization"] = "Bearer " + self.api_key

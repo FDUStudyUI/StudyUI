@@ -36,6 +36,7 @@ from .harness import StudyUIAgent
 from .task_api import task_router
 from .tasks import SessionBusy
 from .uploads import save_code_draft, save_upload
+from .workflow_jobs import WorkflowJobQueue
 
 # Kept as a compatibility export; the packaged catalog is the single source of truth.
 DEMO_DATASETS = list_datasets()
@@ -900,6 +901,24 @@ def create_app(database, workflows, components, frontend):
 
     router, manager = task_router(harness)
 
+    def run_direct_workflow(flow_id, *, external_data_approved=False):
+        """Run a saved workflow deterministically, without starting an agent turn."""
+        flow = workflow_client.get_flow(str(flow_id))
+        project_id = flow.get("folder_id")
+        preset = harness.permissions.get_preset(project_id)
+        if preset == "read_only":
+            raise PermissionError("当前项目为只读，无法直接运行；请调整权限档位后再试。")
+        from .workflow import flow_digest
+
+        return workflow_client.run_flow(
+            str(flow_id),
+            external_data_approved=bool(external_data_approved),
+            expected_digest=flow_digest(flow),
+            expected_project_id=project_id,
+        )
+
+    workflow_jobs = WorkflowJobQueue(run_direct_workflow, history=30)
+
     def run_canvas_workflow(flow_id, payload):
         session_id = payload.get("studyui_session_id")
         if session_id is not None and not isinstance(session_id, str):
@@ -935,7 +954,40 @@ def create_app(database, workflows, components, frontend):
         app.mount("/ui-assets", StaticFiles(directory=assets), name="studyui-assets")
     app.state.harness = harness
     app.state.tasks = manager
+    app.state.workflow_jobs = workflow_jobs
     app.include_router(router)
+
+    @app.post("/api/workflows/{flow_id}/run", status_code=202)
+    async def start_workflow_run(flow_id: str, request: Request):
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+        return workflow_jobs.submit(
+            flow_id,
+            name=str(payload.get("name") or ""),
+            external_data_approved=bool(payload.get("external_data_approved")),
+        )
+
+    @app.get("/api/workflows/jobs")
+    async def list_workflow_jobs():
+        return {"jobs": workflow_jobs.list()}
+
+    @app.get("/api/workflows/jobs/{job_id}")
+    async def get_workflow_job(job_id: str):
+        job = workflow_jobs.get(job_id)
+        if job is None:
+            raise HTTPException(404, "运行任务不存在。")
+        return job
+
+    @app.post("/api/workflows/jobs/{job_id}/cancel")
+    async def cancel_workflow_job(job_id: str):
+        job = workflow_jobs.cancel(job_id)
+        if job is None:
+            raise HTTPException(404, "运行任务不存在。")
+        return job
 
     @app.get("/canvas/flows", include_in_schema=False)
     @app.get("/canvas/flows/", include_in_schema=False)

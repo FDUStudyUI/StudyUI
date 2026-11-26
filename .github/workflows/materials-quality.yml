@@ -43,6 +43,8 @@ jobs:
             'src/materials_quality/agent/ui/assets/*.js' \
             'src/materials_quality/agent/ui/assets/*.css' \
             '../scripts/assets/*.html' \
+            '../dsh-plugins/**/*.js' \
+            '../dsh-plugins/**/*.json' \
             '../../.github/workflows/*.yml' \
             ../../.prettierrc.json
       - run: python -m pytest -q

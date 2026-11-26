@@ -37,7 +37,7 @@ SDK 缺失或无法启动时自动回退 headless，并在审计中记录 `dsh_s
 
 环境变量 `STUDYUI_AGENT_ENGINE` 优先于设置文件，便于排障。
 
-首次运行 `start_demo.py --setup` 会调用 `scripts/setup_dsh.py` 自动安装固定版本 `@deepseek-ai/dsh`（默认 0.2.2-rc.5）到 `.demo-runtime/dsh`，创建 `studyui`（headless）与 `studyui-sdk`（SDK）两个 profile、全局 `AGENTS.md` 指令，并按需安装 OpenCode 会话头插件。缺少 Node 24/npm 时跳过并回退 legacy。Python SDK 作为可选依赖：
+首次运行 `start_demo.py --setup` 会调用 `scripts/setup_dsh.py` 自动安装固定版本 `@deepseek-ai/dsh`（默认 0.2.2-rc.5）到 `.demo-runtime/dsh`，创建 `studyui`（headless）与 `studyui-sdk`（SDK）两个 profile 与全局 `AGENTS.md` 指令。缺少 Node 24/npm 时跳过并回退 legacy。Python SDK 作为可选依赖：
 
 ```powershell
 .\.demo-venv\Scripts\python.exe -m pip install -e "materials-quality[dsh-sdk]"
@@ -48,9 +48,8 @@ SDK 缺失或无法启动时自动回退 headless，并在审计中记录 `dsh_s
 
 - DSH 说话对象是 **Anthropic Messages** 兼容端点。`dsh_engine.map_base_url()` 自动转换：
   - `api.deepseek.com` → `api.deepseek.com/anthropic`
-  - `opencode.ai/...` → `https://opencode.ai/inference/go/anthropic`
   - 其他地址原样使用（需为 Anthropic 兼容网关）
-- OpenCode Go 需要按会话的 `x-opencode-session` 头：profile 自动加入第三方插件 `dsh-opencode-session-header`，并禁用两个只认 DeepSeek 官方端点的请求扩展（`session-log-deepseek`、`plugin-package-inventory-deepseek`）。
+- profile 禁用两个只认 DeepSeek 官方端点的请求扩展（`session-log-deepseek`、`plugin-package-inventory-deepseek`），以兼容其他 Anthropic 网关。
 - 密钥来自 StudyUI 模型配置（OS 凭据库），以 `DEEPSEEK_API_KEY` 注入子进程；BASE URL 以 `DEEPSEEK_BASE_URL` 注入。
 
 ## 权限与沙箱（放行模型）
@@ -94,7 +93,7 @@ DSH 事件映射到 StudyUI 的进度事件：SDK 的 `assistant/message` → `c
 
 - `per_action` 在 **headless**（`dsh`）引擎下无法交互审批（fail-closed），会自动路由回 legacy；SDK 引擎（默认）通过原生 `approval/request` 完整支持逐项审批。
 - Headless `--json` 事件流是**提交点投影**：`text`/`thinking` 在步骤完成时到达，不是逐 token 流式。UI 仍能显示步骤级内容，但没有逐字流式效果。
-- DSH 的 `web_search` 依赖 DeepSeek 官方凭据；在 OpenCode Go 等兼容网关上不可用。文献检索请使用科学节点/CLI（`science_tools run lit.search ...`），后续将以 host 工具形式接管。
+- DSH 的 `web_search` 依赖 DeepSeek 官方凭据；在非 DeepSeek 官方端点上不可用。文献检索请使用科学节点/CLI（`science_tools run lit.search ...`），后续将以 host 工具形式接管。
 - `danger-full-access` 降级时，agent 与 StudyUI 同一个 OS 账户运行，能读到进程环境中的模型密钥。共享主机上应改用低权限账户，或使用有 ACL 权限的目录让 `workspace-write` 沙箱生效。
 - 便携包尚未内置 Node 24 运行时；`setup_dsh.py` 依赖本机 Node/npm。后续可将 Node 与 DSH 一并打入便携包。
 - 科学操作通过 CLI 暴露；后续升级为 MCP stdio 服务器以获得逐工具 schema 与授权。

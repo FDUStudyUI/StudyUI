@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import tempfile
+import threading
 import uuid
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
@@ -59,7 +60,15 @@ def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_han
     root, components, frontend = root.resolve(), components.resolve(), frontend.resolve()
     store = WorkflowFileStore(root)
     client = FileWorkflowClient(root, components)
-    permissions = PermissionStore(root.parent / ".demo-runtime" / "studyui-settings.json")
+    permissions = PermissionStore(components.parent / "studyui-settings.json")
+
+    # The first canvas open pays the LFX component-catalog build; warm it while
+    # the sidecar is starting so opening a workflow is not an 8-second blank.
+    def _warm_catalog() -> None:
+        with contextlib.suppress(Exception):
+            client.component_catalog()
+
+    threading.Thread(target=_warm_catalog, name="canvas-catalog-warm", daemon=True).start()
     workspace_file = root.parent / "workspace.json"
     lock = FileLock(str(workspace_file) + ".lock")
 
@@ -172,7 +181,9 @@ def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_han
     async def catalog():
         # The canvas catalog contains only explicitly installed StudyUI components.
         # LFX remains the graph/runtime engine; its stock node library is not exposed.
-        return client.component_catalog()
+        from .node_layout import compact_component_catalog
+
+        return compact_component_catalog(client.component_catalog())
 
     @app.get("/api/v1/projects/")
     async def projects():
@@ -395,7 +406,10 @@ def create_app(root: Path, components: Path, frontend: Path, *, workflow_run_han
     app.include_router(
         create_workflow_router(
             store,
-            permission_store=permissions,
+            # The browser canvas is the human surface: explicit user actions
+            # (create/edit/copy) are not agent tool calls and must not be
+            # blocked by the agent's per_action/read_only preset.
+            permission_store=None,
             component_catalog=client.component_catalog,
             run_handler=workflow_run_handler,
         )
