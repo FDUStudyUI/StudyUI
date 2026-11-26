@@ -38,6 +38,9 @@ ROLE_SPECS: tuple[RoleSpec, ...] = (
         description="负责力学、光谱、XRD、电池循环与热分析等典型材料表征任务的协议建流、确定性计算、图表与报告交付。",
         allowed_tools=(
             "inspect_research_file",
+            "run_science_operation",
+            "analyze_battery_cycles",
+            "audit_table_quality",
             "list_project_files",
             "recommend_analysis_methods",
             "list_research_skills",
@@ -90,6 +93,8 @@ ROLE_SPECS: tuple[RoleSpec, ...] = (
         allowed_tools=(
             "list_project_files",
             "inspect_research_file",
+            "run_science_operation",
+            "audit_table_quality",
             "list_research_skills",
             "use_research_skill",
             "list_workflows",
@@ -160,6 +165,9 @@ ROLE_SPECS: tuple[RoleSpec, ...] = (
             "recommend_analysis_methods",
             "write_research_report",
             "inspect_research_file",
+            "run_science_operation",
+            "analyze_battery_cycles",
+            "audit_table_quality",
             "list_project_files",
             "search_literature",
             "list_research_skills",

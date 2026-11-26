@@ -543,6 +543,15 @@ def run_studyui(request: dict, result_dir: Path, key: str) -> dict:
     source = Path(request.get("studyui_source") or (MQ / "src")).resolve()
     workspace = Path(request["workspace"]).resolve()
     sys.path.insert(0, str(source))
+    import materials_quality
+
+    loaded_source = Path(materials_quality.__file__).resolve()
+    expected_root = (source / "materials_quality").resolve()
+    if not loaded_source.is_relative_to(expected_root):
+        raise RuntimeError(
+            f"StudyUI source did not take precedence: loaded {loaded_source}, expected under "
+            f"{expected_root}. Check --studyui-source."
+        )
     from materials_quality.agent.file_workflow_client import FileWorkflowClient
     from materials_quality.agent.harness import StudyUIAgent
     from materials_quality.agent.model import ChatModel
@@ -639,6 +648,7 @@ def run_studyui(request: dict, result_dir: Path, key: str) -> dict:
         "latency_s": latency,
         "model": response.get("model") or MODEL,
         "session_id": session_id,
+        "studyui_source_loaded": str(loaded_source),
     }
 
 
@@ -681,6 +691,7 @@ def run_native_dsh(request: dict, result_dir: Path, key: str) -> dict:
             cmd,
             cwd=str(workspace),
             env=env,
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -701,7 +712,12 @@ def run_native_dsh(request: dict, result_dir: Path, key: str) -> dict:
     text_parts: list[str] = []
     final_text = ""
     tool_calls: list[dict] = []
-    usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    usage = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+    }
     turns = 0
     steps = 0
     for event in events:
@@ -717,7 +733,8 @@ def run_native_dsh(request: dict, result_dir: Path, key: str) -> dict:
                 for source_key, target_key in (
                     ("inputTokens", "input_tokens"),
                     ("outputTokens", "output_tokens"),
-                    ("totalTokens", "total_tokens"),
+                    ("cacheReadTokens", "cache_read_tokens"),
+                    ("cacheWriteTokens", "cache_write_tokens"),
                 ):
                     with contextlib.suppress(TypeError, ValueError):
                         usage[target_key] += int(row.get(source_key) or 0)
@@ -727,13 +744,19 @@ def run_native_dsh(request: dict, result_dir: Path, key: str) -> dict:
                 text_parts.append(chunk)
         elif kind == "tool_call":
             tool_calls.append(
-                {"name": event.get("tool"), "args": event.get("input") or {}, "summary": ""}
+                {"name": event.get("tool"), "args": event.get("input") or {}, "summary": "", "ok": None}
             )
         elif kind == "tool_result":
             if tool_calls:
+                status_value = str(event.get("status") or "")
                 tool_calls[-1]["summary"] = str(event.get("result") or "")[:2000]
+                tool_calls[-1]["ok"] = status_value in {"completed", "success"}
         elif kind == "final":
             final_text = str(event.get("text") or "")
+    if usage["input_tokens"] or usage["output_tokens"]:
+        usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
+    else:
+        usage = None
     if not final_text:
         final_text = "".join(text_parts)
     tool_text = json.dumps(tool_calls, ensure_ascii=False) + "\n" + final_text
@@ -800,6 +823,7 @@ def run_claude_code(request: dict, result_dir: Path, key: str) -> dict:
             cmd,
             cwd=str(workspace),
             env=env,
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -835,7 +859,12 @@ def run_claude_code(request: dict, result_dir: Path, key: str) -> dict:
                     text_parts.append(str(block.get("text") or ""))
                 elif block.get("type") == "tool_use":
                     tool_calls.append(
-                        {"name": block.get("name"), "args": block.get("input") or {}, "summary": ""}
+                        {
+                            "name": block.get("name"),
+                            "args": block.get("input") or {},
+                            "summary": "",
+                            "ok": None,
+                        }
                     )
         elif kind == "user":
             message = event.get("message") or {}
@@ -843,6 +872,7 @@ def run_claude_code(request: dict, result_dir: Path, key: str) -> dict:
                 if isinstance(block, dict) and block.get("type") == "tool_result" and tool_calls:
                     content = block.get("content")
                     tool_calls[-1]["summary"] = str(content)[:2000]
+                    tool_calls[-1]["ok"] = not bool(block.get("is_error"))
         elif kind == "result":
             result_event = event
             final_text = str(event.get("result") or "")
@@ -910,6 +940,7 @@ def run_codex(request: dict, result_dir: Path, key: str) -> dict:
             cmd,
             cwd=str(workspace),
             env=env,
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -941,11 +972,13 @@ def run_codex(request: dict, result_dir: Path, key: str) -> dict:
             if item_type == "agent_message":
                 final_text = str(item.get("text") or "")
             elif item_type in {"command_execution", "tool_call", "mcp_tool_call"}:
+                exit_code = item.get("exit_code")
                 tool_calls.append(
                     {
                         "name": item.get("type"),
                         "args": item.get("command") or item.get("arguments") or {},
                         "summary": str(item.get("aggregated_output") or item.get("output") or "")[:2000],
+                        "ok": None if exit_code is None else exit_code == 0,
                     }
                 )
         elif kind == "turn.completed":
@@ -1076,6 +1109,12 @@ def aggregate(runs: list[dict]) -> dict:
             "tool_use_rate": round(sum(run["score"]["tool_use_value"] for run in group) / count, 4),
             "mean_turns": mean(turns),
             "mean_tool_calls": mean(calls),
+            "mean_tool_errors": mean(
+                [run["score"].get("tool_error_count", 0) for run in group]
+            ),
+            "tool_error_runs": sum(
+                1 for run in group if run["score"].get("tool_error_count", 0)
+            ),
             "mean_latency_s": mean(latencies),
             "mean_input_tokens": mean(input_tokens),
             "mean_output_tokens": mean(output_tokens),
@@ -1154,6 +1193,7 @@ def write_outputs(output: Path, runs: list[dict], manifest: dict, harnesses: lis
                 "tool_use_rate",
                 "mean_turns",
                 "mean_tool_calls",
+                "mean_tool_errors",
                 "mean_latency_s",
                 "failure_modes",
             ]
@@ -1171,6 +1211,7 @@ def write_outputs(output: Path, runs: list[dict], manifest: dict, harnesses: lis
                         row["tool_use_rate"],
                         row["mean_turns"],
                         row["mean_tool_calls"],
+                        row["mean_tool_errors"],
                         row["mean_latency_s"],
                         "; ".join(f"{k}={v}" for k, v in row["failure_modes"].items()),
                     ]
@@ -1210,9 +1251,9 @@ def write_outputs(output: Path, runs: list[dict], manifest: dict, harnesses: lis
     lines.append("")
     lines.append(
         "| Harness | Runs | Success | Numerical | Evidence | Tool use | "
-        "Mean turns | Mean tool calls | Mean latency (s) |"
+        "Mean turns | Mean tool calls | Mean tool errors | Mean latency (s) |"
     )
-    lines.append("|---|---|---|---|---|---|---|---|---|")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|")
     for harness in HARNESS_ORDER:
         row = summary["overall"].get(harness)
         if not row:
@@ -1221,7 +1262,8 @@ def write_outputs(output: Path, runs: list[dict], manifest: dict, harnesses: lis
             f"| {harness} | {row['n']} | {_fmt(row['success_rate'])} | "
             f"{_fmt(row['numerical_correctness'])} | {_fmt(row['evidence_correctness'])} | "
             f"{_fmt(row['tool_use_rate'])} | {_fmt(row['mean_turns'])} | "
-            f"{_fmt(row['mean_tool_calls'])} | {_fmt(row['mean_latency_s'])} |"
+            f"{_fmt(row['mean_tool_calls'])} | {_fmt(row['mean_tool_errors'])} | "
+            f"{_fmt(row['mean_latency_s'])} |"
         )
     lines.append("")
     lines.append("## Per task")
