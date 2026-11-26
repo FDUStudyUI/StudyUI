@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import html
 import io
 import json
 import mimetypes
@@ -36,6 +35,7 @@ from materials_quality.evolution import collect_evidence, critique_evidence, pro
 from .demo_reference import create_reference_workflow
 from .file_workflow_client import FileWorkflowClient
 from .harness import StudyUIAgent
+from .matos_api import create_matos_router
 from .task_api import task_router
 from .tasks import SessionBusy
 from .uploads import save_code_draft, save_upload
@@ -43,8 +43,6 @@ from .workflow_jobs import WorkflowJobQueue
 
 # Kept as a compatibility export; the packaged catalog is the single source of truth.
 DEMO_DATASETS = list_datasets()
-
-PAGE = (Path(__file__).parent / "ui" / "index.html").read_text(encoding="utf-8")
 
 
 def _governance_scope_payload(harness):
@@ -71,11 +69,27 @@ def _governance_scope_payload(harness):
         }
         for node in sorted(graph.by_type("R"), key=lambda item: item.id)
     ]
+    matos_tools = [
+        {
+            "id": node.id,
+            "title": node.title,
+            "call_method": node.metadata.get("call_method"),
+            "availability": node.metadata.get("availability"),
+            "executable": bool(node.metadata.get("executable")),
+            "required_binaries": list(node.metadata.get("required_binaries", [])),
+            "required_env": list(node.metadata.get("required_env", [])),
+            "source_ref": node.metadata.get("source_ref"),
+            "provider_license": node.metadata.get("provider_license"),
+        }
+        for node in sorted(graph.by_type("T"), key=lambda item: item.id)
+        if node.id.startswith("T:matos.")
+    ]
     return {
         "summary": graph.summary(),
         "markdown": render_scope_and_limitations_markdown(graph),
         "workflows": workflows,
         "roles": roles,
+        "matos_tools": matos_tools,
     }
 
 
@@ -218,9 +232,6 @@ def make_handler(harness, canvas_path, task_manager):
             if not self._local_host():
                 return self._error("Only loopback Host headers are accepted", 403)
             path = urlsplit(self.path).path
-            if path == "/":
-                page = PAGE.replace("__CANVAS_BASE_PATH__", html.escape(canvas_path.rstrip("/"), quote=True))
-                return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
             if path == "/api/health":
                 profile = harness.model_profiles.active()
                 m_name = (
@@ -1090,15 +1101,12 @@ def create_app(database, workflows, components, frontend):
 
     handler_type = make_handler(harness, "/canvas", manager)
     app = FastAPI(title="StudyUI")
-    from fastapi.staticfiles import StaticFiles
 
-    assets = Path(__file__).parent / "ui" / "assets"
-    if assets.is_dir():
-        app.mount("/ui-assets", StaticFiles(directory=assets), name="studyui-assets")
     app.state.harness = harness
     app.state.tasks = manager
     app.state.workflow_jobs = workflow_jobs
     app.include_router(router)
+    app.include_router(create_matos_router())
 
     @app.post("/api/workflows/{flow_id}/run", status_code=202)
     async def start_workflow_run(flow_id: str, request: Request):

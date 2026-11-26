@@ -24,12 +24,12 @@ def test_default_asset_graph_validates_cleanly():
     assert summary["by_type"] == {
         "D": 9,
         "K": 41,
-        "T": 72,
+        "T": 90,
         "S": 14,
         "R": 4,
         "W": 5,
     }
-    assert summary["total_assets"] == 145
+    assert summary["total_assets"] == 163
     assert summary["total_edges"] > 300
     for wf in graph.by_type("W"):
         assert graph.edges_from(wf.id, kinds=("CALL",)), f"{wf.id} missing CALL edge"
@@ -76,10 +76,14 @@ def test_role_subgraphs_mount_expected_assets_and_dependencies():
         "W:protocol.thermal",
     }
 
-    # Workflow planner mounts all 72 tools; data quality auditor mounts quality/io; literature
-    # reviewer includes lit.result_evidence.
-    assert plan_sub.summary()["by_type"]["T"] == 72
+    # Workflow planner mounts all 90 tools, including the 18 MatOS tool assets;
+    # data quality auditor mounts quality/io; literature reviewer includes
+    # lit.result_evidence.
+    assert plan_sub.summary()["by_type"]["T"] == 90
     assert plan_sub.summary()["by_type"]["T"] > lit_sub.summary()["by_type"]["T"]
+    matos_mounts = {node.id for node in plan_sub.by_type("T") if node.id.startswith("T:matos.")}
+    assert len(matos_mounts) == 18
+    assert "T:matos.mp-query" in plan_sub
     assert "T:lit.result_evidence" in lit_sub
     assert "T:MaterialUnitCheck" in qual_sub
     assert "T:io.table_import" in qual_sub

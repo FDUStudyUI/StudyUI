@@ -271,6 +271,13 @@ def port_available(port: int) -> bool:
     return True
 
 
+def free_loopback_port() -> int:
+    """Pick an unused loopback port for the internal sidecar."""
+    with socket.socket() as candidate:
+        candidate.bind(("127.0.0.1", 0))
+        return int(candidate.getsockname()[1])
+
+
 def _flow_paths(flow_dir: Path, extra_flow_dir: Path | None = None) -> list[Path]:
     paths = [flow_dir / filename for filename in FLOW_FILES]
     if extra_flow_dir is not None:
@@ -923,10 +930,11 @@ def check_web(runtime: Path, port: int, backend_port: int) -> int:
         print("check: StudyUI brand plugin will be installed on first start.", flush=True)
     if not port_available(port):
         problems.append(f"port {port} is already in use")
-    if port == backend_port:
-        problems.append("--port and --backend-port must differ")
-    elif not port_available(backend_port):
-        problems.append(f"backend port {backend_port} is already in use")
+    if backend_port:
+        if port == backend_port:
+            problems.append("--port and --backend-port must differ")
+        elif not port_available(backend_port):
+            problems.append(f"backend port {backend_port} is already in use")
     canvas_index = runtime / "workbench-ui" / "index.html"
     if not canvas_index.is_file():
         print("check: canvas frontend will be prepared on first start.", flush=True)
@@ -971,7 +979,7 @@ def start_web(
     port: int,
     ready_timeout: float,
     *,
-    backend_port: int = 7881,
+    backend_port: int = 0,
     check: bool = False,
     open_browser: bool = True,
 ) -> int:
@@ -1007,6 +1015,8 @@ def start_web(
     dsh_engine, dsh_web = _import_dsh_web()
     if check:
         return check_web(runtime, port, backend_port)
+    if backend_port <= 0:
+        backend_port = free_loopback_port()
     if port == backend_port:
         print("--port and --backend-port must differ.", file=sys.stderr, flush=True)
         return 2
@@ -1059,7 +1069,7 @@ def start_web(
         if backend is not None:
             stop_server(backend)
         return 1
-    print(f"Canvas backend ready: http://127.0.0.1:{backend_port}", flush=True)
+    print("Canvas backend ready (internal loopback).", flush=True)
     print(
         f"Starting StudyUI (DSH Web): http://127.0.0.1:{port}\n"
         f"Profile: {profile_dir}\nLogs: {log_path}\n"
@@ -1128,6 +1138,13 @@ def valid_port(value: str) -> int:
     if not 1 <= port <= 65535:
         raise argparse.ArgumentTypeError("port must be between 1 and 65535")
     return port
+
+
+def valid_backend_port(value: str) -> int:
+    """0 selects a free internal loopback port; other values are explicit ports."""
+    if int(value) == 0:
+        return 0
+    return valid_port(value)
 
 
 def runtime_path(value: str) -> Path:
@@ -1205,9 +1222,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=valid_port, default=7880, help="StudyUI main application port")
     parser.add_argument(
         "--backend-port",
-        type=valid_port,
-        default=7881,
-        help="StudyUI canvas/API sidecar port for --web",
+        type=valid_backend_port,
+        default=0,
+        help="Internal canvas/API sidecar port for --web; 0 picks a free loopback port",
     )
     parser.add_argument(
         "--web",

@@ -112,11 +112,10 @@ def build(harness, session, spec):
     context = harness.store.session_context(session)
     if not context.get("project_id"):
         raise ValueError("请在研究项目中创建工作流。")
-    decision = harness.permissions.authorize(
-        project_id=context["project_id"], action="workflow.create", task_authorized=True
-    )
-    if not decision["allowed"]:
-        raise PermissionError("当前项目权限不允许直接建流；可在聊天中发起审批，或选择项目协作权限。")
+    # The material form is a human surface: the explicit form submission is the
+    # approval. Only read_only projects are blocked from building a flow here.
+    if harness.permissions.get_preset(context["project_id"]) == "read_only":
+        raise PermissionError("当前项目为只读，无法直接建流；请选择项目协作权限。")
     result = harness._dispatch(
         session,
         "build_workflow",

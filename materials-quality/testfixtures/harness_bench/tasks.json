@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "source": "Derived from the public MatOS benchmark profile (28 assets: roles, skills, tools, knowledge note) and docs/benchmarks.md, with task categories from MatTools/SciAgentGym/ResearchClawBench and pitfalls from knowledge:materials-benchmark-task-pitfalls.",
+  "model": {
+    "requested": "DeepSeek v4.1 flash",
+    "canonical_id": "deepseek-flash",
+    "endpoint": "https://api.deepseek.com",
+    "note": "The official DeepSeek model listing on 2026-11-27 exposes deepseek-flash and deepseek-v4-pro; deepseek-flash is the flash route used by MatOS's benchmark scripts. The OpenCode gateway also advertises deepseek-v4.1-flash; this benchmark pins the official deepseek-flash id so every harness uses the same route."
+  },
+  "scoring": {
+    "task_success": "All numeric/string checks and all evidence checks pass, the harness completed, and a final answer exists.",
+    "numerical_evidence": "Fraction of numeric/string checks and evidence regex checks that pass; reported separately.",
+    "tool_use_correctness": "At least one tool call plus the task's tool-evidence regex over the transcript; reported separately from task success.",
+    "repeats": "Every task is run repeatedly with a fresh workspace and fresh harness state."
+  },
+  "tasks": [
+    {
+      "id": "mechanics_modulus",
+      "title": "Tensile modulus and ultimate strength",
+      "domain": "mechanics",
+      "fixture": "mechanics",
+      "timeout_s": 600,
+      "prompt": "You are analyzing a uniaxial tensile test. The CSV file is {file:tensile.csv} with columns strain_fraction (engineering strain as a fraction) and stress_MPa (engineering stress in MPa). Compute Young's modulus in GPa by a linear fit over the elastic window 0.0005 <= strain_fraction <= 0.0015, and report the maximum stress in the file as the ultimate tensile strength in MPa. Use 1 GPa = 1000 MPa. Report modulus_GPa and uts_MPa to 3 significant figures. End your final response with one JSON object: {\"modulus_GPa\": <number>, \"uts_MPa\": <number>}. Do not use null.",
+      "checks": [
+        {"type": "number", "key": "modulus_GPa", "expected": 200.0, "rel": 0.01},
+        {"type": "number", "key": "uts_MPa", "expected": 500.0, "rel": 0.01}
+      ],
+      "evidence": ["GPa", "MPa"],
+      "tool_evidence": ["(materials\\.mechanics|run_science_operation|tensile\\.csv|polyfit|linregress|numpy|pandas|python)"]
+    },
+    {
+      "id": "xrd_dspacing",
+      "title": "XRD highest peak and Bragg d-spacing",
+      "domain": "xrd",
+      "fixture": "xrd",
+      "timeout_s": 600,
+      "prompt": "The file {file:xrd_scan.csv} contains an XRD scan with columns two_theta_deg and intensity. The radiation is Cu K-alpha1 with wavelength 1.5406 A. Identify the highest-intensity peak, report its 2theta position in degrees, and compute its d-spacing in Angstrom using Bragg's law n*lambda = 2*d*sin(theta) with n=1 and theta = 2theta/2. Report two_theta_deg to 2 decimals and d_spacing_A to 3 decimals. End with one JSON object: {\"two_theta_deg\": <number>, \"d_spacing_A\": <number>}. Do not use null.",
+      "checks": [
+        {"type": "number", "key": "two_theta_deg", "expected": 35.4, "abs": 0.05},
+        {"type": "number", "key": "d_spacing_A", "expected": 2.5336, "rel": 0.005}
+      ],
+      "evidence": ["(Bragg|d-spacing|d_spacing|1.5406)"],
+      "tool_evidence": ["(materials\\.xrd|run_science_operation|xrd_scan\\.csv|sin|numpy|python)"]
+    },
+    {
+      "id": "thermal_mass_loss",
+      "title": "TGA total mass loss and residual mass",
+      "domain": "thermal",
+      "fixture": "thermal",
+      "timeout_s": 600,
+      "prompt": "The file {file:tga.csv} is a thermogravimetric analysis with columns temperature_C (degC) and mass_pct (percent). Report the total mass loss between the first and last measured temperature (percent, one decimal) and the residual mass at the final measured temperature (percent, one decimal). End with one JSON object: {\"total_mass_loss_pct\": <number>, \"residual_mass_pct\": <number>}. Do not use null.",
+      "checks": [
+        {"type": "number", "key": "total_mass_loss_pct", "expected": 40.0, "abs": 0.5},
+        {"type": "number", "key": "residual_mass_pct", "expected": 60.0, "abs": 0.5}
+      ],
+      "evidence": ["(mass|TGA|thermogravimetric|%)"],
+      "tool_evidence": ["(materials\\.thermal|run_science_operation|tga\\.csv|mass|python)"]
+    },
+    {
+      "id": "arrhenius_activation_energy",
+      "title": "Arrhenius activation energy and R-squared",
+      "domain": "statistics",
+      "fixture": "regression",
+      "timeout_s": 600,
+      "prompt": "The file {file:arrhenius.csv} contains ionic conductivity vs temperature. Columns: temperature_C, conductivity_S_cm, inv_T_K = 1/(temperature_C+273.15), and ln_sigma = ln(conductivity_S_cm). Fit the linear Arrhenius model ln(sigma) = ln(sigma0) - Ea/(k_B*T) using inv_T_K as the feature and ln_sigma as the target. Use k_B = 8.617333262e-5 eV/K. Report the activation energy Ea in eV (4 decimals) and the fit R^2 (6 decimals). End with one JSON object: {\"activation_energy_eV\": <number>, \"r_squared\": <number>}. Do not use null.",
+      "checks": [
+        {"type": "number", "key": "activation_energy_eV", "expected": 0.85, "rel": 0.02},
+        {"type": "number", "key": "r_squared", "expected": 1.0, "abs": 0.001}
+      ],
+      "evidence": ["(Arrhenius|activation|Ea|Boltzmann|k_B)"],
+      "tool_evidence": ["(stats\\.regression|run_science_operation|inv_T_K|ln_sigma|polyfit|linregress|python)"]
+    },
+    {
+      "id": "battery_retention",
+      "title": "Battery capacity retention and Coulombic efficiency",
+      "domain": "battery",
+      "fixture": "battery",
+      "timeout_s": 600,
+      "prompt": "The file {file:battery_cycles.csv} contains battery cycle summaries with columns cell_id, cycle, discharge_capacity_mAh_g, and charge_capacity_mAh_g. Using cell-A, compute (a) capacity retention at cycle 100 relative to cycle 1 as a percent, (b) the mean Coulombic efficiency (discharge/charge*100) over cycles 2 through 100 as a percent, and (c) the cycle-1 discharge capacity in mAh/g. Report retention and mean efficiency to 2 decimals. End with one JSON object: {\"retention_pct\": <number>, \"mean_ce_pct\": <number>, \"first_capacity_mAh_g\": <number>}. Do not use null.",
+      "checks": [
+        {"type": "number", "key": "retention_pct", "expected": 80.0, "abs": 0.2},
+        {"type": "number", "key": "mean_ce_pct", "expected": 99.7, "abs": 0.1},
+        {"type": "number", "key": "first_capacity_mAh_g", "expected": 180.0, "abs": 0.5}
+      ],
+      "evidence": ["(retention|Coulombic|efficiency)"],
+      "tool_evidence": ["(analyze_battery_cycles|battery_cycles\\.csv|retention|python|pandas)"]
+    },
+    {
+      "id": "data_quality_audit",
+      "title": "Data-quality audit",
+      "domain": "data_quality",
+      "fixture": "quality",
+      "timeout_s": 600,
+      "prompt": "The file {file:quality_audit.csv} contains a materials dataset with columns sample_id, temperature_C, conductivity_S_cm, and note. Audit it without modifying it. Report (a) the total number of missing cells across all columns (blank or NA counts as missing), (b) the number of rows that are exact duplicates of an earlier row, (c) the number of rows with a negative conductivity_S_cm, and (d) the number of rows with temperature_C greater than 2000. End with one JSON object: {\"missing_cells\": <integer>, \"duplicate_rows\": <integer>, \"negative_conductivity\": <integer>, \"high_temperature\": <integer>}. Do not use null.",
+      "checks": [
+        {"type": "integer", "key": "missing_cells", "expected": 3},
+        {"type": "integer", "key": "duplicate_rows", "expected": 2},
+        {"type": "integer", "key": "negative_conductivity", "expected": 2},
+        {"type": "integer", "key": "high_temperature", "expected": 2}
+      ],
+      "evidence": ["(missing|duplicate|negative|temperature)"],
+      "tool_evidence": ["(audit_table_quality|quality_audit\\.csv|duplicate|missing|python|pandas)"]
+    }
+  ]
+}

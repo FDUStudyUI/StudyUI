@@ -7,6 +7,12 @@ from functools import lru_cache
 from pathlib import Path
 
 from materials_quality.material_examples import examples as load_instrument_examples
+from materials_quality.matos.catalog import (
+    all_tools as load_matos_tools,
+)
+from materials_quality.matos.catalog import (
+    catalog_source as load_matos_source,
+)
 from materials_quality.science.catalog import entries as load_catalog_entries
 from materials_quality.science.method_cards import load_cards as load_literature_cards
 from materials_quality.skills.registry import SKILL_CATALOG, load_skill
@@ -114,6 +120,23 @@ _NATIVE_OVERRIDES: dict[str, dict[str, str]] = {
         "category": "statistics",
         "domain": "general",
     },
+}
+
+_MATOS_DOMAINS: dict[str, str] = {
+    "academic-research": "literature",
+    "atomistic-simulation": "materials",
+    "battery-electrochemistry": "battery",
+    "builtin-pack": "general",
+    "deep-research": "literature",
+    "document": "literature",
+    "local-toolchain": "materials",
+    "materials-runtime": "materials",
+    "mcp": "materials",
+    "mlip": "materials",
+    "multimodal": "general",
+    "optimization": "general",
+    "runtime": "general",
+    "web-research": "literature",
 }
 
 
@@ -251,6 +274,44 @@ def build_default_asset_graph() -> AssetGraph:
                     "class_name": class_name,
                     "directory": directory,
                     "native_component": True,
+                },
+            )
+        )
+
+    # 1b. Optional MatOS external tools (T:matos.*) with provenance and availability.
+    # StudyUI only registers catalog metadata; execution is delegated to the
+    # user-installed `matos` CLI. Builtin packs are registered as runtime-only.
+    matos_source = load_matos_source()
+    for tool in load_matos_tools():
+        graph.add_asset(
+            AssetNode(
+                id=f"T:matos.{tool['id']}",
+                type="T",
+                title=f"{tool['name']} (MatOS)",
+                version=str(tool["version"]),
+                scope="bundled",
+                domain=_MATOS_DOMAINS.get(str(tool["family"]), "general"),
+                entrypoint=str(tool["call_method"]),
+                description=str(tool["description"]),
+                metadata={
+                    "provider": "MatOS",
+                    "provider_repository": str(matos_source.get("repository", "")),
+                    "provider_license": str(matos_source.get("license", "")),
+                    "provider_notice": str(matos_source.get("required_notice", "")),
+                    "source_commit": str(matos_source.get("commit", "")),
+                    "source_ref": str(tool["ref"]),
+                    "source_asset_path": str((tool.get("provenance") or {}).get("asset_path", "")),
+                    "asset_kind": str(tool["kind"]),
+                    "category": "matos",
+                    "family": str(tool["family"]),
+                    "call_method": str(tool["call_method"]),
+                    "executable": tool["kind"] == "external-tool",
+                    "availability": str(tool["availability"]),
+                    "required_binaries": list(tool["required_binaries"]),
+                    "probed_binaries": list(tool["probed_binaries"]),
+                    "required_env": list(tool["required_env"]),
+                    "network_required": bool(tool["network_required"]),
+                    "tags": list(tool["tags"]),
                 },
             )
         )

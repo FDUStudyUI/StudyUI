@@ -1,0 +1,23 @@
+sample_id,temperature_C,conductivity_S_cm,note
+S01,25,0.0120,baseline
+S02,50,0.0150,baseline
+S03,75,0.0180,baseline
+S04,,0.0210,missing temperature
+S05,125,-0.0020,negative conductivity
+S06,150,0.0300,baseline
+S07,175,0.0330,
+S08,2500,0.0400,temperature outlier
+S09,225,0.0450,baseline
+S10,250,0.0480,baseline
+S11,275,,missing conductivity
+S12,300,0.0550,baseline
+S13,325,0.0580,baseline
+S14,350,0.0600,baseline
+S15,375,-0.0060,negative conductivity
+S16,400,0.0660,baseline
+S17,425,0.0690,baseline
+S18,450,0.0720,baseline
+S19,2200,0.0750,temperature outlier
+S20,500,0.0780,baseline
+S03,75,0.0180,baseline
+S09,225,0.0450,baseline

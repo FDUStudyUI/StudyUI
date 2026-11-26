@@ -360,6 +360,7 @@ def _inspect_table(arguments: dict) -> dict:
 
 
 def _studyui_info(_arguments: dict) -> dict:
+    from materials_quality.matos import catalog_summary, runtime_status
     from materials_quality.science import catalog
 
     return {
@@ -369,7 +370,49 @@ def _studyui_info(_arguments: dict) -> dict:
         "components_dir": str(components_dir()),
         "operation_count": len(catalog.entries()),
         "workflow_count": len(_workflow_store().list()),
+        "matos_tool_count": catalog_summary()["tool_count"],
+        "matos_cli_available": runtime_status()["available"],
     }
+
+
+def _list_matos_tools(arguments: dict) -> dict:
+    from materials_quality.matos import list_matos_tools
+
+    return list_matos_tools(
+        family=str(arguments.get("family") or "").strip() or None,
+        kind=str(arguments.get("kind") or "").strip() or None,
+        tool_id=str(arguments.get("tool_id") or "").strip() or None,
+        available_only=bool(arguments.get("available_only") or False),
+    )
+
+
+def _describe_matos_tool(arguments: dict) -> dict:
+    from materials_quality.matos import MatOSToolNotFound, describe_matos_tool
+
+    tool = str(arguments.get("tool") or "").strip()
+    if not tool:
+        raise StudyUIToolError("tool is required")
+    try:
+        return describe_matos_tool(tool)
+    except MatOSToolNotFound as exc:
+        return {"ok": False, "status": "not_found", "tool": tool, "error": str(exc)}
+
+
+def _run_matos_tool(arguments: dict) -> dict:
+    from materials_quality.matos import MatOSInputError, MatOSToolNotFound, run_matos_tool
+
+    tool = str(arguments.get("tool") or "").strip()
+    if not tool:
+        raise StudyUIToolError("tool is required")
+    input_value = arguments.get("input")
+    if input_value is None:
+        input_value = {}
+    try:
+        return run_matos_tool(tool, input_value, timeout_seconds=arguments.get("timeout_seconds"))
+    except MatOSToolNotFound as exc:
+        return {"ok": False, "status": "not_found", "tool": tool, "error": str(exc)}
+    except MatOSInputError as exc:
+        return {"ok": False, "status": "invalid_input", "tool": tool, "error": str(exc)}
 
 
 def _tool(
@@ -411,6 +454,34 @@ TOOLS = [
             "table_csv": _STRING,
         },
         ["operation"],
+    ),
+    _tool(
+        "list_matos_tools",
+        "列出已登记的 18 个 MatOS 工具资产（14 个外部工具 + 4 个 builtin pack），"
+        "含调用方式、所需二进制/环境变量与当前可用性。",
+        {
+            "family": _STRING,
+            "kind": {"type": "string", "enum": ["external-tool", "builtin-pack"]},
+            "tool_id": _STRING,
+            "available_only": {"type": "boolean", "default": False},
+        },
+    ),
+    _tool(
+        "describe_matos_tool",
+        "返回一个 MatOS 工具的完整定义：描述、JSON input schema、调用方式、来源与可用性。",
+        {"tool": _STRING},
+        ["tool"],
+    ),
+    _tool(
+        "run_matos_tool",
+        "通过用户安装的 `matos assets run-tool` 执行一个 MatOS 外部工具；input 为与 MatOS "
+        "stdin JSON 相同的对象。缺少 matos CLI 时返回 unavailable 和安装提示，不会伪造成功。",
+        {
+            "tool": _STRING,
+            "input": _OBJECT,
+            "timeout_seconds": {"type": "number", "minimum": 1},
+        },
+        ["tool"],
     ),
     _tool("list_workflows", "列出已保存的 StudyUI 画布工作流。"),
     _tool(
@@ -478,6 +549,9 @@ _HANDLERS = {
     "list_science_operations": _list_science_operations,
     "describe_science_operation": _describe_science_operation,
     "run_science_operation": _run_science_operation,
+    "list_matos_tools": _list_matos_tools,
+    "describe_matos_tool": _describe_matos_tool,
+    "run_matos_tool": _run_matos_tool,
     "list_workflows": _list_workflows,
     "get_workflow": _get_workflow,
     "copy_workflow": _copy_workflow,
@@ -554,6 +628,9 @@ def selftest() -> int:
     report["workflow_count"] = _list_workflows({})["count"]
     report["material_task_count"] = _list_material_tasks({})["count"]
     report["demo_dataset_count"] = _list_demo_datasets({})["count"]
+    matos = _list_matos_tools({})
+    report["matos_tool_count"] = matos["count"]
+    report["matos_status"] = matos["runtime"]["status"]
     run = _run_science_operation(
         {
             "operation": "stats.distribution",
@@ -572,7 +649,13 @@ def _preload() -> list[str]:
     import importlib
 
     failures: list[str] = []
-    targets = ["numpy", "pandas", "materials_quality.agent.workflow_files"]
+    targets = [
+        "numpy",
+        "pandas",
+        "jsonschema",
+        "materials_quality.matos.runner",
+        "materials_quality.agent.workflow_files",
+    ]
     try:
         from materials_quality.science import catalog
 

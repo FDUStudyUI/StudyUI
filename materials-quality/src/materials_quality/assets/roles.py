@@ -188,6 +188,7 @@ ROLE_SPECS: tuple[RoleSpec, ...] = (
             "literature",
             "export",
             "agent",
+            "matos",
         ),
         mounted_domains=(
             "mechanics",

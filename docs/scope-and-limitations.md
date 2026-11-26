@@ -4,13 +4,13 @@
 
 ## 一、当前纳管资产概览
 
-- **已登记科学计算组件（T）**：72 个
+- **已登记科学计算组件（T）**：90 个
 - **材料方法与文献知识卡（K）**：41 张
 - **典型材料任务工作流规范（W）**：5 类
 - **内置科研技能包（S）**：14 个
 - **带来源与哈希的真实仪器案例（D）**：9 份
 - **声明式研究角色（R）**：4 个
-- **资产图谱关系边**：365 条（校验错误数：0）
+- **资产图谱关系边**：383 条（校验错误数：0）
 
 ## 二、五大典型材料任务的适用范围与明确不支持场景
 
@@ -99,7 +99,32 @@
 | `R:literature_reviewer` | 学术文献与方法证据角色 | 9 | CrossRef、OpenAlex、Semantic Scholar、Europe PMC、DataCite 白名单学术元数据检索与方法卡前提核对。 | 该角色为只读证据角色，不具备创建、修改、运行或删除工作流的权限。 |
 | `R:workflow_planner` | 科研工作流编排与治理角色 | 19 | 跨表征方法、多分支工作流编排、工作流修复与删除管理，以及需要同时调用文献与计算的复合科研任务。 | 工具集最全，适合复杂或跨领域任务；单一领域常规分析优先交由专职角色以降低工具误选率。 |
 
-## 四、系统级技术限制与评测边界声明
+## 四、MatOS 外部工具接入（可选）
+
+StudyUI 以只读目录形式登记 MatOS 的 18 个工具资产（14 个外部工具 + 4 个 builtin pack）。外部工具仅通过用户安装的 `matos assets run-tool` 执行；缺少 `matos` CLI 时返回 `unavailable` 与安装提示，不会伪造成功。builtin pack 只能在 MatOS asset MCP server 内运行，StudyUI 仅登记其元数据。
+
+| 工具资产 ID | 名称 | 调用方式 | 可用性策略 |
+|---|---|---|---|
+| `T:matos.agent-orchestration` | Agent Orchestration (MatOS) | `matos_asset MCP server (builtin pack)` | `matos_runtime_only`（builtin pack） |
+| `T:matos.atomistic-toolchain-catalog` | Atomistic Toolchain Catalog (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.battery-electrochem-catalog` | Battery Electrochemistry Catalog (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.conda-environment-catalog` | Conda Environment Catalog (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.conda-environment-manager` | Conda Environment Manager (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.deep-research-search` | Deep Research Scholarly Search (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.document-parse` | Document Parse (local files) (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.files-core` | Files Core (MatOS) | `matos_asset MCP server (builtin pack)` | `matos_runtime_only`（builtin pack） |
+| `T:matos.gemini-vision-analyze` | Gemini Vision Analyze (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.literature-access` | Literature Access (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.local-toolchain-preflight` | Local Toolchain Preflight (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.materials-runtime-inventory` | Materials Runtime Inventory (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.mlip-model-catalog` | MLIP Model Catalog (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.mp-query` | Materials Project Query (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.scip-toolchain-catalog` | SCIP Toolchain Catalog (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.shell-core` | Shell Core (MatOS) | `matos_asset MCP server (builtin pack)` | `matos_runtime_only`（builtin pack） |
+| `T:matos.web-read` | Web/PDF Read (MatOS) | `matos assets run-tool` | `requires_matos_cli` |
+| `T:matos.web-research` | Web Research (MatOS) | `matos_asset MCP server (builtin pack)` | `matos_runtime_only`（builtin pack） |
+
+## 五、系统级技术限制与评测边界声明
 
 1. **确定性计算与模型推理分离**：数值计算由本地已登记科学节点执行；大语言模型仅负责任务理解、参数澄清、建流编排与报告综合，不替代精确数值求解。
 2. **当前不覆盖的领域计算**：系统目前聚焦材料实验表征数据质控与定量分析，不包含第一性原理计算（DFT/VASP/QE）、分子动力学集群调度（LAMMPS）或全谱 Rietveld 结构精修。

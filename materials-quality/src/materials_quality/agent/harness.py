@@ -19,6 +19,7 @@ from pathlib import Path
 from materials_quality.assets.catalog_bridge import build_default_asset_graph, cached_default_asset_graph
 from materials_quality.evolution.acceptance import EvolutionController
 
+from . import direct_tools
 from .academic_search import PROVIDERS as RESEARCH_PROVIDERS
 from .academic_search import search as search_literature
 from .data_inspection import READ_DENIAL, authorized_file, inspect_file
@@ -679,6 +680,85 @@ TOOLS = [
         },
         ["solver"],
     ),
+    _tool(
+        "run_science_operation",
+        "Run one allowlisted deterministic StudyUI science operation on an authorized table and return "
+        "its computed data. Use this for numeric analysis instead of guessing: preprocessing, unit "
+        "conversion, XRD/spectra/thermal/mechanics, grouped statistics, correlation, significance and "
+        "regression. Supply exact column names in config. Examples: materials.mechanics with x, y, "
+        "strain_unit, stress_unit, fit_range; materials.xrd with x, y, prominence, peak_distance_x; "
+        "materials.thermal with kind='tg', x, y, x_unit='degC', y_unit='%'; stats.regression with "
+        "features, target, method. The result's data holds the computed fields "
+        "(for example elastic_modulus_MPa, ultimate_strength_MPa, model_summary, metrics, peaks, "
+        "stages). If config is wrong, the error lists available_columns and the required field; "
+        "correct it once and retry. This is a local read-only computation; raw measurement rows are "
+        "not returned, only computed data and aggregate summaries.",
+        {
+            "operation": {
+                "type": "string",
+                "enum": sorted(direct_tools.ALLOWED_OPERATIONS),
+            },
+            "config": {"type": "object", "additionalProperties": True},
+            "data": {"type": "object", "additionalProperties": True},
+            "table_path": {"type": "string", "minLength": 1, "maxLength": 1200},
+            "table_csv": {"type": "string", "maxLength": 2000000},
+        },
+        ["operation"],
+    ),
+    _tool(
+        "analyze_battery_cycles",
+        "Summarize battery cycle data deterministically: per-cycle discharge/charge capacity, capacity "
+        "retention relative to the first valid cycle, and Coulombic efficiency. Supply the exact column "
+        "names and capacity unit in config. The returned summary includes first_cycle, last_cycle, "
+        "retention_pct_at_last_cycle and mean_coulombic_efficiency_pct_cycles_2_to_last.",
+        {
+            "table_path": {"type": "string", "minLength": 1, "maxLength": 1200},
+            "table_csv": {"type": "string", "maxLength": 2000000},
+            "config": {
+                "type": "object",
+                "additionalProperties": True,
+                "properties": {
+                    "capacity_unit": {"type": "string", "enum": ["mAh", "Ah"]},
+                    "cell_id": {"type": "string"},
+                    "cycle": {"type": "string"},
+                    "discharge_capacity": {"type": "string"},
+                    "charge_capacity": {"type": "string"},
+                    "baseline_cycle": {"type": "integer", "minimum": 0},
+                    "calculate_efficiency": {"type": "boolean"},
+                },
+            },
+        },
+        [],
+    ),
+    _tool(
+        "audit_table_quality",
+        "Audit an authorized table without modifying it: count missing cells, exact duplicate rows, "
+        "negative numeric values in named columns, and values outside named [minimum, maximum] ranges. "
+        "Pass negative_columns and ranges in config. Use this for data-quality questions instead of "
+        "guessing from file structure.",
+        {
+            "table_path": {"type": "string", "minLength": 1, "maxLength": 1200},
+            "table_csv": {"type": "string", "maxLength": 2000000},
+            "config": {
+                "type": "object",
+                "additionalProperties": True,
+                "properties": {
+                    "missing_tokens": {"type": "array", "items": {"type": "string"}},
+                    "negative_columns": {"type": "array", "items": {"type": "string"}},
+                    "ranges": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "items": {"type": ["number", "null"]},
+                        },
+                    },
+                },
+            },
+        },
+        [],
+    ),
 ]
 
 
@@ -974,7 +1054,18 @@ class StudyUIAgent:
             "切勿重复调用相同工具查询。\n"
             "2. 每一轮思考直切核心，避免生成冗长重复的自我反思与多重前置自省；通常在 1~3 "
             "轮工具调用内完成任务并交付结构化结论。\n"
-            "3. 遇到疑问或信息缺失，直接在答复中说明已知条件与限制，避免无休止地遍历工具。"
+            "3. 遇到疑问或信息缺失，直接在答复中说明已知条件与限制，避免无休止地遍历工具。\n\n"
+            "【直接确定性分析工具（优先使用）】：当用户给出已授权数据文件并要求数值结果时，"
+            "优先调用 run_science_operation、analyze_battery_cycles 或 audit_table_quality，"
+            "在本地确定性计算后回答。run_science_operation 支持预处理、XRD/光谱/热分析/力学、"
+            "分组统计、相关性与回归；必须传入真实列名和单位。若用户消息已经给出完整文件路径、"
+            "真实列名和单位，且工具只需要这些信息，可直接调用工具；只有编码、分隔符、表头或"
+            "列名不明确时才先调用 inspect_research_file，不要仅为重复确认结构增加一轮。"
+            "不得因为文件检查只返回结构就声称无法读取数值或把结果写成 null；也不得凭文件结构"
+            "猜测数值。工具返回的 data 是本地确定性结果，只含派生结果和聚合摘要，不返回原始测量行；"
+            "报告中须给出单位、方法、参数和限制。若工具报错，错误会列出 available_columns 和所需"
+            "字段；据此修正一次后重试，不要重复同一无效调用。用户要求的最终 JSON 输出契约必须"
+            "严格遵守，JSON 放在回复末尾且不要用 null 代替已要求的值。"
         )
 
     def run_turn(
@@ -2202,6 +2293,31 @@ class StudyUIAgent:
                 session_id, "report_created", {"artifact_id": artifact_id, "sha256": digest}
             )
             return {"status": "created", "title": title, "artifact": row}
+        if name in {"run_science_operation", "analyze_battery_cycles", "audit_table_quality"}:
+            table_path = args.get("table_path")
+            if table_path:
+                resolved = self._authorized_research_file(session_id, table_path, user_text)
+                table = direct_tools.load_table_path(resolved)
+            elif args.get("table_csv"):
+                table = direct_tools.load_inline_table(str(args["table_csv"]))
+            else:
+                raise ValueError("提供 table_path 或 table_csv 之一。")
+            config = args.get("config") or {}
+            if not isinstance(config, dict):
+                raise ValueError("config 必须是 JSON 对象。")
+            if name == "run_science_operation":
+                operation = str(args.get("operation") or "").strip()
+                if not operation:
+                    raise ValueError("operation 不能为空。")
+                data = args.get("data") or {}
+                if not isinstance(data, dict):
+                    raise ValueError("data 必须是 JSON 对象。")
+                return direct_tools.execute_operation(
+                    operation, table=table, config=config, data=data
+                )
+            if name == "analyze_battery_cycles":
+                return direct_tools.battery_summary(table, config)
+            return direct_tools.audit_table_quality(table, config)
         if name == "inspect_research_file":
             requested_path = args.get("path")
             if not isinstance(requested_path, str) or not requested_path.strip():
@@ -3320,6 +3436,9 @@ class StudyUIAgent:
             "write_research_report": "artifact.create",
             "inspect_research_file": "data.inspect",
             "list_project_files": "data.inspect",
+            "run_science_operation": "data.inspect",
+            "analyze_battery_cycles": "data.inspect",
+            "audit_table_quality": "data.inspect",
             "search_literature": "literature.search",
             "recommend_analysis_methods": "method.recommend",
             "list_research_skills": "skill.list",
@@ -3457,6 +3576,14 @@ class StudyUIAgent:
                 raise PermissionError("本轮科研 Skill 预检尚未完成；禁止建流、改流或运行工作流。")
         if name == "inspect_research_file":
             self._authorized_research_file(session_id, args.get("path"), user_text)
+        if name in {"run_science_operation", "analyze_battery_cycles", "audit_table_quality"}:
+            # Inline CSV is supplied by the user in this turn; a path must be an
+            # explicitly named file or live in a project-granted directory.
+            table_path = args.get("table_path")
+            if table_path:
+                self._authorized_research_file(session_id, table_path, user_text)
+            elif not args.get("table_csv"):
+                raise ValueError("提供 table_path 或 table_csv 之一。")
         context = self.store.session_context(session_id) or {}
         project_id = context.get("project_id")
         action = self._tool_action(name)

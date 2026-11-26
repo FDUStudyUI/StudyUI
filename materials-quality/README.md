@@ -198,6 +198,7 @@ python -m scripts.build_science_examples --verify-only
 - [安装、运行与排障](../../docs/demo-launcher.md)
 - [Agent Harness：权限、审批、Skills 与数据边界](../../docs/agent-harness.md)
 - [Agent 可靠性与任务恢复](../../docs/agent-reliability.md)
+- [MatOS 风格 Harness 测评与结果](docs/harness-evaluation.md)
 - [五个演示案例](../../docs/demo-five-cases.md)
 - [证据引导分析](../../docs/evidence-guided-analysis.md)
 

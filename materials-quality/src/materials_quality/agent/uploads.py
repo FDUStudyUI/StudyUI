@@ -16,8 +16,10 @@ def session_directory(harness, session_id, kind="uploads", *, base=None):
     if canonical != session_id or not harness.store.has_session(session_id):
         raise ValueError("研究会话不存在。")
     context = harness.store.session_context(session_id)
-    if harness.permissions.get_preset(context.get("project_id")) in {"read_only", "per_action"}:
-        raise PermissionError("当前权限不允许保存文件；请在设置中选择项目协作。")
+    # Uploading from the human material form is an explicit user action, not an
+    # agent tool call; per_action therefore allows it. read_only stays denied.
+    if harness.permissions.get_preset(context.get("project_id")) == "read_only":
+        raise PermissionError("当前项目为只读，无法保存文件；请选择项目协作权限。")
     base_root = Path(base or harness.working_directory(session_id)).resolve()
     requested_root = base_root / kind
     root = requested_root.resolve()

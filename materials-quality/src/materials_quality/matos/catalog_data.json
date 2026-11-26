@@ -1,0 +1,1577 @@
+{
+  "schema_version": 1,
+  "source": {
+    "project": "MatOS",
+    "repository": "https://github.com/DingyangLyu/MatOS",
+    "commit": "a50fd7613346a59f13e87a8bc368d0cec048585d",
+    "snapshot_date": "2026-10-25T10:42:54Z",
+    "license": "PolyForm Noncommercial License 1.0.0",
+    "license_url": "https://polyformproject.org/licenses/noncommercial/1.0.0/",
+    "required_notice": "Required Notice: Copyright 2026 The MatOS Authors (https://github.com/DingyangLyu/MatOS)",
+    "asset_root": "distribution/benchmark-minimal/assets/packs",
+    "install_hint": "Install MatOS and expose its `matos` CLI on PATH, or set STUDYUI_MATOS_CLI=/path/to/matos. StudyUI never vendors or executes the downloaded MatOS source tree.",
+    "attribution": "The MatOS tool names, descriptions, permissions and JSON input schemas in this catalog are adapted from the MatOS benchmark-minimal distribution. StudyUI does not bundle or execute MatOS source code; execution is delegated to a user-installed `matos` CLI and its `matos assets run-tool` JSON interface."
+  },
+  "summary": {
+    "tool_count": 18,
+    "external_tool_count": 14,
+    "builtin_pack_count": 4,
+    "external_tool_ids": [
+      "atomistic-toolchain-catalog",
+      "battery-electrochem-catalog",
+      "conda-environment-catalog",
+      "conda-environment-manager",
+      "deep-research-search",
+      "document-parse",
+      "gemini-vision-analyze",
+      "literature-access",
+      "local-toolchain-preflight",
+      "materials-runtime-inventory",
+      "mlip-model-catalog",
+      "mp-query",
+      "scip-toolchain-catalog",
+      "web-read"
+    ],
+    "builtin_pack_ids": [
+      "agent-orchestration",
+      "files-core",
+      "shell-core",
+      "web-research"
+    ]
+  },
+  "tools": [
+    {
+      "id": "agent-orchestration",
+      "ref": "tool:agent-orchestration",
+      "name": "Agent Orchestration",
+      "version": "1.0.0",
+      "description": "Sub-agent, task, and coordination tools used for multi-step workflows.",
+      "kind": "builtin-pack",
+      "family": "builtin-pack",
+      "tags": [],
+      "permissions": {
+        "shell": "disabled",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": []
+      },
+      "call_method": "matos_asset MCP server (builtin pack)",
+      "executor": "matos-builtin-pack",
+      "entrypoint": "",
+      "mcp_name": null,
+      "timeout_ms": null,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "builtin_tools": [
+        "Agent",
+        "SendMessage",
+        "Skill",
+        "Task",
+        "TaskOutput",
+        "TaskStop",
+        "TeamCreate",
+        "TeamDelete",
+        "TodoWrite",
+        "ToolSearch"
+      ],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [],
+      "network_required": false,
+      "availability": "matos_runtime_only",
+      "notes": "MatOS/DeepSeek Harness builtin sub-agent and task tools.",
+      "usage_hint": "",
+      "provenance": {
+        "asset_path": "matos-core/tools/agent-orchestration/asset.json",
+        "asset_file": "asset.json",
+        "binding": ""
+      }
+    },
+    {
+      "id": "atomistic-toolchain-catalog",
+      "ref": "tool:atomistic-toolchain-catalog",
+      "name": "Atomistic Toolchain Catalog",
+      "version": "1.0.0",
+      "description": "Discover and probe mounted atomistic simulation tools such as xTB, CREST, GROMACS, OpenMM, PLUMED, ABACUS, CP2K, Quantum ESPRESSO, Wannier90, GW/BSE stacks, and QMCPACK.",
+      "kind": "external-tool",
+      "family": "atomistic-simulation",
+      "tags": [
+        "materials",
+        "simulation",
+        "dft",
+        "molecular-dynamics",
+        "qchem",
+        "xtb",
+        "crest",
+        "gromacs",
+        "openmm",
+        "plumed",
+        "abacus",
+        "cp2k",
+        "qe",
+        "quantum-espresso",
+        "wannier90",
+        "gw",
+        "bse",
+        "yambo",
+        "qmcpack",
+        "quantum-monte-carlo"
+      ],
+      "permissions": {
+        "shell": "read-only",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": [
+          "MATOS_EXTERNAL_TOOLCHAIN_ROOT",
+          "MATOS_CONTAINER_TOOLCHAIN_ROOT",
+          "MATOS_COMPUTE_TOOLCHAIN_CONTAINER_ROOT",
+          "MATOS_RUNTIME_EXECUTABLE_PATHS",
+          "MATOS_RUNTIME_LIBRARY_PATHS"
+        ]
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "atomistic_toolchain_catalog",
+      "timeout_ms": 30000,
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "xtb",
+                "crest",
+                "gromacs",
+                "openmm",
+                "plumed",
+                "abacus",
+                "cp2k",
+                "qe",
+                "wannier90",
+                "gw",
+                "qmcpack"
+              ]
+            },
+            "description": "Optional subset of tools to inspect. Defaults to all supported entries."
+          },
+          "toolchainRoot": {
+            "type": "string",
+            "description": "Optional container-visible toolchain root override. Defaults to MATOS_EXTERNAL_TOOLCHAIN_ROOT, MATOS_CONTAINER_TOOLCHAIN_ROOT, MATOS_COMPUTE_TOOLCHAIN_CONTAINER_ROOT, /opt/matos-tools, then the configured host toolchain root."
+          },
+          "probe": {
+            "type": "boolean",
+            "description": "Whether to run lightweight version/import probes. Defaults to true."
+          },
+          "timeoutSeconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 30,
+            "description": "Per-probe timeout. Defaults to 8 seconds."
+          }
+        },
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [
+        "xtb",
+        "crest",
+        "gromacs",
+        "openmm",
+        "plumed",
+        "abacus",
+        "cp2k",
+        "pw.x",
+        "wannier90.x",
+        "yambo",
+        "qmcpack"
+      ],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [],
+      "network_required": false,
+      "availability": "requires_matos_cli",
+      "notes": "Read-only discovery and probe of mounted atomistic solvers.",
+      "usage_hint": "Use `mcp__matos_asset__atomistic_toolchain_catalog` before selecting xTB, CREST, GROMACS, OpenMM, PLUMED, ABACUS, CP2K, Quantum ESPRESSO, Wannier90, GW/BSE, or QMCPACK runtime paths.",
+      "provenance": {
+        "asset_path": "matos-core/tools/atomistic-toolchain-catalog/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__atomistic_toolchain_catalog"
+      }
+    },
+    {
+      "id": "battery-electrochem-catalog",
+      "ref": "tool:battery-electrochem-catalog",
+      "name": "Battery Electrochemistry Catalog",
+      "version": "1.0.0",
+      "description": "Discover and probe the mounted battery/electrochemistry macro-scale modelling toolchain: PyBaMM, PyBOP, BPX, liionpack, and OpenPNM.",
+      "kind": "external-tool",
+      "family": "battery-electrochemistry",
+      "tags": [
+        "battery",
+        "electrochemistry",
+        "pybamm",
+        "pybop",
+        "bpx",
+        "liionpack",
+        "openpnm",
+        "continuum"
+      ],
+      "permissions": {
+        "shell": "disabled",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": []
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "battery_electrochem_catalog",
+      "timeout_ms": 30000,
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "toolchainRoot": {
+            "type": "string",
+            "description": "Optional toolchain root override. Defaults to MATOS_EXTERNAL_TOOLCHAIN_ROOT/MATOS_CONTAINER_TOOLCHAIN_ROOT, then /opt/matos-tools or the local host toolchain root."
+          },
+          "envName": {
+            "type": "string",
+            "default": "matos-battery-electrochem-py311",
+            "description": "Shared Conda environment name to inspect."
+          },
+          "probePackages": {
+            "type": "boolean",
+            "default": true,
+            "description": "Import PyBaMM, PyBOP, BPX, liionpack, and OpenPNM with the environment Python."
+          },
+          "includeExamples": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include recommended MatOS tool/workflow entrypoints and example tasks."
+          },
+          "timeoutSeconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 10,
+            "description": "Per-command probe timeout."
+          }
+        },
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [
+        "pybamm",
+        "pybop",
+        "bpx",
+        "liionpack",
+        "openpnm"
+      ],
+      "required_env": [],
+      "network_required": false,
+      "availability": "requires_matos_cli",
+      "notes": "Read-only discovery of mounted battery/electrochemistry packages.",
+      "usage_hint": "Discover the real MatOS battery/electrochemistry macro-scale modelling stack.",
+      "provenance": {
+        "asset_path": "matos-core/tools/battery-electrochem-catalog/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__battery_electrochem_catalog"
+      }
+    },
+    {
+      "id": "conda-environment-catalog",
+      "ref": "tool:conda-environment-catalog",
+      "name": "Conda Environment Catalog",
+      "version": "1.0.2",
+      "description": "List system and user-persistent Conda environments available to the current MatOS agent runtime.",
+      "kind": "external-tool",
+      "family": "runtime",
+      "tags": [
+        "runtime",
+        "conda",
+        "python",
+        "mlip",
+        "preflight",
+        "wannier90",
+        "gw",
+        "bse",
+        "yambo",
+        "scip",
+        "pyscipopt",
+        "optimization"
+      ],
+      "permissions": {
+        "shell": "disabled",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": []
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "conda_environment_catalog",
+      "timeout_ms": 30000,
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "includeSystem": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include shared read-only system environments under MATOS_SYSTEM_CONDA_ENVS_PATH or /opt/matos-tools/conda/envs."
+          },
+          "includeUser": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include current-user persistent environments under MATOS_USER_CONDA_ENVS_PATH or /workspace/caches/conda/envs."
+          },
+          "probePackages": {
+            "type": "boolean",
+            "default": false,
+            "description": "Run each environment's Python to probe selected imports and Torch CUDA metadata. Defaults to false so the catalog returns quickly; enable explicitly for deep preflight."
+          },
+          "includeGpu": {
+            "type": "boolean",
+            "default": false,
+            "description": "When package probing is enabled, include Torch CUDA availability/device metadata. Set true only when GPU package metadata is needed."
+          },
+          "imports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional import names to probe. Defaults to common scientific and MLIP packages."
+          },
+          "timeoutSeconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 12,
+            "description": "Per-environment Python probe timeout."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 80,
+            "default": 40,
+            "description": "Maximum number of environments to return."
+          },
+          "includeSourceRouting": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include the package-source route injected by the MatOS runtime for user environment creation."
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "full"
+            ],
+            "default": "summary",
+            "description": "Return a bounded routing summary by default. Use full only for operator diagnostics that need every configured recommendation and runtime hint."
+          }
+        },
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [
+        "conda"
+      ],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [],
+      "network_required": false,
+      "availability": "requires_matos_cli",
+      "notes": "Read-only Conda environment inventory.",
+      "usage_hint": "Use `mcp__matos_asset__conda_environment_catalog` before selecting Python for materials, MLIP, or local compute scripts.",
+      "provenance": {
+        "asset_path": "matos-core/tools/conda-environment-catalog/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__conda_environment_catalog"
+      }
+    },
+    {
+      "id": "conda-environment-manager",
+      "ref": "tool:conda-environment-manager",
+      "name": "Conda Environment Manager",
+      "version": "1.0.0",
+      "description": "Create current-user persistent Conda environments and install Python packages into those user-scoped environments only.",
+      "kind": "external-tool",
+      "family": "runtime",
+      "tags": [
+        "runtime",
+        "conda",
+        "python",
+        "environment",
+        "package-install",
+        "user-scope"
+      ],
+      "permissions": {
+        "shell": "enabled",
+        "network": "enabled",
+        "workspace": "read-write",
+        "secrets": [
+          "MATOS_USER_CONDA_ENVS_PATH",
+          "MATOS_PIP_INDEX_URL",
+          "MATOS_PIP_EXTRA_INDEX_URL",
+          "MATOS_CONDA_CHANNELS",
+          "MATOS_CONDA_CHANNEL_ALIAS",
+          "CONDA_EXE",
+          "MAMBA_EXE",
+          "MICROMAMBA_EXE"
+        ]
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "conda_environment_manager",
+      "timeout_ms": 600000,
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "create_env",
+              "pip_install",
+              "ensure_packages",
+              "probe"
+            ],
+            "description": "create_env creates a user-scoped Conda env. pip_install installs packages into an existing user env. ensure_packages creates the env if missing, installs requested packages, and probes imports. probe checks imports without changing the env."
+          },
+          "envName": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+            "description": "User environment name. The resolved prefix is always <userEnvRoot>/<envName>; absolute paths and ../ are rejected."
+          },
+          "pythonVersion": {
+            "type": "string",
+            "default": "3.11",
+            "description": "Python version for create_env or ensure_packages when the env does not exist."
+          },
+          "packages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "PyPI package specifiers to install, such as doped or doped==3.1.0. URLs, local paths, whitespace, and leading dash options are rejected."
+          },
+          "imports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Import names to probe after create/install, such as doped."
+          },
+          "upgrade": {
+            "type": "boolean",
+            "default": false,
+            "description": "Pass --upgrade to pip install."
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false,
+            "description": "Return the planned command and validated prefix without executing conda or pip."
+          },
+          "timeoutSeconds": {
+            "type": "number",
+            "minimum": 5,
+            "maximum": 1200,
+            "default": 600,
+            "description": "Command timeout for create/install operations."
+          }
+        },
+        "required": [
+          "action",
+          "envName"
+        ]
+      },
+      "builtin_tools": [],
+      "required_binaries": [
+        "conda",
+        "pip"
+      ],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [],
+      "network_required": true,
+      "availability": "requires_matos_cli",
+      "notes": "Creates current-user Conda environments; never writes shared/system environments.",
+      "usage_hint": "Use `mcp__matos_asset__conda_environment_manager` only after checking `mcp__matos_asset__conda_environment_catalog`.",
+      "provenance": {
+        "asset_path": "matos-core/tools/conda-environment-manager/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__conda_environment_manager"
+      }
+    },
+    {
+      "id": "deep-research-search",
+      "ref": "tool:deep-research-search",
+      "name": "Deep Research Scholarly Search",
+      "version": "0.1.0",
+      "description": "Provider-agnostic scholarly literature search (OpenAlex) for the deep-research agent. Works on any model provider, unlike the Anthropic-only WebSearch tool.",
+      "kind": "external-tool",
+      "family": "deep-research",
+      "tags": [
+        "research",
+        "deep-research",
+        "search",
+        "literature",
+        "evidence"
+      ],
+      "permissions": {
+        "shell": "disabled",
+        "network": "enabled",
+        "workspace": "read-only",
+        "secrets": []
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "deep_research_search",
+      "timeout_ms": 30000,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query (topic, keywords, or a specific question). Required."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 15,
+            "description": "Maximum number of sources to return (default 6)."
+          },
+          "from_year": {
+            "type": "integer",
+            "description": "Optional. Only include works published on/after this year."
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [],
+      "network_required": true,
+      "availability": "requires_matos_cli",
+      "notes": "OpenAlex scholarly search; provider-agnostic and keyless.",
+      "usage_hint": "Search scholarly literature (OpenAlex) for source-backed deep research.",
+      "provenance": {
+        "asset_path": "matos-deep-research/tools/deep-research-search/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__deep_research_search"
+      }
+    },
+    {
+      "id": "document-parse",
+      "ref": "tool:document-parse",
+      "name": "Document Parse (local files)",
+      "version": "0.1.0",
+      "description": "Extract plain text from a local document (PDF, DOCX, HTML, TXT/MD/CSV/JSON, and other office formats via LibreOffice). For remote URLs/PDFs use web_read instead.",
+      "kind": "external-tool",
+      "family": "document",
+      "tags": [
+        "document",
+        "pdf",
+        "parse",
+        "research"
+      ],
+      "permissions": {
+        "shell": "enabled",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": []
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "document_parse",
+      "timeout_ms": 150000,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute or workspace-relative path to a local document file. Required."
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 500,
+            "maximum": 200000,
+            "description": "Maximum characters of extracted text to return (default 60000)."
+          },
+          "start_char": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Character offset to start reading from. Use next_start_char from a truncated response to continue without losing text."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [
+        "pdftotext",
+        "libreoffice"
+      ],
+      "probed_python_packages": [
+        "fitz",
+        "pypdf",
+        "docx",
+        "bs4"
+      ],
+      "required_env": [],
+      "network_required": false,
+      "availability": "requires_matos_cli",
+      "notes": "PDF/DOCX/HTML text extraction with Python fallbacks.",
+      "usage_hint": "Extract text from a LOCAL document file (PDF, DOCX, HTML, TXT/MD/CSV/JSON, etc.).",
+      "provenance": {
+        "asset_path": "matos-core/tools/document-parse/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__document_parse"
+      }
+    },
+    {
+      "id": "files-core",
+      "ref": "tool:files-core",
+      "name": "Files Core",
+      "version": "1.0.0",
+      "description": "Read, search, and edit local workspace files.",
+      "kind": "builtin-pack",
+      "family": "builtin-pack",
+      "tags": [],
+      "permissions": {
+        "shell": "disabled",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": []
+      },
+      "call_method": "matos_asset MCP server (builtin pack)",
+      "executor": "matos-builtin-pack",
+      "entrypoint": "",
+      "mcp_name": null,
+      "timeout_ms": null,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "builtin_tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "NotebookEdit"
+      ],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [],
+      "network_required": false,
+      "availability": "matos_runtime_only",
+      "notes": "MatOS/DeepSeek Harness builtin workspace file tools.",
+      "usage_hint": "",
+      "provenance": {
+        "asset_path": "matos-core/tools/files-core/asset.json",
+        "asset_file": "asset.json",
+        "binding": ""
+      }
+    },
+    {
+      "id": "gemini-vision-analyze",
+      "ref": "tool:gemini-vision-analyze",
+      "name": "Gemini Vision Analyze",
+      "version": "1.0.0",
+      "description": "Analyze a local image with Gemini multimodal models through an OpenAI-compatible or native Gemini endpoint. Use when the current agent model cannot inspect images directly.",
+      "kind": "external-tool",
+      "family": "multimodal",
+      "tags": [
+        "vision",
+        "multimodal",
+        "image",
+        "vlm",
+        "gemini"
+      ],
+      "permissions": {
+        "shell": "disabled",
+        "network": "enabled",
+        "workspace": "read-only",
+        "secrets": [
+          "GEMINI_API_KEY",
+          "GEMINI_BASE_URL",
+          "GEMINI_MODEL",
+          "GEMINI_API_STYLE",
+          "MATOS_GEMINI_ENV_FILE"
+        ]
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "gemini_vision_analyze",
+      "timeout_ms": 90000,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "imagePath": {
+            "type": "string",
+            "description": "Local path to the image. Relative paths are resolved from the current workspace roots when possible."
+          },
+          "context": {
+            "type": "string",
+            "description": "Short task context for the vision model: what the image is, why it matters, and what the agent/user wants to know."
+          },
+          "question": {
+            "type": "string",
+            "description": "Specific visual question to answer. Defaults to a concise description and issue-focused inspection."
+          },
+          "model": {
+            "type": "string",
+            "description": "Optional Gemini model override. Defaults to GEMINI_MODEL or gemini-3.1-pro-preview."
+          },
+          "detail": {
+            "type": "string",
+            "enum": [
+              "brief",
+              "full"
+            ],
+            "description": "Level of visual detail requested. Defaults to full."
+          },
+          "maxOutputTokens": {
+            "type": "integer",
+            "minimum": 128,
+            "maximum": 4096,
+            "description": "Maximum output tokens. Defaults to 1200."
+          },
+          "thinkingBudget": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8192,
+            "description": "Google native thinking budget. Defaults to 0 so visual summaries do not spend the output budget on hidden thinking."
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Sampling temperature. Defaults to 0."
+          }
+        },
+        "required": [
+          "imagePath",
+          "context"
+        ],
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [
+        "GEMINI_API_KEY"
+      ],
+      "network_required": true,
+      "availability": "requires_matos_cli",
+      "notes": "Calls a Gemini-compatible vision endpoint; network access required.",
+      "usage_hint": "Analyze a local image with Gemini vision.",
+      "provenance": {
+        "asset_path": "matos-core/tools/gemini-vision-analyze/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__gemini_vision_analyze"
+      }
+    },
+    {
+      "id": "literature-access",
+      "ref": "tool:literature-access",
+      "name": "Literature Access",
+      "version": "0.1.0",
+      "description": "Credential-safe literature access planner and local library scanner for OA, Zotero/PDF libraries, institution proxy/VPN, and browser-login handoff workflows.",
+      "kind": "external-tool",
+      "family": "academic-research",
+      "tags": [
+        "literature",
+        "papers",
+        "pdf",
+        "zotero",
+        "research",
+        "access"
+      ],
+      "permissions": {
+        "shell": "disabled",
+        "network": "enabled",
+        "workspace": "read-only",
+        "secrets": [
+          "MATOS_LITERATURE_HTTP_PROXY",
+          "MATOS_LITERATURE_HTTPS_PROXY",
+          "MATOS_LITERATURE_EZPROXY_BASE_URL",
+          "MATOS_LITERATURE_BROWSER_PROFILE",
+          "MATOS_LITERATURE_COOKIE_JAR",
+          "MATOS_LITERATURE_LIBRARY_ROOTS",
+          "MATOS_LITERATURE_UNPAYWALL_EMAIL"
+        ]
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "literature_access",
+      "timeout_ms": 60000,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "status",
+              "plan",
+              "scan",
+              "resolve"
+            ],
+            "description": "status reports configured access channels; plan returns a safe acquisition plan; scan indexes local PDF/BibTeX files; resolve checks legal open-access locations for DOI inputs."
+          },
+          "query": {
+            "type": "string",
+            "description": "Research topic, title, author, or free-text query used to filter local files and build next actions."
+          },
+          "dois": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "DOIs to resolve through legal open-access metadata providers."
+          },
+          "libraryRoots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional container-visible local library roots to scan. Defaults to MATOS_LITERATURE_LIBRARY_ROOTS and common workspace literature folders."
+          },
+          "maxResults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "description": "Maximum local file or DOI records to return. Default 50."
+          },
+          "maxDepth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8,
+            "description": "Maximum directory depth for local library scan. Default 5."
+          }
+        },
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [],
+      "network_required": true,
+      "availability": "requires_matos_cli",
+      "notes": "Credential-safe local-library scan and legal open-access DOI resolution.",
+      "usage_hint": "Use this tool before or during literature work when a paper may require access.",
+      "provenance": {
+        "asset_path": "matos-core/tools/literature-access/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__literature_access"
+      }
+    },
+    {
+      "id": "local-toolchain-preflight",
+      "ref": "tool:local-toolchain-preflight",
+      "name": "Local Toolchain Preflight",
+      "version": "1.0.1",
+      "description": "Check whether the MatOS local/container scientific toolchain is mounted and usable before QE, Elk, Wannier90, GW/BSE, LAMMPS, VASP wrapper, ORCA, Thermo-Calc, or Conda execution.",
+      "kind": "external-tool",
+      "family": "local-toolchain",
+      "tags": [
+        "materials",
+        "toolchain",
+        "container",
+        "preflight",
+        "vasp",
+        "elk",
+        "hdf5",
+        "wannier90",
+        "gw",
+        "bse",
+        "yambo",
+        "orca",
+        "thermocalc",
+        "calphad"
+      ],
+      "permissions": {
+        "shell": "read-only",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": [
+          "MATOS_EXTERNAL_TOOLCHAIN_ROOT",
+          "MATOS_CONTAINER_TOOLCHAIN_ROOT",
+          "MATOS_COMPUTE_TOOLCHAIN_CONTAINER_ROOT",
+          "MATOS_VASP_RUNNER_URL",
+          "MATOS_MKL_ROOT",
+          "THERMOCALC_HOME",
+          "THERMO_CALC_HOME",
+          "THERMOCALC_ROOT",
+          "TC_HOME",
+          "TC_ROOT",
+          "THERMOCALC_LICENSE_FILE",
+          "TC_LICENSE_FILE",
+          "LM_LICENSE_FILE",
+          "RLM_LICENSE",
+          "LSHOST"
+        ]
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "local_toolchain_preflight",
+      "timeout_ms": 30000,
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "vasp",
+                "qe",
+                "lammps",
+                "elk",
+                "openfoam",
+                "conda",
+                "python",
+                "gpu",
+                "wannier90",
+                "gw",
+                "orca",
+                "thermocalc"
+              ]
+            },
+            "description": "Optional subset of local toolchain checks. Defaults to the standard core checks: vasp, qe, lammps, conda, and python. Pass elk, openfoam, gpu, wannier90, gw, orca, or thermocalc explicitly when needed."
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "vasp",
+                "qe",
+                "lammps",
+                "elk",
+                "openfoam",
+                "conda",
+                "python",
+                "gpu",
+                "wannier90",
+                "gw",
+                "orca",
+                "thermocalc"
+              ]
+            },
+            "description": "Compatibility alias for checks. Prefer checks in new calls."
+          },
+          "toolchainRoot": {
+            "type": "string",
+            "description": "Optional container-visible toolchain root override. Defaults to MATOS_EXTERNAL_TOOLCHAIN_ROOT, MATOS_CONTAINER_TOOLCHAIN_ROOT, MATOS_COMPUTE_TOOLCHAIN_CONTAINER_ROOT, then /opt/matos-tools."
+          },
+          "timeoutSeconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 30,
+            "description": "Per-command timeout for non-expensive help/version checks. Defaults to 20 seconds because QE, pw2wannier90.x, and ABINIT startup probes can take several seconds on shared storage."
+          },
+          "detail": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "full"
+            ],
+            "default": "full",
+            "description": "Return compact tool status only with summary, or include detailed diagnostics and runtime library paths with full. Defaults to full for backward compatibility."
+          },
+          "gpuIdleUtilizationMaxPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "default": 5,
+            "description": "GPU utilization percentage at or below this threshold is considered idle for local routing."
+          },
+          "gpuIdleMemoryUsedMiBMax": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1048576,
+            "default": 1024,
+            "description": "GPU memory used at or below this threshold is considered idle for local routing."
+          }
+        },
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [
+        "vasp_std",
+        "pw.x",
+        "lmp",
+        "blockMesh",
+        "icoFoam",
+        "elk",
+        "wannier90.x",
+        "orca",
+        "scip",
+        "conda",
+        "python3"
+      ],
+      "optional_binaries": [],
+      "probed_python_packages": [
+        "thermocalc",
+        "pyscipopt"
+      ],
+      "required_env": [],
+      "network_required": false,
+      "availability": "requires_matos_cli",
+      "notes": "Read-only preflight; never runs production calculations.",
+      "usage_hint": "Check the current MatOS local/container scientific toolchain before direct local execution of Quantum ESPRESSO, LAMMPS, OpenFOAM, VASP wrapper commands, Elk workflows, Wannier90 commands, GW/BSE commands, ORCA, Thermo-Calc, or the toolchain Conda environment. It can also inspect local/container GPU visibility and utilization with `checks:[\"gpu\"]`.",
+      "provenance": {
+        "asset_path": "matos-core/tools/local-toolchain-preflight/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__local_toolchain_preflight"
+      }
+    },
+    {
+      "id": "materials-runtime-inventory",
+      "ref": "tool:materials-runtime-inventory",
+      "name": "Materials Runtime Inventory",
+      "version": "1.0.0",
+      "description": "Summarize the currently mounted local materials runtime assets: toolchains, Conda environments, MLIP models, and QE pseudopotentials.",
+      "kind": "external-tool",
+      "family": "materials-runtime",
+      "tags": [
+        "materials",
+        "runtime",
+        "inventory",
+        "catalog",
+        "preflight"
+      ],
+      "permissions": {
+        "shell": "read-only",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": [
+          "MATOS_EXTERNAL_TOOLCHAIN_ROOT",
+          "MATOS_CONTAINER_TOOLCHAIN_ROOT",
+          "MATOS_COMPUTE_TOOLCHAIN_CONTAINER_ROOT",
+          "MATOS_QE_PSEUDO_ROOT"
+        ]
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "materials_runtime_inventory",
+      "timeout_ms": 45000,
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "includeToolchain": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include local QE/LAMMPS/VASP/Conda preflight status."
+          },
+          "includeConda": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include system and current-user Conda environment inventory."
+          },
+          "includeMlip": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include mounted MLIP model assets and runtime package status."
+          },
+          "includeQePseudo": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include QE SSSP pseudopotential mount summary."
+          },
+          "detail": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "full"
+            ],
+            "default": "summary",
+            "description": "Return compact inventory by default, or fuller nested catalog outputs for diagnosis."
+          },
+          "timeoutSeconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 60,
+            "default": 20,
+            "description": "Per-section timeout for delegated read-only catalog calls."
+          }
+        },
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [
+        "conda",
+        "python3"
+      ],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [],
+      "network_required": false,
+      "availability": "requires_matos_cli",
+      "notes": "Aggregates toolchain, Conda, MLIP and pseudopotential catalogs.",
+      "usage_hint": "Use `mcp__matos_asset__materials_runtime_inventory` first when a compute task depends on local mounted assets and you need to know what is available before choosing QE, LAMMPS, VASP, MLIP/MACE, Conda, or pseudopotentials.",
+      "provenance": {
+        "asset_path": "matos-core/tools/materials-runtime-inventory/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__materials_runtime_inventory"
+      }
+    },
+    {
+      "id": "mlip-model-catalog",
+      "ref": "tool:mlip-model-catalog",
+      "name": "MLIP Model Catalog",
+      "version": "1.0.1",
+      "description": "List locally mounted machine-learning interatomic-potential model assets and runtime package availability.",
+      "kind": "external-tool",
+      "family": "mlip",
+      "tags": [
+        "materials",
+        "mlip",
+        "models",
+        "catalog",
+        "preflight"
+      ],
+      "permissions": {
+        "shell": "disabled",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": []
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "mlip_model_catalog",
+      "timeout_ms": 20000,
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "family": {
+            "type": "string",
+            "description": "Optional model family filter, for example mace, chgnet, matgl, sevennet, orb, mattersim, fairchem, nequip, or torchsim."
+          },
+          "availableOnly": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, only return model assets with an existing local model file."
+          },
+          "includePackages": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include import/package availability for known MLIP runtimes."
+          },
+          "verifyChecksum": {
+            "type": "boolean",
+            "default": false,
+            "description": "Compute SHA-256 for local files and compare with manifest checksums. This may read large model files."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100,
+            "description": "Maximum number of model assets to return."
+          }
+        },
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [
+        "mace",
+        "chgnet",
+        "matgl",
+        "sevenn",
+        "orb_models",
+        "mattersim",
+        "fairchem",
+        "nequip",
+        "torch_sim"
+      ],
+      "required_env": [],
+      "network_required": false,
+      "availability": "requires_matos_cli",
+      "notes": "Read-only inventory of mounted machine-learning interatomic potentials.",
+      "usage_hint": "Use `mcp__matos_asset__mlip_model_catalog` before writing MACE, CHGNet, MatGL, SevenNet, ORB, MatterSim, FairChem, NequIP, Allegro, or TorchSim scripts.",
+      "provenance": {
+        "asset_path": "matos-core/tools/mlip-model-catalog/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__mlip_model_catalog"
+      }
+    },
+    {
+      "id": "mp-query",
+      "ref": "tool:mp-query",
+      "name": "Materials Project Query",
+      "version": "1.0.0",
+      "description": "Query the Materials Project database for crystal structures and computed properties by formula or materials-id.",
+      "kind": "external-tool",
+      "family": "mcp",
+      "tags": [
+        "materials",
+        "databases",
+        "network"
+      ],
+      "permissions": {
+        "shell": "disabled",
+        "network": "enabled",
+        "workspace": "read-only",
+        "secrets": [
+          "MP_API_KEY"
+        ]
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "mp_query",
+      "timeout_ms": 30000,
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "formula": {
+            "type": "string",
+            "description": "Chemical formula to search, e.g. 'Si' or 'SiO2'."
+          },
+          "material_id": {
+            "type": "string",
+            "description": "Materials Project id, e.g. 'mp-149'.",
+            "pattern": "^mp-[0-9]+$"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional list of property fields to return."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Max number of entries to return when searching by formula."
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "formula"
+            ]
+          },
+          {
+            "required": [
+              "material_id"
+            ]
+          }
+        ],
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [
+        "MP_API_KEY"
+      ],
+      "network_required": true,
+      "availability": "requires_matos_cli",
+      "notes": "Read-only Materials Project REST query; network access required.",
+      "usage_hint": "Look up crystal structures and computed properties from the Materials Project (https://materialsproject.org) database.",
+      "provenance": {
+        "asset_path": "matos-core/tools/mp-query/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__mp_query"
+      }
+    },
+    {
+      "id": "scip-toolchain-catalog",
+      "ref": "tool:scip-toolchain-catalog",
+      "name": "SCIP Toolchain Catalog",
+      "version": "1.0.0",
+      "description": "Discover and validate the mounted SCIP Optimization Suite toolchain for mixed-integer, nonlinear, and decomposition optimization tasks.",
+      "kind": "external-tool",
+      "family": "optimization",
+      "tags": [
+        "optimization",
+        "mathematical-optimization",
+        "mixed-integer-programming",
+        "minlp",
+        "mip",
+        "scip",
+        "soplex",
+        "gcg",
+        "pyscipopt",
+        "preflight"
+      ],
+      "permissions": {
+        "shell": "read-only",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": [
+          "MATOS_EXTERNAL_TOOLCHAIN_ROOT",
+          "MATOS_CONTAINER_TOOLCHAIN_ROOT",
+          "MATOS_COMPUTE_TOOLCHAIN_CONTAINER_ROOT",
+          "MATOS_RUNTIME_EXECUTABLE_PATHS",
+          "MATOS_RUNTIME_LIBRARY_PATHS"
+        ]
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "scip_toolchain_catalog",
+      "timeout_ms": 45000,
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "toolchainRoot": {
+            "type": "string",
+            "description": "Optional toolchain root override. Defaults to MATOS_EXTERNAL_TOOLCHAIN_ROOT, MATOS_CONTAINER_TOOLCHAIN_ROOT, MATOS_COMPUTE_TOOLCHAIN_CONTAINER_ROOT, /opt/matos-tools, then the configured host toolchain root."
+          },
+          "probe": {
+            "type": "boolean",
+            "description": "Whether to run lightweight version/import probes. Defaults to true."
+          },
+          "smoke": {
+            "type": "boolean",
+            "description": "Whether to solve tiny CLI and PySCIPOpt MILP smoke problems. Defaults to false."
+          },
+          "timeoutSeconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 60,
+            "description": "Per-probe timeout in seconds. Defaults to 10."
+          }
+        },
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [
+        "scip",
+        "soplex",
+        "gcg"
+      ],
+      "optional_binaries": [],
+      "probed_python_packages": [
+        "pyscipopt"
+      ],
+      "required_env": [],
+      "network_required": false,
+      "availability": "requires_matos_cli",
+      "notes": "Read-only SCIP/SoPlex/GCG discovery with optional smoke test.",
+      "usage_hint": "Use `mcp__matos_asset__scip_toolchain_catalog` before running SCIP, SoPlex, GCG, or PySCIPOpt. The tool returns container-visible paths under `/opt/matos-tools` and can run a small real optimization smoke test.",
+      "provenance": {
+        "asset_path": "matos-core/tools/scip-toolchain-catalog/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__scip_toolchain_catalog"
+      }
+    },
+    {
+      "id": "shell-core",
+      "ref": "tool:shell-core",
+      "name": "Shell Core",
+      "version": "1.0.0",
+      "description": "Execute shell commands inside the current runtime.",
+      "kind": "builtin-pack",
+      "family": "builtin-pack",
+      "tags": [],
+      "permissions": {
+        "shell": "disabled",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": []
+      },
+      "call_method": "matos_asset MCP server (builtin pack)",
+      "executor": "matos-builtin-pack",
+      "entrypoint": "",
+      "mcp_name": null,
+      "timeout_ms": null,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "builtin_tools": [
+        "Bash",
+        "PowerShell"
+      ],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [],
+      "network_required": false,
+      "availability": "matos_runtime_only",
+      "notes": "MatOS/DeepSeek Harness builtin shell tools.",
+      "usage_hint": "",
+      "provenance": {
+        "asset_path": "matos-core/tools/shell-core/asset.json",
+        "asset_file": "asset.json",
+        "binding": ""
+      }
+    },
+    {
+      "id": "web-read",
+      "ref": "tool:web-read",
+      "name": "Web/PDF Read",
+      "version": "0.2.0",
+      "description": "Read a public URL and return clean Markdown. Uses Jina Reader for rendered pages and PDFs, with bounded proxy/direct routes and an SSRF-guarded public HTML fallback. Provider-agnostic and keyless by default.",
+      "kind": "external-tool",
+      "family": "web-research",
+      "tags": [
+        "web",
+        "read",
+        "pdf",
+        "research",
+        "evidence"
+      ],
+      "permissions": {
+        "shell": "disabled",
+        "network": "enabled",
+        "workspace": "read-only",
+        "secrets": [
+          "JINA_API_KEYS",
+          "JINA_API_KEY",
+          "MATOS_WEB_READ_HTTP_PROXY",
+          "MATOS_WEB_READ_HTTPS_PROXY",
+          "MATOS_JINA_HTTP_PROXY",
+          "MATOS_JINA_HTTPS_PROXY",
+          "MATOS_WEB_PROXY_URL",
+          "MATOS_CONTAINER_PROXY_URL"
+        ]
+      },
+      "call_method": "matos assets run-tool",
+      "executor": "matos-python",
+      "entrypoint": "./tool.py",
+      "mcp_name": "web_read",
+      "timeout_ms": 60000,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Public http(s) URL to read (web page or PDF). Jina handles rendered pages/PDFs; public HTML has a bounded direct fallback."
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 500,
+            "maximum": 120000,
+            "description": "Maximum characters of Markdown to return (default 40000)."
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "builtin_tools": [],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [],
+      "network_required": true,
+      "availability": "requires_matos_cli",
+      "notes": "Public URL/PDF to Markdown via Jina Reader with bounded fallbacks.",
+      "usage_hint": "Read a public URL (web page or PDF) as clean Markdown. The tool uses Jina Reader first and automatically falls back to bounded public-HTML reads when Jina or its configured proxy route is unavailable.",
+      "provenance": {
+        "asset_path": "matos-core/tools/web-read/asset.json",
+        "asset_file": "asset.json",
+        "binding": "mcp__matos_asset__web_read"
+      }
+    },
+    {
+      "id": "web-research",
+      "ref": "tool:web-research",
+      "name": "Web Research",
+      "version": "1.0.0",
+      "description": "Builtin web search and fetch tools.",
+      "kind": "builtin-pack",
+      "family": "builtin-pack",
+      "tags": [],
+      "permissions": {
+        "shell": "disabled",
+        "network": "disabled",
+        "workspace": "read-only",
+        "secrets": []
+      },
+      "call_method": "matos_asset MCP server (builtin pack)",
+      "executor": "matos-builtin-pack",
+      "entrypoint": "",
+      "mcp_name": null,
+      "timeout_ms": null,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "builtin_tools": [
+        "WebSearch",
+        "WebFetch"
+      ],
+      "required_binaries": [],
+      "probed_binaries": [],
+      "optional_binaries": [],
+      "probed_python_packages": [],
+      "required_env": [],
+      "network_required": false,
+      "availability": "matos_runtime_only",
+      "notes": "MatOS/DeepSeek Harness builtin web search/fetch tools.",
+      "usage_hint": "",
+      "provenance": {
+        "asset_path": "matos-core/tools/web-research/asset.json",
+        "asset_file": "asset.json",
+        "binding": ""
+      }
+    }
+  ]
+}

@@ -39,3 +39,22 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## MatOS tool catalog
+
+StudyUI's optional MatOS integration reuses tool names, descriptions,
+permissions and JSON input schemas from the MatOS benchmark-minimal
+distribution. It does not bundle MatOS Python source code, and it delegates
+execution to a user-installed `matos` CLI.
+
+- Project: [DingyangLyu/MatOS](https://github.com/DingyangLyu/MatOS)
+- License: PolyForm Noncommercial License 1.0.0
+- License URL: <https://polyformproject.org/licenses/noncommercial/1.0.0/>
+- Required Notice: Copyright 2026 The MatOS Authors (https://github.com/DingyangLyu/MatOS)
+- Source snapshot: commit `a50fd7613346a59f13e87a8bc368d0cec048585d` (2026-10-25)
+- Adapted catalog: `src/materials_quality/matos/catalog_data.json`
+- Generator: `scripts/build_matos_catalog.py`
+- Integration note: `../docs/matos-integration.md`
+
+The full PolyForm Noncommercial 1.0.0 text is available at the license URL
+above and in the MatOS repository's `LICENSE` file.

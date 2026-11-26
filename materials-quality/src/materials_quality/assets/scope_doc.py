@@ -13,6 +13,10 @@ def render_scope_and_limitations_markdown(graph: AssetGraph | None = None) -> st
     workflows = sorted(asset_graph.by_type("W"), key=lambda item: item.id)
     roles = sorted(asset_graph.by_type("R"), key=lambda item: item.id)
     examples = sorted(asset_graph.by_type("D"), key=lambda item: item.id)
+    matos_tools = sorted(
+        (node for node in asset_graph.by_type("T") if node.id.startswith("T:matos.")),
+        key=lambda item: item.id,
+    )
 
     lines: list[str] = [
         "# StudyUI 适用范围、材料典型任务与技术限制说明",
@@ -77,7 +81,32 @@ def render_scope_and_limitations_markdown(graph: AssetGraph | None = None) -> st
     lines.extend(
         [
             "",
-            "## 四、系统级技术限制与评测边界声明",
+            "## 四、MatOS 外部工具接入（可选）",
+            "",
+            f"StudyUI 以只读目录形式登记 MatOS 的 {len(matos_tools)} 个工具资产"
+            f"（{sum(1 for node in matos_tools if node.metadata.get('executable'))} 个外部工具 + "
+            f"{sum(1 for node in matos_tools if not node.metadata.get('executable'))} 个 builtin pack）。"
+            "外部工具仅通过用户安装的 `matos assets run-tool` 执行；缺少 `matos` CLI 时"
+            "返回 `unavailable` 与安装提示，不会伪造成功。builtin pack 只能在 MatOS asset "
+            "MCP server 内运行，StudyUI 仅登记其元数据。",
+            "",
+            "| 工具资产 ID | 名称 | 调用方式 | 可用性策略 |",
+            "|---|---|---|---|",
+        ]
+    )
+    for tool in matos_tools:
+        policy = (
+            "`requires_matos_cli`"
+            if tool.metadata.get("executable")
+            else "`matos_runtime_only`（builtin pack）"
+        )
+        title = tool.title.replace("|", "\\|")
+        lines.append(f"| `{tool.id}` | {title} | `{tool.metadata.get('call_method', '')}` | {policy} |")
+    lines.append("")
+
+    lines.extend(
+        [
+            "## 五、系统级技术限制与评测边界声明",
             "",
             "1. **确定性计算与模型推理分离**：数值计算由本地已登记科学节点执行"
             "；大语言模型仅负责任务理解、参数澄清、建流编排与报告综合，不替代精确数值"

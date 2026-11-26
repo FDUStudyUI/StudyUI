@@ -444,19 +444,6 @@ export const inject = ['webServer', 'connection'];
 
 export function apply(ctx) {
   ctx.effect(() => ctx.webServer.tapIndex(rewriteIndex), 'studyui-brand: index');
-  ctx.effect(
-    () =>
-      ctx.webServer.register({
-        kind: 'exact',
-        path: '/studyui/workbench',
-        handler: (req, res) => {
-          if (!admit(ctx, req, res)) return;
-          res.writeHead(302, { location: BACKEND });
-          res.end();
-        },
-      }),
-    'studyui-workbench: material forms and governance',
-  );
   const routes = [
     {
       path: MANIFEST_PATH,
