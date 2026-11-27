@@ -13,7 +13,20 @@ from pathlib import Path
 
 MAX_FILE_BYTES = 25 * 1024 * 1024
 MAX_EXPANDED_BYTES = 150 * 1024 * 1024
-SUPPORTED = {".csv", ".tsv", ".txt", ".dat", ".xy", ".xye", ".ras", ".lis", ".xlsx", ".xlsm"}
+SUPPORTED = {
+    ".csv",
+    ".tsv",
+    ".txt",
+    ".md",
+    ".markdown",
+    ".dat",
+    ".xy",
+    ".xye",
+    ".ras",
+    ".lis",
+    ".xlsx",
+    ".xlsm",
+}
 NUMBER = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
 LIS_NUMBER = re.compile(r"^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:[eE][+-]?\d+)?$")
 READ_DENIAL = re.compile(
@@ -76,7 +89,9 @@ def authorized_file(path, user_text):
             "仅提供文件名不会定位到会话上传目录。"
         )
     if resolved.suffix.casefold() not in SUPPORTED:
-        raise ValueError("仅支持本地 CSV、TSV、TXT、DAT、XY、XYE、RAS、LIS 和 Excel 数据文件。")
+        raise ValueError(
+            "仅支持本地 CSV、TSV、TXT、Markdown、DAT、XY、XYE、RAS、LIS 和 Excel 数据/证据文件。"
+        )
     if resolved.stat().st_size > MAX_FILE_BYTES:
         raise ValueError("文件超过结构检查的 25 MB 上限。")
     return resolved

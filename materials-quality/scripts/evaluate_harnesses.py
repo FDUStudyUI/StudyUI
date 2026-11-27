@@ -37,13 +37,16 @@ from __future__ import annotations
 import argparse
 import contextlib
 import csv
+import io
 import json
 import os
 import platform
 import re
+import shlex
 import shutil
 import subprocess
 import sys
+import tarfile
 import time
 from collections import Counter
 from dataclasses import asdict, dataclass, field
@@ -85,6 +88,19 @@ DEFAULT_DSH_BIN = (
 NODE = os.environ.get("NODE_BIN") or shutil.which("node") or ""
 CLAUDE = os.environ.get("CLAUDE_BIN") or shutil.which("claude") or ""
 CODEX = os.environ.get("CODEX_BIN") or shutil.which("codex") or ""
+SSH = os.environ.get("STUDYUI_MATOS_REMOTE_SSH") or shutil.which("ssh") or ""
+SCP = os.environ.get("STUDYUI_MATOS_REMOTE_SCP") or shutil.which("scp") or ""
+MATOS_HOST = os.environ.get("STUDYUI_MATOS_REMOTE_HOST", "matos-server").strip()
+MATOS_REMOTE_BIN = os.environ.get("STUDYUI_MATOS_REMOTE_BIN", "/opt/MatOS/bin/matos").strip()
+MATOS_REMOTE_ROOT = os.environ.get(
+    "STUDYUI_MATOS_REMOTE_ROOT", "/root/yield-test/runs/harness-hard"
+).strip()
+MATOS_TOOLCHAIN = (
+    "/root/.local/share/matos/toolchain/bun-v1.3.14/bin:"
+    "/root/.local/share/matos/toolchain/node-v24.18.0-linux-x64/bin"
+)
+MATOS_ENV_FILE = "/root/.config/matos/matos.env"
+MATOS_REMOTE_MODEL = "deepseek-v4.1-flash"
 
 HARNESS_ORDER = ["studyui", "native_dsh", "claude_code", "codex", "matos"]
 PRIMARY_HARNESSES = ["studyui", "native_dsh", "claude_code", "codex"]
@@ -248,6 +264,48 @@ class HarnessInfo:
     extras: dict = field(default_factory=dict)
 
 
+def matos_remote_status(timeout: int = 15) -> dict:
+    """Check the recorded MatOS server read-only; never reads or prints credentials."""
+    if not SSH:
+        return {"available": False, "reason": "ssh not found"}
+    if not MATOS_HOST:
+        return {"available": False, "reason": "STUDYUI_MATOS_REMOTE_HOST is empty"}
+    command = f"test -x {shlex.quote(MATOS_REMOTE_BIN)} && printf ready"
+    try:
+        proc = subprocess.run(
+            [
+                SSH,
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                f"ConnectTimeout={timeout}",
+                MATOS_HOST,
+                command,
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout + 10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"available": False, "reason": f"ssh failed: {type(exc).__name__}: {exc}"}
+    if proc.returncode == 0 and "ready" in proc.stdout:
+        return {
+            "available": True,
+            "host": MATOS_HOST,
+            "bin": MATOS_REMOTE_BIN,
+            "model": MATOS_REMOTE_MODEL,
+            "reason": "",
+        }
+    return {
+        "available": False,
+        "host": MATOS_HOST,
+        "reason": tail_text((proc.stderr or proc.stdout or f"exit {proc.returncode}").strip(), 500),
+    }
+
+
 def detect_harnesses(key: str, studyui_source: Path) -> list[HarnessInfo]:
     infos: list[HarnessInfo] = []
     source_ok = (studyui_source / "materials_quality").is_dir()
@@ -317,22 +375,28 @@ def detect_harnesses(key: str, studyui_source: Path) -> list[HarnessInfo]:
     )
     matos_repo = os.environ.get("MATOS_REPO", "").strip()
     matos_bin = shutil.which("matos") or ""
+    matos_status = matos_remote_status()
     infos.append(
         HarnessInfo(
             name="matos",
-            available=False,
+            available=bool(matos_status.get("available")),
             detail=(
-                "MatOS source was cloned read-only for methodology only and was not "
-                "installed or executed."
+                "Remote MatOS CLI over SSH: research-scientist role, full context, "
+                f"model {MATOS_REMOTE_MODEL} (server route)"
+                if matos_status.get("available")
+                else "MatOS remote server is not reachable or the CLI is missing."
             ),
-            reason=(
-                "MatOS is not installed/authenticated on this machine; running it would require "
-                "scripts/matos-setup.sh (bun bundle), its DSH runtime, public MatTools/SciAgentGym/"
-                "ResearchClawBench data, and its own credentials. The task forbids installing/"
-                "executing the cloned MatOS code."
+            reason=str(matos_status.get("reason") or ""),
+            command=(
+                f"ssh {MATOS_HOST} {MATOS_REMOTE_BIN} run --role research-scientist "
+                f"--context-profile full --model {MATOS_REMOTE_MODEL}"
             ),
-            command=matos_bin or (matos_repo or "not installed"),
-            extras={"repo": matos_repo, "bin": matos_bin},
+            model=MATOS_REMOTE_MODEL,
+            extras={
+                "repo": matos_repo,
+                "bin": matos_bin,
+                "remote": matos_status,
+            },
         )
     )
     return infos
@@ -342,8 +406,9 @@ def detect_harnesses(key: str, studyui_source: Path) -> list[HarnessInfo]:
 # Tasks, workspaces and deterministic scoring
 
 
-def load_tasks(selected: list[str] | None = None) -> list[dict]:
-    payload = json.loads(TASKS_FILE.read_text(encoding="utf-8"))
+def load_tasks(selected: list[str] | None = None, tasks_file: Path | None = None) -> list[dict]:
+    path = Path(tasks_file).resolve() if tasks_file else TASKS_FILE
+    payload = json.loads(path.read_text(encoding="utf-8"))
     tasks = payload["tasks"]
     if selected:
         wanted = set(selected)
@@ -363,7 +428,8 @@ def render_prompt(task: dict, workspace: Path) -> str:
 
 
 def prepare_workspace(task: dict, workspace: Path) -> None:
-    source = FIXTURES / "fixtures" / task["fixture"]
+    fixture_root = str(task.get("fixture_root") or "fixtures")
+    source = FIXTURES / fixture_root / task["fixture"]
     if not source.is_dir():
         raise SystemExit(f"fixture directory missing: {source}")
     if workspace.exists():
@@ -406,9 +472,83 @@ def numeric_value(value) -> float | None:
     return None
 
 
-def run_check(check: dict, answer: dict) -> tuple[bool, str]:
+def snapshot_workspace(workspace: Path) -> dict[str, tuple[int, int]]:
+    """Record input files so only new or changed deliverables become artifacts."""
+    snapshot: dict[str, tuple[int, int]] = {}
+    if not workspace.is_dir():
+        return snapshot
+    for path in workspace.rglob("*"):
+        if path.is_file() and not path.is_symlink():
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            snapshot[str(path.relative_to(workspace))] = (stat.st_size, stat.st_mtime_ns)
+    return snapshot
+
+
+def collect_workspace_artifacts(
+    workspace: Path,
+    before: dict[str, tuple[int, int]] | None = None,
+    extra: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Collect bounded text from newly created/changed deliverable files.
+
+    Input fixtures are excluded by the before-snapshot.  A model may still
+    overwrite an input; changed files with a report/results name are included.
+    """
+    artifacts = dict(extra or {})
+    before = before or {}
+    if not workspace.is_dir():
+        return artifacts
+    for path in workspace.rglob("*"):
+        if not path.is_file() or path.is_symlink():
+            continue
+        relative_parts = path.relative_to(workspace).parts
+        if any(part.startswith(".") or part == "node_modules" for part in relative_parts):
+            continue
+        suffix = path.suffix.casefold()
+        if suffix not in {".md", ".markdown", ".json", ".txt", ".html"}:
+            continue
+        relative = str(path.relative_to(workspace))
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        changed = before.get(relative) != (stat.st_size, stat.st_mtime_ns)
+        deliverable_name = bool(
+            re.search(r"(report|result|summary|artifact|deliverable)", path.name, re.IGNORECASE)
+        )
+        if not changed and not deliverable_name:
+            continue
+        try:
+            content = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        key = relative
+        if key in artifacts:
+            key = f"{relative}#{len(artifacts)}"
+        artifacts[key] = content[:24000]
+    return artifacts
+
+
+def run_check(check: dict, answer: dict, artifacts: dict[str, str] | None = None) -> tuple[bool, str]:
     kind = check.get("type")
     key = check.get("key", "")
+    artifacts = artifacts or {}
+    if kind == "artifact":
+        name_pattern = str(check.get("name_pattern") or check.get("name") or "report")
+        matches = [
+            name for name in artifacts if re.search(name_pattern, name, re.IGNORECASE)
+        ]
+        label = str(check.get("label") or name_pattern)
+        if not matches:
+            return False, f"artifact_missing:{label}"
+        content = "\n".join(artifacts[name] for name in sorted(matches))
+        pattern = check.get("content_pattern") or check.get("pattern")
+        if pattern and not re.search(str(pattern), content, re.IGNORECASE):
+            return False, f"artifact_content:{label}"
+        return True, ""
     if key not in answer:
         return False, f"missing:{key}"
     value = answer[key]
@@ -434,12 +574,24 @@ def run_check(check: dict, answer: dict) -> tuple[bool, str]:
         else:
             passed = text.casefold() == str(check.get("equals", "")).casefold()
         return passed, "" if passed else f"wrong:{key}"
+    if kind == "boolean":
+        if isinstance(value, bool):
+            actual = value
+        elif isinstance(value, str) and value.strip().casefold() in {"true", "false"}:
+            actual = value.strip().casefold() == "true"
+        else:
+            return False, f"not_boolean:{key}"
+        expected = bool(check.get("expected", True))
+        return actual == expected, "" if actual == expected else f"wrong:{key}"
     return False, f"unknown_check_type:{kind}"
 
 
 def score_run(task: dict, result: dict) -> dict:
     final_text = str(result.get("final_text") or "")
     answer = extract_answer(final_text)
+    artifacts = result.get("artifact_texts") or {}
+    if not isinstance(artifacts, dict):
+        artifacts = {}
     tool_calls = result.get("tool_calls") or []
     tool_text = str(result.get("tool_text") or "")
     transcript = tool_text + "\n" + final_text
@@ -459,7 +611,7 @@ def score_run(task: dict, result: dict) -> dict:
 
     check_results = []
     for check in task.get("checks") or []:
-        passed, failure = run_check(check, answer)
+        passed, failure = run_check(check, answer, artifacts)
         check_results.append({"check": check, "passed": passed, "failure": failure})
         if failure:
             failures.append(failure)
@@ -470,6 +622,15 @@ def score_run(task: dict, result: dict) -> dict:
         evidence_results.append({"pattern": pattern, "passed": passed})
         if not passed:
             failures.append(f"evidence:{pattern}")
+
+    artifact_results = []
+    for artifact_check in task.get("artifacts") or []:
+        passed, failure = run_check({**artifact_check, "type": "artifact"}, answer, artifacts)
+        artifact_results.append(
+            {"check": artifact_check, "passed": passed, "failure": failure}
+        )
+        if failure:
+            failures.append(failure)
 
     tool_patterns = task.get("tool_evidence") or []
     tool_hits = [bool(re.search(pattern, transcript, re.IGNORECASE)) for pattern in tool_patterns]
@@ -492,8 +653,22 @@ def score_run(task: dict, result: dict) -> dict:
         if evidence_results
         else 1.0
     )
-    all_checks = all(item["passed"] for item in check_results) and all(
-        item["passed"] for item in evidence_results
+    artifact_score = (
+        sum(1 for item in artifact_results if item["passed"]) / len(artifact_results)
+        if artifact_results
+        else 1.0
+    )
+    deterministic = [*check_results, *artifact_results]
+    deterministic_total = len(deterministic) + len(evidence_results)
+    deterministic_passed = (
+        sum(1 for item in deterministic if item["passed"])
+        + sum(1 for item in evidence_results if item["passed"])
+    )
+    partial_score = deterministic_passed / deterministic_total if deterministic_total else 0.0
+    all_checks = (
+        all(item["passed"] for item in check_results)
+        and all(item["passed"] for item in evidence_results)
+        and all(item["passed"] for item in artifact_results)
     )
     success = bool(
         all_checks
@@ -504,13 +679,17 @@ def score_run(task: dict, result: dict) -> dict:
     return {
         "task_success": success,
         "task_success_value": 1.0 if success else 0.0,
+        "partial_score": round(partial_score, 4),
         "numerical_correctness": round(numerical, 4),
         "evidence_correctness": round(evidence_score, 4),
+        "artifact_correctness": round(artifact_score, 4),
         "tool_use_correct": tool_evidence_ok,
         "tool_use_value": 1.0 if tool_evidence_ok else 0.0,
         "tool_error_count": tool_errors,
         "checks": check_results,
         "evidence": evidence_results,
+        "artifacts": artifact_results,
+        "artifact_names": sorted(artifacts),
         "tool_evidence_patterns": tool_patterns,
         "tool_evidence_hits": tool_hits,
         "answer": answer,
@@ -529,7 +708,7 @@ def tail_text(text: str, limit: int = 6000) -> str:
 
 
 def parse_json_lines(text: str):
-    for line in str(text or "").splitlines():
+    for line in str(text or "").split("\n"):
         line = line.strip()
         if not line:
             continue
@@ -628,6 +807,24 @@ def run_studyui(request: dict, result_dir: Path, key: str) -> dict:
     final_text = str(response.get("message") or "")
     tool_text = json.dumps(tool_calls, ensure_ascii=False) + "\n" + final_text
     performance = response.get("performance") or {}
+    artifact_texts: dict[str, str] = {}
+    for item in response.get("artifacts") or []:
+        if not isinstance(item, dict):
+            continue
+        row = {}
+        if item.get("id"):
+            with contextlib.suppress(Exception):
+                row = agent.store.get_artifact(str(item["id"]), session_id) or {}
+        raw_path = item.get("path") or row.get("path")
+        name = str(item.get("name") or row.get("name") or Path(str(raw_path or "")).name or "artifact")
+        if not raw_path:
+            continue
+        try:
+            artifact_texts[name] = Path(str(raw_path)).read_text(
+                encoding="utf-8", errors="replace"
+            )[:24000]
+        except OSError:
+            continue
     (result_dir / "studyui-result.json").write_text(
         json.dumps(response, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
     )
@@ -641,6 +838,7 @@ def run_studyui(request: dict, result_dir: Path, key: str) -> dict:
         "final_text": final_text,
         "tool_calls": tool_calls,
         "tool_text": tool_text,
+        "artifact_texts": artifact_texts,
         "turns": int(performance.get("request_count") or 0),
         "model_requests": int(performance.get("request_count") or 0),
         "usage": response.get("token_usage"),
@@ -1008,11 +1206,274 @@ def run_codex(request: dict, result_dir: Path, key: str) -> dict:
     }
 
 
-def run_matos(request: dict, result_dir: Path, key: str) -> dict:
-    raise RuntimeError(
-        "MatOS is not installed or authenticated on this machine; the benchmark never executes "
-        "the read-only MatOS source clone."
+def _scp_binary() -> str:
+    if SCP:
+        return SCP
+    if SSH:
+        candidate = Path(SSH).with_name("scp.exe" if os.name == "nt" else "scp")
+        if candidate.is_file():
+            return str(candidate)
+    return ""
+
+
+def _matos_remote(
+    remote_command: str, *, timeout: float, input_text: str | None = None
+) -> subprocess.CompletedProcess:
+    if not SSH:
+        raise RuntimeError("ssh not found")
+    return subprocess.run(
+        [
+            SSH,
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=15",
+            MATOS_HOST,
+            remote_command,
+        ],
+        input=input_text,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+        check=False,
     )
+
+
+def _parse_matos_sessions(session_root: Path) -> tuple[list[dict], int, int]:
+    started: dict[str, dict] = {}
+    calls: list[dict] = []
+    turns = 0
+    errors = 0
+    if not session_root.is_dir():
+        return calls, turns, errors
+    for path in sorted(session_root.glob("*.jsonl")):
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").split("\n")
+        except OSError:
+            continue
+        for line in lines:
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            kind = event.get("type")
+            data = event.get("data") if isinstance(event.get("data"), dict) else {}
+            if kind == "matos.turn.started":
+                turns += 1
+            elif kind == "matos.tool.call.started":
+                call_id = str(data.get("toolUseId") or event.get("id") or "")
+                started[call_id] = {
+                    "name": data.get("toolName") or data.get("dshToolName") or "tool",
+                    "args": data.get("input") or {},
+                    "summary": "",
+                    "ok": None,
+                }
+            elif kind == "matos.tool.call.completed":
+                call_id = str(data.get("toolUseId") or "")
+                call = started.get(call_id)
+                if call is None:
+                    call = {
+                        "name": data.get("toolName") or data.get("dshToolName") or "tool",
+                        "args": {},
+                        "summary": "",
+                        "ok": None,
+                    }
+                call["ok"] = not bool(data.get("isError"))
+                call["summary"] = str(data.get("resultPreview") or "")[:2000]
+                if call["ok"] is False:
+                    errors += 1
+                calls.append(call)
+    for call in started.values():
+        if call not in calls:
+            calls.append(call)
+    return calls, turns, errors
+
+
+def run_matos(request: dict, result_dir: Path, key: str) -> dict:
+    """Run the existing remote MatOS instance, read-only with respect to its config.
+
+    The local benchmark uploads only the synthetic task workspace, runs the
+    remote CLI with its already-configured model route, and downloads the run
+    output for local deterministic scoring.  It never copies or prints the
+    server's environment file.
+    """
+    if not SSH:
+        raise RuntimeError("ssh not found; cannot reach the recorded MatOS server")
+    scp = _scp_binary()
+    if not scp:
+        raise RuntimeError("scp not found; cannot upload the synthetic workspace")
+    workspace = Path(request["workspace"]).resolve()
+    run_id = str(request.get("run_id") or "hard")
+    task_id = str(request.get("task_id") or "task")
+    repeat = int(request.get("repeat") or 1)
+    remote_workspace = f"{MATOS_REMOTE_ROOT}/{run_id}/{task_id}/rep-{repeat}"
+    timeout_s = int(request.get("timeout_s") or 900)
+    started = time.perf_counter()
+    _matos_remote(f"mkdir -p {shlex.quote(remote_workspace)}", timeout=60)
+    upload = subprocess.run(
+        [
+            scp,
+            "-q",
+            "-r",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=15",
+            f"{workspace.name}/.",
+            f"{MATOS_HOST}:{remote_workspace}/",
+        ],
+        cwd=str(workspace.parent),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=180,
+        check=False,
+    )
+    if upload.returncode != 0:
+        raise RuntimeError(f"MatOS workspace upload failed: {tail_text(upload.stderr, 800)}")
+    prompt = str(request["prompt"]).replace(str(workspace), remote_workspace)
+    if isinstance(request.get("prompt_template"), str):
+        template = request["prompt_template"].replace("{workspace}", remote_workspace)
+        prompt = re.sub(
+            r"\{file:([^}]+)\}",
+            lambda match: f"{remote_workspace}/{match.group(1)}",
+            template,
+        )
+    prompt = prompt.replace(str(workspace).replace("\\", "/"), remote_workspace)
+    prompt_upload = _matos_remote(
+        f"cat > {shlex.quote(remote_workspace + '/prompt.txt')}", timeout=60, input_text=prompt
+    )
+    if prompt_upload.returncode != 0:
+        raise RuntimeError(f"MatOS prompt upload failed: {tail_text(prompt_upload.stderr, 800)}")
+    remote_command = (
+        f"export PATH={shlex.quote(MATOS_TOOLCHAIN)}:$PATH; "
+        f"set -a; . {shlex.quote(MATOS_ENV_FILE)} 2>/dev/null; set +a; "
+        f"export MATOS_DSH_MODEL={shlex.quote(MATOS_REMOTE_MODEL)} MATOS_DSH_EFFORT=high "
+        f"MATOS_DSH_PROFILE=matos-yield MATOS_DSH_HOME=/root/yield-test/dsh-home "
+        f"MATOS_RUN_STREAM_STDOUT=1 MATOS_RUN_STREAM_TOOL_EVENTS=1; "
+        f"cd {shlex.quote(remote_workspace)} && "
+        f"timeout {timeout_s + 60} {shlex.quote(MATOS_REMOTE_BIN)} run "
+        f"--role research-scientist --context-profile full --max-turns 30 "
+        f"--model {shlex.quote(MATOS_REMOTE_MODEL)} \"$(cat prompt.txt)\""
+    )
+    timed_out = False
+    try:
+        proc = _matos_remote(remote_command, timeout=timeout_s + 300)
+        stdout, stderr, code = proc.stdout, proc.stderr, proc.returncode
+    except subprocess.TimeoutExpired as exc:
+        timed_out = True
+        stdout = exc.stdout if isinstance(exc.stdout, str) else (exc.stdout or b"").decode("utf-8", "replace")
+        stderr = exc.stderr if isinstance(exc.stderr, str) else (exc.stderr or b"").decode("utf-8", "replace")
+        code = 124
+    latency = round(time.perf_counter() - started, 2)
+    (result_dir / "matos-stdout.log").write_text(stdout or "", encoding="utf-8")
+    (result_dir / "matos-stderr.log").write_text(stderr or "", encoding="utf-8")
+    local_remote_workspace = result_dir / "matos-workspace"
+    if local_remote_workspace.exists():
+        shutil.rmtree(local_remote_workspace)
+    local_remote_workspace.mkdir(parents=True, exist_ok=True)
+    # Download the run deliverables and scripts, but never the entire .matos
+    # evolution/session tree (it can be large and is not needed for scoring).
+    archive = subprocess.run(
+        [
+            SSH,
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=15",
+            MATOS_HOST,
+            f"cd {shlex.quote(remote_workspace)} && "
+            "tar -czf - --exclude=.matos --exclude=node_modules .",
+        ],
+        capture_output=True,
+        timeout=300,
+        check=False,
+    )
+    download_ok = archive.returncode == 0 and bool(archive.stdout)
+    if download_ok:
+        try:
+            with tarfile.open(fileobj=io.BytesIO(archive.stdout), mode="r:gz") as bundle:
+                for member in bundle.getmembers():
+                    name = Path(member.name)
+                    if name.is_absolute() or ".." in name.parts:
+                        continue
+                    if name.parts and name.parts[0] in {".matos", "node_modules"}:
+                        continue
+                    if member.issym() or member.islnk():
+                        continue
+                    with contextlib.suppress(OSError, tarfile.TarError):
+                        bundle.extract(member, local_remote_workspace)
+        except (tarfile.TarError, OSError):
+            download_ok = False
+    # Session event JSONL is small and is the authoritative tool-call source.
+    sessions_local = local_remote_workspace / ".matos" / "sessions"
+    sessions_local.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [
+            scp,
+            "-q",
+            "-r",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=15",
+            f"{MATOS_HOST}:{remote_workspace}/.matos/sessions/.",
+            str(sessions_local),
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        check=False,
+    )
+    tool_calls, turns, tool_errors = _parse_matos_sessions(sessions_local)
+    final_text = str(stdout or "")
+    answer = extract_answer(final_text)
+    if not answer:
+        for candidate in (
+            local_remote_workspace / "submission" / "final_answer.txt",
+            local_remote_workspace / "final_answer.txt",
+            local_remote_workspace / "answer.txt",
+            local_remote_workspace / "result.txt",
+        ):
+            if candidate.is_file():
+                final_text = candidate.read_text(encoding="utf-8", errors="replace")
+                answer = extract_answer(final_text)
+                if answer:
+                    break
+    if not answer and (local_remote_workspace / "report.md").is_file():
+        final_text = (local_remote_workspace / "report.md").read_text(
+            encoding="utf-8", errors="replace"
+        )
+        answer = extract_answer(final_text)
+    final_text = tail_text(final_text, 24000)
+    tool_text = json.dumps(tool_calls, ensure_ascii=False) + "\n" + final_text
+    status = "ok" if (code == 0 and answer) else ("timeout" if timed_out else "error")
+    before = snapshot_workspace(workspace)
+    artifact_texts = collect_workspace_artifacts(local_remote_workspace, before)
+    return {
+        "harness": "matos",
+        "task_id": task_id,
+        "status": status,
+        "error": "" if status == "ok" else tail_text(stderr or stdout or f"exit code {code}", 4000),
+        "exit_code": code,
+        "final_text": final_text,
+        "tool_calls": tool_calls,
+        "tool_text": tool_text,
+        "artifact_texts": artifact_texts,
+        "turns": turns,
+        "model_requests": len(tool_calls),
+        "tool_error_count": tool_errors,
+        "usage": None,
+        "latency_s": latency,
+        "model": MATOS_REMOTE_MODEL,
+        "remote_workspace": remote_workspace,
+        "download_ok": download_ok,
+    }
 
 
 RUNNERS = {
@@ -1100,11 +1561,17 @@ def aggregate(runs: list[dict]) -> dict:
         return {
             "n": count,
             "success_rate": round(sum(run["score"]["task_success_value"] for run in group) / count, 4),
+            "partial_score": round(
+                sum(run["score"].get("partial_score", 0.0) for run in group) / count, 4
+            ),
             "numerical_correctness": round(
                 sum(run["score"]["numerical_correctness"] for run in group) / count, 4
             ),
             "evidence_correctness": round(
                 sum(run["score"]["evidence_correctness"] for run in group) / count, 4
+            ),
+            "artifact_correctness": round(
+                sum(run["score"].get("artifact_correctness", 1.0) for run in group) / count, 4
             ),
             "tool_use_rate": round(sum(run["score"]["tool_use_value"] for run in group) / count, 4),
             "mean_turns": mean(turns),
@@ -1188,8 +1655,10 @@ def write_outputs(output: Path, runs: list[dict], manifest: dict, harnesses: lis
                 "task",
                 "n",
                 "success_rate",
+                "partial_score",
                 "numerical_correctness",
                 "evidence_correctness",
+                "artifact_correctness",
                 "tool_use_rate",
                 "mean_turns",
                 "mean_tool_calls",
@@ -1206,8 +1675,10 @@ def write_outputs(output: Path, runs: list[dict], manifest: dict, harnesses: lis
                         task_id,
                         row["n"],
                         row["success_rate"],
+                        row["partial_score"],
                         row["numerical_correctness"],
                         row["evidence_correctness"],
+                        row["artifact_correctness"],
                         row["tool_use_rate"],
                         row["mean_turns"],
                         row["mean_tool_calls"],
@@ -1250,17 +1721,19 @@ def write_outputs(output: Path, runs: list[dict], manifest: dict, harnesses: lis
     lines.append("## Overall")
     lines.append("")
     lines.append(
-        "| Harness | Runs | Success | Numerical | Evidence | Tool use | "
+        "| Harness | Runs | Success | Partial | Numerical | Evidence | Artifact | Tool use | "
         "Mean turns | Mean tool calls | Mean tool errors | Mean latency (s) |"
     )
-    lines.append("|---|---|---|---|---|---|---|---|---|---|")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
     for harness in HARNESS_ORDER:
         row = summary["overall"].get(harness)
         if not row:
             continue
         lines.append(
             f"| {harness} | {row['n']} | {_fmt(row['success_rate'])} | "
+            f"{_fmt(row['partial_score'])} | "
             f"{_fmt(row['numerical_correctness'])} | {_fmt(row['evidence_correctness'])} | "
+            f"{_fmt(row.get('artifact_correctness', 1.0))} | "
             f"{_fmt(row['tool_use_rate'])} | {_fmt(row['mean_turns'])} | "
             f"{_fmt(row['mean_tool_calls'])} | {_fmt(row['mean_tool_errors'])} | "
             f"{_fmt(row['mean_latency_s'])} |"
@@ -1281,6 +1754,19 @@ def write_outputs(output: Path, runs: list[dict], manifest: dict, harnesses: lis
     lines.append("")
     lines.append("Cells show task success rate and run count.")
     lines.append("")
+    lines.append("## Per-task partial score")
+    lines.append("")
+    lines.append("| Task | " + " | ".join(harnesses_run) + " |")
+    lines.append("|---|" + "---|" * len(harnesses_run))
+    for task_id in task_ids:
+        cells = []
+        for harness in harnesses_run:
+            row = summary["by_task"].get(harness, {}).get(task_id)
+            cells.append("-" if not row else f"{row['partial_score']:.2f} ({row['n']})")
+        lines.append(f"| {task_id} | " + " | ".join(cells) + " |")
+    lines.append("")
+    lines.append("Cells show deterministic partial score and run count.")
+    lines.append("")
     lines.append("## Failure modes")
     lines.append("")
     for harness in HARNESS_ORDER:
@@ -1300,6 +1786,10 @@ def write_outputs(output: Path, runs: list[dict], manifest: dict, harnesses: lis
             f"(delta {study['success_rate'] - native['success_rate']:+.3f})"
         )
         lines.append(
+            f"- Partial score: StudyUI {study['partial_score']:.3f} vs native DSH "
+            f"{native['partial_score']:.3f}"
+        )
+        lines.append(
             f"- Tool use: StudyUI {study['tool_use_rate']:.3f} vs native DSH {native['tool_use_rate']:.3f}"
         )
         lines.append(
@@ -1314,13 +1804,17 @@ def write_outputs(output: Path, runs: list[dict], manifest: dict, harnesses: lis
     lines.append("")
     lines.append(
         "Tasks are fixed synthetic materials-science tasks derived from MatOS's published benchmark "
-        "profile and task-pitfall note. Each task asks for one strict JSON answer. Scoring checks exact "
-        "numeric/integer values within declared tolerances, required evidence terms, and a transcript "
-        "tool-use regex. No model judge is used. Every repetition gets a fresh workspace and fresh "
+        "profile, task-pitfall note and its three benchmark contracts (MatTools hidden-test functions, "
+        "SciAgentGym deterministic answer checks, and ResearchClawBench workspace/report delivery). "
+        "Each task asks for one strict JSON answer and may require a report artifact. Scoring checks "
+        "exact numeric/integer/string values within declared tolerances, required evidence terms, "
+        "artifact presence/content, and a transcript tool-use regex. Partial score is the fraction of "
+        "all deterministic checks passed; task success requires every check and evidence item plus a "
+        "completed run. No model judge is used. Every repetition gets a fresh workspace and fresh "
         "harness state. StudyUI runs its own Python agent harness; native DSH runs the installed "
         "headless profile with no StudyUI tools, prompts or MCP server; Claude Code runs with `--bare` "
         "against DeepSeek's Anthropic-compatible route; Codex runs its installed DeepSeek V4.1 Flash "
-        "profile. MatOS is never installed or executed."
+        "profile; MatOS runs on the recorded remote server with its research-scientist profile."
     )
     (output / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     (output / "aggregate.json").write_text(
@@ -1384,7 +1878,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
         return 2
     selected_tasks = [item.strip() for item in args.tasks.split(",") if item.strip()] if args.tasks else None
-    tasks = load_tasks(selected_tasks)
+    tasks_file = Path(args.tasks_file).resolve() if args.tasks_file else TASKS_FILE
+    tasks = load_tasks(selected_tasks, tasks_file)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output = Path(args.output).resolve() if args.output else DEFAULT_OUTPUT / f"run-{timestamp}"
     output.mkdir(parents=True, exist_ok=True)
@@ -1400,6 +1895,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         "base_url": BASE_URL,
         "model_probe": model_probe,
         "repeats": args.repeats,
+        "tasks_file": str(tasks_file),
+        "suite": json.loads(tasks_file.read_text(encoding="utf-8")).get("suite", tasks_file.stem),
         "tasks": [task["id"] for task in tasks],
         "harnesses_requested": requested,
         "harnesses_run": [info.name for info in runnable],
@@ -1428,12 +1925,17 @@ def cmd_run(args: argparse.Namespace) -> int:
                 run_dir.mkdir(parents=True, exist_ok=True)
                 workspace = run_dir / "workspace"
                 prepare_workspace(task, workspace)
+                workspace_before = snapshot_workspace(workspace)
                 prompt = render_prompt(task, workspace)
                 request = {
                     "harness": info.name,
                     "task_id": task["id"],
+                    "task": task,
                     "prompt": prompt,
+                    "prompt_template": task["prompt"],
                     "workspace": str(workspace),
+                    "run_id": output.name,
+                    "repeat": repeat,
                     "timeout_s": int(task.get("timeout_s") or 600),
                     "max_turns": args.max_turns,
                     "model": MODEL,
@@ -1503,6 +2005,11 @@ def cmd_run(args: argparse.Namespace) -> int:
                 result.setdefault("status", status)
                 if result.get("status") == "ok" and status != "ok":
                     result["status"] = status
+                result["artifact_texts"] = collect_workspace_artifacts(
+                    workspace,
+                    workspace_before,
+                    result.get("artifact_texts") if isinstance(result.get("artifact_texts"), dict) else None,
+                )
                 score = score_run(task, result)
                 score_path = run_dir / "score.json"
                 score_path.write_text(
@@ -1545,6 +2052,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(AttributeError, ValueError, OSError):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -1558,6 +2068,11 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run", help="Run the fixed benchmark")
     run.add_argument("--harnesses", default=",".join(PRIMARY_HARNESSES))
     run.add_argument("--tasks", default=None, help="Comma-separated task ids; default all")
+    run.add_argument(
+        "--tasks-file",
+        default=str(TASKS_FILE),
+        help="Task suite JSON; use testfixtures/harness_bench/tasks_hard.json for the hard suite",
+    )
     run.add_argument("--repeats", type=int, default=2)
     run.add_argument("--output", default=None)
     run.add_argument("--studyui-source", default=str(MQ / "src"))

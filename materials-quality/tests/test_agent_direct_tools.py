@@ -12,15 +12,25 @@ from materials_quality.agent import direct_tools
 from materials_quality.agent.harness import TOOLS
 
 FIXTURES = Path(__file__).resolve().parents[1] / "testfixtures" / "harness_bench" / "fixtures"
+HARD_FIXTURES = Path(__file__).resolve().parents[1] / "testfixtures" / "harness_bench" / "fixtures_hard"
 
 
 def table(name: str) -> pd.DataFrame:
     return pd.read_csv(FIXTURES / name)
 
 
+def hard_table(name: str) -> pd.DataFrame:
+    return pd.read_csv(HARD_FIXTURES / name)
+
+
 def test_new_tools_are_registered():
     names = {row["function"]["name"] for row in TOOLS}
-    assert {"run_science_operation", "analyze_battery_cycles", "audit_table_quality"} <= names
+    assert {
+        "run_science_operation",
+        "analyze_battery_cycles",
+        "audit_table_quality",
+        "read_research_text",
+    } <= names
     schema = next(row for row in TOOLS if row["function"]["name"] == "run_science_operation")
     assert "materials.mechanics" in schema["function"]["parameters"]["properties"]["operation"]["enum"]
     assert "io.table_import" not in schema["function"]["parameters"]["properties"]["operation"]["enum"]
@@ -325,3 +335,213 @@ def test_configuration_errors_list_available_columns():
             table("battery/battery_cycles.csv"),
             {"discharge_capacity": "not_a_column", "charge_capacity": "not_a_column"},
         )
+
+
+def test_commented_semicolon_export_is_read_without_manual_repair():
+    frame = direct_tools.load_table_path(HARD_FIXTURES / "malformed_export" / "ftir_export.csv")
+    assert list(frame.columns) == ["wavenumber", "absorbance"]
+    assert len(frame) == 1801
+    result = direct_tools.execute_operation(
+        "materials.spectra",
+        table=frame,
+        config={
+            "x": "wavenumber",
+            "y": "absorbance",
+            "x_unit": "cm^-1",
+            "y_unit": "absorbance",
+            "prominence": 0.05,
+        },
+        compact=True,
+    )
+    peaks = result["data"]["peaks"]
+    assert peaks[0]["position"] == pytest.approx(1000.0, abs=1.0)
+    assert peaks[1]["position"] == pytest.approx(1500.0, abs=1.0)
+
+
+def test_statistics_preprocessing_and_regression_outlier_candidates():
+    frame = hard_table("stats_group_compare/group_compare.csv")
+    result = direct_tools.execute_operation(
+        "stats.significance",
+        table=frame,
+        config={
+            "group": "group",
+            "column": "value",
+            "method": "welch",
+            "deduplicate": True,
+            "drop_missing": ["group", "value"],
+        },
+        compact=True,
+    )
+    assert result["preprocessing"]["input_rows"] == 65
+    assert result["preprocessing"]["output_rows"] == 58
+    assert result["data"]["n"] == [30, 28]
+    assert result["data"]["pvalue"] == pytest.approx(0.0001284917, rel=1e-4)
+
+    battery = hard_table("battery_long_fade/battery_1200_cycles.csv")
+    regression = direct_tools.execute_operation(
+        "stats.regression",
+        table=battery,
+        config={
+            "features": ["cycle"],
+            "target": "discharge_capacity_mAh_g",
+            "model_method": "linear",
+            "test_size": 0.2,
+        },
+        compact=True,
+    )
+    outliers = regression["data"]["outlier_candidates"]
+    assert outliers[0]["x"] == 800.0
+    assert outliers[0]["residual"] > 39.0
+
+
+def test_literature_fast_path_adds_bounded_text_reader(tmp_path):
+    from materials_quality.agent.file_workflow_client import FileWorkflowClient
+    from materials_quality.agent.harness import StudyUIAgent
+    from materials_quality.agent.store import SessionStore
+
+    class RecordingModel:
+        model = "recording"
+        max_output_tokens = 4096
+
+        def __init__(self):
+            self.requests = []
+
+        def complete(self, messages, tools, *, max_tokens=None, on_chunk=None):
+            self.requests.append({"messages": list(messages), "tools": list(tools)})
+            return {
+                "content": '{"doi": "10.5555/test"}',
+                "tool_calls": [],
+                "usage": {"prompt_tokens": 0, "completion_tokens": 8, "total_tokens": 8},
+                "reasoning_content": "",
+            }
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "workflows").mkdir()
+    (workspace / "papers.md").write_text(
+        "| title | doi |\n|---|---|\n| A paper | 10.5555/test |\n", encoding="utf-8"
+    )
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    catalog = {
+        "projects": [
+            {
+                "id": "bench",
+                "name": "Bench",
+                "workspace_id": "ws",
+                "local_directories": [str(workspace)],
+            }
+        ],
+        "workspaces": [{"id": "ws", "name": "bench", "path": str(workspace)}],
+        "variables": [],
+    }
+    (runtime / "workspace.json").write_text(json.dumps(catalog), encoding="utf-8")
+    store = SessionStore(
+        runtime / "agent.sqlite3",
+        workspace_file=runtime / "workspace.json",
+        workflow_root=workspace / "workflows",
+    )
+    model = RecordingModel()
+    agent = StudyUIAgent(
+        store,
+        canvas=FileWorkflowClient(workspace / "workflows", FIXTURES.parents[2] / "components"),
+        model=model,
+    )
+    agent.permissions.set_preset("bench", "project_collaboration")
+    session_id = agent.new_session("literature-fast-path", project_id="bench")
+    agent.run_turn(
+        session_id,
+        f"Identify the DOI from the literature file {workspace / 'papers.md'} and end with JSON.",
+    )
+    request = model.requests[0]
+    names = {tool["function"]["name"] for tool in request["tools"]}
+    assert "read_research_text" in names
+    assert {"run_science_operation", "analyze_battery_cycles", "audit_table_quality"} <= names
+    system_texts = [
+        str(message.get("content"))
+        for message in request["messages"]
+        if message.get("role") == "system"
+    ]
+    assert any("read_research_text" in text for text in system_texts)
+
+
+def test_markdown_evidence_reader_is_bounded(tmp_path):
+    from materials_quality.agent.file_workflow_client import FileWorkflowClient
+    from materials_quality.agent.harness import StudyUIAgent
+    from materials_quality.agent.store import SessionStore
+
+    class StubModel:
+        model = "stub"
+
+        def complete(self, *args, **kwargs):
+            raise AssertionError("model must not be called")
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "workflows").mkdir()
+    note = workspace / "papers.md"
+    note.write_text("# Evidence\n\n| doi | 10.5555/test |\n", encoding="utf-8")
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    catalog = {
+        "projects": [
+            {
+                "id": "bench",
+                "name": "Bench",
+                "workspace_id": "ws",
+                "local_directories": [str(workspace)],
+            }
+        ],
+        "workspaces": [{"id": "ws", "name": "bench", "path": str(workspace)}],
+        "variables": [],
+    }
+    (runtime / "workspace.json").write_text(json.dumps(catalog), encoding="utf-8")
+    store = SessionStore(
+        runtime / "agent.sqlite3",
+        workspace_file=runtime / "workspace.json",
+        workflow_root=workspace / "workflows",
+    )
+    agent = StudyUIAgent(
+        store,
+        canvas=FileWorkflowClient(workspace / "workflows", FIXTURES.parents[2] / "components"),
+        model=StubModel(),
+    )
+    agent.permissions.set_preset("bench", "project_collaboration")
+    session_id = agent.new_session("evidence", project_id="bench")
+    user_text = f"Read the evidence note {note} and cite the DOI."
+    result = agent._dispatch(session_id, "read_research_text", {"path": str(note)}, user_text)
+    assert result["trust"] == "untrusted"
+    assert "10.5555/test" in result["content"]
+    assert result["sha256"]
+    measurements = workspace / "measurements.csv"
+    measurements.write_text("x,y\n1,2\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="only reads"):
+        agent._dispatch(
+            session_id,
+            "read_research_text",
+            {"path": str(measurements)},
+            user_text,
+        )
+
+
+
+def test_multi_cell_battery_summary_includes_per_cell_rows():
+    frame = hard_table("battery_mixed_cells/battery_two_cells.csv")
+    result = direct_tools.battery_summary(
+        frame,
+        {
+            "cell_id": "cell_id",
+            "cycle": "cycle",
+            "discharge_capacity": "discharge_capacity_mAh_g",
+            "charge_capacity": "charge_capacity_mAh_g",
+        },
+        compact=True,
+    )
+    assert result["cell_count"] == 2
+    assert result["invalid_or_partial_rows"] == 4
+    assert result["invalid_rows"] == 4
+    cells = {row["cell_id"]: row for row in result["cell_summaries"]}
+    assert cells["cell-A"]["retention_pct_at_last_cycle"] == pytest.approx(80.0, abs=1e-6)
+    assert cells["cell-B"]["retention_pct_at_last_cycle"] == pytest.approx(75.0, abs=1e-6)
+    assert cells["cell-A"]["mean_coulombic_efficiency_pct_cycles_2_to_last"] == pytest.approx(99.7, abs=1e-3)
+    assert cells["cell-B"]["mean_coulombic_efficiency_pct_cycles_2_to_last"] == pytest.approx(99.5, abs=1e-3)

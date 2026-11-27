@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 # Operations that only read their inputs and return derived results.  Import
@@ -48,15 +49,63 @@ MAX_SUMMARY_COLUMNS = 40
 MAX_RESULT_CHARS = 60_000
 
 
+def _detect_text_delimiter(path: Path) -> str:
+    """Detect common instrument-export delimiters without trusting the filename."""
+    try:
+        sample = path.read_text(encoding="utf-8-sig", errors="replace")[:65536]
+    except OSError:
+        return ","
+    lines = [
+        line
+        for line in sample.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ][:20]
+    if not lines:
+        return ","
+    counts = {
+        ",": sum(line.count(",") for line in lines),
+        ";": sum(line.count(";") for line in lines),
+        "\t": sum(line.count("\t") for line in lines),
+        "|": sum(line.count("|") for line in lines),
+    }
+    delimiter, count = max(counts.items(), key=lambda item: item[1])
+    return delimiter if count else ","
+
+
 def load_table_path(path: str | Path) -> pd.DataFrame:
-    """Load a CSV/TSV/Excel table from an already-authorized path."""
+    """Load a CSV/TSV/Excel table from an already-authorized path.
+
+    Instrument exports often carry a leading comment line, a BOM, or a
+    semicolon delimiter while still using a ``.csv`` suffix.  Read those
+    deterministically instead of forcing the model into a blind retry loop.
+    Excel files keep the normal workbook reader.
+    """
     resolved = Path(path).expanduser()
     suffix = resolved.suffix.casefold()
     if suffix in {".xlsx", ".xlsm", ".xls"}:
         return pd.read_excel(resolved)
-    if suffix in {".tsv", ".txt"}:
-        return pd.read_csv(resolved, sep="\t")
-    return pd.read_csv(resolved)
+    delimiter = "\t" if suffix in {".tsv", ".txt"} else _detect_text_delimiter(resolved)
+    try:
+        frame = pd.read_csv(
+            resolved,
+            sep=delimiter,
+            comment="#",
+            engine="python",
+            encoding="utf-8-sig",
+        )
+    except (pd.errors.ParserError, UnicodeDecodeError):
+        frame = pd.read_csv(resolved, sep=delimiter, comment="#", encoding="utf-8-sig")
+    if frame.shape[1] == 1:
+        # A quoted field can hide the real delimiter from a naive count; retry
+        # with Python's sniffer only after the deterministic read failed.
+        frame = pd.read_csv(
+            resolved,
+            sep=None,
+            comment="#",
+            engine="python",
+            encoding="utf-8-sig",
+        )
+    return frame
 
 
 def load_inline_table(text: str) -> pd.DataFrame:
@@ -151,6 +200,9 @@ _COMPACT_DROP_KEYS = frozenset(
         "baseline_level",
         "plateau_range",
         "plateau_rate_limit",
+        "removed_positions",
+        "retained_positions",
+        "row_positions",
     }
 )
 
@@ -239,6 +291,26 @@ def _normalize_operation_config(operation: str, config: dict | None) -> tuple[di
         if "x_unit" in normalized and key(normalized["x_unit"]) in x_units:
             normalized["x_unit"] = x_units[key(normalized["x_unit"])]
     elif operation == "stats.regression":
+        if "features" not in normalized:
+            for alias in ("feature", "x", "predictors", "feature_columns"):
+                value = normalized.get(alias)
+                if isinstance(value, str):
+                    normalized["features"] = [value]
+                    notes.append(f"features taken from {alias}")
+                    break
+                if isinstance(value, (list, tuple)) and value:
+                    normalized["features"] = [str(item) for item in value]
+                    notes.append(f"features taken from {alias}")
+                    break
+        if "target" not in normalized:
+            for alias in ("y", "target_column", "response", "label"):
+                if alias in normalized:
+                    normalized["target"] = str(normalized[alias])
+                    notes.append(f"target taken from {alias}")
+                    break
+        if "model_method" not in normalized and "model" in normalized:
+            normalized["model_method"] = str(normalized["model"])
+            notes.append("model_method taken from model")
         if "validation_split" in normalized:
             split = key(normalized["validation_split"])
             alias = {
@@ -261,6 +333,35 @@ def _normalize_operation_config(operation: str, config: dict | None) -> tuple[di
         ):
             notes.append("temporal validation requires time_column; using random")
             normalized["validation_split"] = "random"
+    elif operation == "stats.significance":
+        if "method" not in normalized and "test" in normalized:
+            normalized["method"] = str(normalized["test"])
+            notes.append("method taken from test")
+        if "group" not in normalized:
+            for alias in ("group_column", "group_by", "by", "grouping"):
+                if alias in normalized:
+                    normalized["group"] = str(normalized[alias])
+                    notes.append(f"group taken from {alias}")
+                    break
+        if "groups" not in normalized and "group_order" in normalized:
+            order = normalized["group_order"]
+            if isinstance(order, (list, tuple)) and len(order) >= 2:
+                normalized["groups"] = [str(item) for item in order]
+                notes.append("groups taken from group_order; mean_difference = groups[0] - groups[1]")
+        if "column" not in normalized:
+            for alias in ("value", "value_column", "measure", "measure_column"):
+                if alias in normalized:
+                    normalized["column"] = str(normalized[alias])
+                    notes.append(f"column taken from {alias}")
+                    break
+        if "column" not in normalized:
+            columns = normalized.get("columns")
+            if isinstance(columns, str):
+                normalized["column"] = columns
+                notes.append("column taken from columns")
+            elif isinstance(columns, (list, tuple)) and len(columns) == 1:
+                normalized["column"] = str(columns[0])
+                notes.append("column taken from columns")
     elif operation == "stats.distribution":
         if "column" not in normalized and "columns" in normalized:
             columns = normalized.pop("columns")
@@ -271,6 +372,158 @@ def _normalize_operation_config(operation: str, config: dict | None) -> tuple[di
             else:
                 normalized["columns"] = columns
     return normalized, notes
+
+
+def _apply_requested_preprocessing(
+    table: pd.DataFrame, config: dict
+) -> tuple[pd.DataFrame, list[str], dict]:
+    """Apply explicit, auditable row cleanup before a statistics operation.
+
+    The dialogue harness has no chained table node, so a model cannot easily
+    hand a deduplicated frame to a test.  These opt-in flags perform only the
+    requested deterministic cleanup and return counts; they never silently
+    impute or drop data otherwise.
+    """
+    options = dict(config or {})
+    notes: list[str] = []
+    summary: dict = {"input_rows": int(len(table)), "input_columns": int(len(table.columns))}
+    if options.pop("deduplicate", False) is True:
+        before = len(table)
+        table = table.drop_duplicates().reset_index(drop=True)
+        summary["duplicate_rows_removed"] = int(before - len(table))
+        notes.append(
+            f"removed {summary['duplicate_rows_removed']} exact duplicate row(s) before the operation"
+        )
+    raw_missing = options.pop(
+        "drop_missing",
+        options.pop("drop_missing_columns", options.pop("drop_missing_rows", None)),
+    )
+    missing_subset = None
+    if raw_missing is True:
+        missing_subset = list(table.columns)
+    elif isinstance(raw_missing, str):
+        missing_subset = [raw_missing]
+    elif isinstance(raw_missing, (list, tuple)):
+        missing_subset = [str(column) for column in raw_missing]
+    if missing_subset is not None:
+        unknown = [column for column in missing_subset if column not in table.columns]
+        if unknown:
+            raise ValueError(
+                f"drop_missing columns not found: {unknown}; available_columns={list(table.columns)}"
+            )
+        before = len(table)
+        table = table.dropna(subset=missing_subset).reset_index(drop=True)
+        summary["rows_with_missing_removed"] = int(before - len(table))
+        notes.append(
+            f"removed {summary['rows_with_missing_removed']} row(s) with missing values in "
+            f"{missing_subset} before the operation"
+        )
+    raw_filters = options.pop("row_filters", options.pop("filters", None))
+    if raw_filters is not None:
+        if not isinstance(raw_filters, (list, tuple)):
+            raise ValueError("row_filters must be a list of {column, op, value} objects")
+        before = len(table)
+        for raw_filter in raw_filters:
+            if not isinstance(raw_filter, dict):
+                raise ValueError("each row_filter must be an object")
+            column = raw_filter.get("column")
+            op = str(raw_filter.get("op") or raw_filter.get("operator") or "").casefold()
+            value = raw_filter.get("value")
+            if not isinstance(column, str) or column not in table.columns:
+                raise ValueError(
+                    f"row_filter column not found: {column!r}; available_columns={list(table.columns)}"
+                )
+            series = table[column]
+            numeric = pd.to_numeric(series, errors="coerce")
+            parsed = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+            try:
+                if op in {">=", "ge"}:
+                    mask = numeric >= float(parsed)
+                elif op in {">", "gt"}:
+                    mask = numeric > float(parsed)
+                elif op in {"<=", "le"}:
+                    mask = numeric <= float(parsed)
+                elif op in {"<", "lt"}:
+                    mask = numeric < float(parsed)
+                elif op in {"==", "=", "eq"}:
+                    mask = series.astype(str) == str(value)
+                elif op in {"!=", "ne"}:
+                    mask = series.astype(str) != str(value)
+                elif op in {"in", "not_in"}:
+                    if not isinstance(value, (list, tuple)):
+                        raise ValueError("row_filter in/not_in requires a list value")
+                    allowed = {str(item) for item in value}
+                    mask = series.astype(str).isin(allowed)
+                    if op == "not_in":
+                        mask = ~mask
+                elif op in {"between", "range"}:
+                    if not isinstance(value, (list, tuple)) or len(value) != 2:
+                        raise ValueError("row_filter between requires [low, high]")
+                    mask = (numeric >= float(value[0])) & (numeric <= float(value[1]))
+                else:
+                    raise ValueError(
+                        f"unsupported row_filter op {op!r}; use >=, >, <=, <, ==, !=, in, not_in or between"
+                    )
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"invalid row_filter for {column!r}: {exc}"
+                ) from exc
+            table = table[mask.fillna(False)].reset_index(drop=True)
+        summary["rows_filtered_removed"] = int(before - len(table))
+        notes.append(
+            f"removed {summary['rows_filtered_removed']} row(s) with {len(raw_filters)} explicit row_filter(s)"
+        )
+    summary["output_rows"] = int(len(table))
+    return table, notes, summary
+
+
+def _regression_outlier_candidates(table: pd.DataFrame | None, config: dict) -> list[dict]:
+    """Return a few large-residual rows for a one-feature OLS trend.
+
+    This is an aggregate diagnostic, not a data dump: at most three rows, with
+    the feature, target, fitted value and residual.  It gives the dialogue
+    harness enough evidence to apply a scientific outlier guard without
+    exposing the full measurement table.
+    """
+    if not isinstance(table, pd.DataFrame):
+        return []
+    features = config.get("features")
+    target = config.get("target")
+    if not isinstance(features, list) or len(features) != 1 or not isinstance(target, str):
+        return []
+    feature = str(features[0])
+    if feature not in table.columns or target not in table.columns:
+        return []
+    values = pd.to_numeric(table[feature], errors="coerce")
+    target_values = pd.to_numeric(table[target], errors="coerce")
+    valid = values.notna() & target_values.notna()
+    x = values[valid].to_numpy(dtype=float)
+    y = target_values[valid].to_numpy(dtype=float)
+    if len(x) < 5 or np.ptp(x) == 0:
+        return []
+    try:
+        slope, intercept = np.polyfit(x, y, 1)
+    except (TypeError, ValueError, np.linalg.LinAlgError):
+        return []
+    fitted = slope * x + intercept
+    residual = y - fitted
+    order = np.argsort(np.abs(residual))[::-1][:3]
+    positions = np.flatnonzero(valid)
+    id_column = config.get("id_column")
+    candidates = []
+    for index in order:
+        row_position = int(positions[index])
+        item = {
+            "row_position": row_position,
+            "x": float(x[index]),
+            "observed": float(y[index]),
+            "fitted": float(fitted[index]),
+            "residual": float(residual[index]),
+        }
+        if isinstance(id_column, str) and id_column in table.columns:
+            item["id"] = _jsonable(table.iloc[row_position][id_column])
+        candidates.append(item)
+    return candidates
 
 
 def execute_operation(
@@ -293,6 +546,11 @@ def execute_operation(
     config, normalization_notes = _normalize_operation_config(operation, config)
     data = dict(data or {})
     columns = [str(column) for column in table.columns] if isinstance(table, pd.DataFrame) else []
+    preprocessing_notes: list[str] = []
+    preprocessing: dict = {}
+    if isinstance(table, pd.DataFrame):
+        table, preprocessing_notes, preprocessing = _apply_requested_preprocessing(table, config)
+        columns = [str(column) for column in table.columns]
     try:
         result = item["callable"](table, config=config, data=data)
     except TypeError:
@@ -310,15 +568,20 @@ def execute_operation(
             f"{operation}: {exc}; available_columns={columns}; check the operation's required "
             "config fields and units."
         ) from exc
+    result_data = _jsonable(getattr(result, "data", result))
+    if operation == "stats.regression" and isinstance(result_data, dict):
+        candidates = _regression_outlier_candidates(table, config)
+        if candidates:
+            result_data["outlier_candidates"] = candidates
     payload = {
         "operation": operation,
         "title": item.get("title", ""),
-        "data": _compact_operation_data(_jsonable(getattr(result, "data", result)))
-        if compact
-        else _jsonable(getattr(result, "data", result)),
+        "data": _compact_operation_data(result_data) if compact else result_data,
         "warnings": _jsonable(getattr(result, "warnings", [])),
     }
     payload["config_normalizations"] = normalization_notes
+    if preprocessing_notes:
+        payload["preprocessing"] = {**preprocessing, "notes": preprocessing_notes}
     if compact:
         return _bounded(payload)
     payload["table"] = (
@@ -471,13 +734,55 @@ def battery_summary(
     mean_efficiency = sum(efficiencies) / len(efficiencies) if efficiencies else None
     last = cycles[-1] if cycles else None
     first = cycles[0] if cycles else None
+    cell_summaries: list[dict] = []
+    if cell_value is None and "cell_id" in frame.columns:
+        grouped: dict[str, list[dict]] = {}
+        for row in cycles:
+            grouped.setdefault(str(row.get("cell_id")), []).append(row)
+        for cell_name, rows in grouped.items():
+            cell_valid = [row for row in rows if row.get("status") == "valid"]
+            cell_efficiencies = [
+                row["coulombic_efficiency_pct"]
+                for row in cell_valid[1:]
+                if row.get("coulombic_efficiency_pct") is not None
+            ]
+            status_counts = {"valid": 0, "partial": 0, "invalid": 0}
+            for row in rows:
+                status = str(row.get("status") or "invalid")
+                if status in status_counts:
+                    status_counts[status] += 1
+            cell_last = rows[-1] if rows else None
+            cell_summaries.append(
+                {
+                    "cell_id": cell_name,
+                    "counts": {**status_counts, "total": len(rows)},
+                    "invalid_or_partial_rows": status_counts["invalid"] + status_counts["partial"],
+                    "first_cycle": _compact_cycle(cell_valid[0]) if cell_valid else None,
+                    "last_cycle": _compact_cycle(cell_last) if cell_last else None,
+                    "retention_pct_at_last_cycle": cell_last.get("retention_pct") if cell_last else None,
+                    "mean_coulombic_efficiency_pct_cycles_2_to_last": (
+                        sum(cell_efficiencies) / len(cell_efficiencies) if cell_efficiencies else None
+                    ),
+                    "efficiency_cycle_count": len(cell_efficiencies),
+                }
+            )
     payload = {
         "operation": "materials.battery_cycles",
         "counts": result.data.get("counts"),
+        "invalid_or_partial_rows": int(
+            (result.data.get("counts") or {}).get("invalid", 0)
+            + (result.data.get("counts") or {}).get("partial", 0)
+        ),
+        "invalid_rows": int(
+            (result.data.get("counts") or {}).get("invalid", 0)
+            + (result.data.get("counts") or {}).get("partial", 0)
+        ),
+        "invalid_rows_definition": "invalid plus partial capacity rows (missing or non-positive capacity)",
         "cell_count": result.data.get("cell_count"),
         "capacity_unit": options["capacity_unit"],
         "inferred_columns": inferred,
         "cell_filter": cell_value,
+        "cell_summaries": cell_summaries,
         "first_cycle": _compact_cycle(first) if first else None,
         "last_cycle": _compact_cycle(last) if last else None,
         "retention_pct_at_last_cycle": last.get("retention_pct") if last else None,

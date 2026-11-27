@@ -6,6 +6,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "evaluate_harnesses.py"
 spec = importlib.util.spec_from_file_location("evaluate_harnesses", SCRIPT)
 bench = importlib.util.module_from_spec(spec)
@@ -77,3 +79,54 @@ def test_render_prompt_resolves_file_placeholders(tmp_path):
     resolved = bench.render_prompt(task, tmp_path)
     assert str(tmp_path / "data.csv") in resolved
     assert str(tmp_path) in resolved
+
+
+def test_boolean_and_artifact_checks_drive_partial_score():
+    task = {
+        "id": "report",
+        "checks": [
+            {"type": "number", "key": "x", "expected": 2.0, "abs": 0.01},
+            {"type": "boolean", "key": "saved", "expected": True},
+        ],
+        "evidence": ["report"],
+        "artifacts": [{"name_pattern": "report", "content_pattern": "x=2"}],
+        "tool_evidence": ["run_science_operation"],
+    }
+    result = {
+        "status": "ok",
+        "final_text": 'The report is saved.\n{"x": 2.0, "saved": true}',
+        "tool_calls": [{"name": "run_science_operation"}],
+        "tool_text": "run_science_operation",
+        "artifact_texts": {"report.md": "modulus x=2 and evidence"},
+    }
+    score = bench.score_run(task, result)
+    assert score["task_success"] is True
+    assert score["partial_score"] == 1.0
+    assert score["artifact_correctness"] == 1.0
+
+    missing = bench.score_run(task, {**result, "artifact_texts": {}})
+    assert missing["task_success"] is False
+    assert missing["partial_score"] == pytest.approx(0.75)
+    assert "artifact_missing:report" in missing["failure_modes"]
+
+
+def test_hard_task_suite_loads_and_has_expected_coverage():
+    tasks = bench.load_tasks(None, Path(bench.__file__).parent.parent / "testfixtures" / "harness_bench" / "tasks_hard.json")
+    assert len(tasks) == 14
+    categories = {category for task in tasks for category in task.get("categories", [])}
+    for required in {
+        "multi_step",
+        "units",
+        "mixed_specimens",
+        "duplicates",
+        "missing_data",
+        "near_miss",
+        "error_recovery",
+        "long_table",
+        "method_selection",
+        "literature_evidence",
+        "workflow",
+        "adversarial",
+    }:
+        assert required in categories
+    assert any(task.get("artifacts") for task in tasks)

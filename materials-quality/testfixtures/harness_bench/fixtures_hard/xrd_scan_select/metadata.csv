@@ -1,0 +1,4 @@
+scan_id,sample_id,duplicate_of,note
+B-001,B,,original
+B-002,B,B-001,repeat
+B-003,B,B-001,mislabeled copy
